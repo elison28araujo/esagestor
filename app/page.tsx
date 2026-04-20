@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, firebaseConfigured } from "@/lib/firebase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +158,11 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
@@ -167,9 +172,10 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !db) {
       setAcessos([]);
       setDespesas([]);
+      setDadosLoading(false);
       return;
     }
 
@@ -196,6 +202,11 @@ export default function HomePage() {
   }, [user]);
 
   async function login() {
+    if (!auth) {
+      setAuthError("Firebase nao configurado na Vercel.");
+      return;
+    }
+
     if (!email || !senha) {
       setAuthError("Preencha email e senha");
       return;
@@ -218,6 +229,11 @@ export default function HomePage() {
   }
 
   async function registrar() {
+    if (!auth) {
+      setAuthError("Firebase nao configurado na Vercel.");
+      return;
+    }
+
     if (!email || !senha) {
       setAuthError("Preencha email e senha");
       return;
@@ -246,6 +262,11 @@ export default function HomePage() {
   }
 
   async function recuperarSenha() {
+    if (!auth) {
+      setAuthError("Firebase nao configurado na Vercel.");
+      return;
+    }
+
     if (!email) {
       setAuthError("Digite seu email para recuperar a senha");
       return;
@@ -267,11 +288,12 @@ export default function HomePage() {
   }
 
   async function sair() {
+    if (!auth) return;
     await signOut(auth);
   }
 
   async function addCliente() {
-    if (!user) return;
+    if (!user || !db) return;
     if (!nomeUser.trim() || !cliente.trim()) {
       alert("Preencha usuário e cliente");
       return;
@@ -353,7 +375,7 @@ export default function HomePage() {
   }
 
   async function importarClientesCsv(event: ChangeEvent<HTMLInputElement>) {
-    if (!user) return;
+    if (!user || !db) return;
 
     const file = event.target.files?.[0];
     if (!file) return;
@@ -468,7 +490,7 @@ export default function HomePage() {
   }
 
   async function addDespesa() {
-    if (!user) return;
+    if (!user || !db) return;
     if (!descricao.trim() || !valorDespesa) {
       alert("Preencha descrição e valor");
       return;
@@ -487,6 +509,7 @@ export default function HomePage() {
   }
 
   async function remover(id: string, tipo: "acessos" | "despesas") {
+    if (!db) return;
     await deleteDoc(doc(db, tipo, id));
   }
 
@@ -503,7 +526,7 @@ export default function HomePage() {
   }
 
   async function salvarEdicao() {
-    if (!editando) return;
+    if (!editando || !db) return;
     if (!editForm.usuario.trim() || !editForm.cliente.trim()) {
       alert("Preencha usuário e cliente");
       return;
@@ -593,6 +616,38 @@ export default function HomePage() {
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
+    );
+  }
+
+  if (!firebaseConfigured) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-lg shadow-xl">
+          <CardContent className="space-y-4 p-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold">ESA GESTOR</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                O Firebase ainda nao foi configurado neste ambiente.
+              </p>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              Configure na Vercel as variaveis:
+              <br />
+              `NEXT_PUBLIC_FIREBASE_API_KEY`
+              <br />
+              `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+              <br />
+              `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+              <br />
+              `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+              <br />
+              `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+              <br />
+              `NEXT_PUBLIC_FIREBASE_APP_ID`
+            </div>
+          </CardContent>
+        </Card>
+      </main>
     );
   }
 
