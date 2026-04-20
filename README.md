@@ -7,6 +7,7 @@ Projeto Next.js com Firebase para controle de acessos, clientes, despesas e cobr
 - Login e cadastro com Firebase Auth
 - Recuperação de senha
 - Cadastro de clientes
+- ImportaÃ§Ã£o e exportaÃ§Ã£o de clientes por CSV
 - Cadastro de despesas
 - Dashboard financeiro
 - Gráfico mensal

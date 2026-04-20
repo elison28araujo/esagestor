@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "rec
 import {
   Calendar,
   CheckCircle,
+  Download,
   DollarSign,
   Loader2,
   LogOut,
@@ -40,12 +41,22 @@ import {
   Plus,
   Trash2,
   TrendingDown,
-  TrendingUp,
+  Upload,
   User,
   Users,
   XCircle,
 } from "lucide-react";
-import { formatPhone, fromDateInput, isValidPhone, normalizePhone, toDateInput } from "@/lib/utils";
+import {
+  escapeCsvValue,
+  formatPhone,
+  fromDateInput,
+  isValidPhone,
+  normalizeHeader,
+  normalizePhone,
+  parseCsv,
+  parseFlexibleDate,
+  toDateInput,
+} from "@/lib/utils";
 
 type Tab = "clientes" | "despesas";
 
@@ -75,6 +86,39 @@ interface UsuarioAgrupado {
   temP2P: boolean;
 }
 
+const APP_OPTIONS = ["P2P", "OTT", "KPLAY", "XCLOUD", "OTT PLAYER", "XCLOUD PLAYER", "AB1ST"];
+
+const FIELD_ALIASES = {
+  usuario: ["usuario", "user", "login", "logins", "acesso", "conta"],
+  cliente: ["cliente", "nome", "nome cliente", "assinante"],
+  telefone: ["whatsapp", "what sapp", "telefone", "celular", "fone", "numero"],
+  valor: ["valor", "vc", "v c", "mensalidade", "preco"],
+  app: ["app", "aplicativo", "plataforma"],
+  vencimento: ["vencimento", "data final", "final", "renovacao", "expira"],
+  data: ["data", "data inicial", "inicio", "inicial", "cadastro"],
+};
+
+function getFieldValue(row: Record<string, string>, aliases: string[]) {
+  for (const alias of aliases) {
+    const match = row[normalizeHeader(alias)];
+    if (match) return match;
+  }
+
+  return "";
+}
+
+function parseCurrency(value: string) {
+  const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatDateForCsv(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("pt-BR");
+}
+
 export default function HomePage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -99,6 +143,8 @@ export default function HomePage() {
 
   const [descricao, setDescricao] = useState("");
   const [valorDespesa, setValorDespesa] = useState("");
+  const [importando, setImportando] = useState(false);
+  const [importFeedback, setImportFeedback] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
 
   const [editando, setEditando] = useState<Acesso | null>(null);
   const [editForm, setEditForm] = useState({
@@ -109,6 +155,7 @@ export default function HomePage() {
     app: "P2P",
     vencimento: "",
   });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -270,6 +317,156 @@ export default function HomePage() {
     setAppSelecionado("P2P");
   }
 
+  function exportarClientesCsv() {
+    const linhas = [
+      ["usuario", "cliente", "whatsapp", "valor", "app", "vencimento", "data"].join(";"),
+      ...acessos
+        .slice()
+        .sort((a, b) => a.usuario.localeCompare(b.usuario) || a.cliente.localeCompare(b.cliente))
+        .map((item) =>
+          [
+            escapeCsvValue(item.usuario),
+            escapeCsvValue(item.cliente),
+            escapeCsvValue(item.telefone),
+            escapeCsvValue(Number(item.valor || 0).toFixed(2)),
+            escapeCsvValue(item.app),
+            escapeCsvValue(formatDateForCsv(item.vencimento)),
+            escapeCsvValue(formatDateForCsv(item.data)),
+          ].join(";"),
+        ),
+    ];
+
+    const blob = new Blob([`\uFEFF${linhas.join("\n")}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `clientes-esa-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setImportFeedback({
+      type: "info",
+      message: "Planilha CSV exportada. Voce pode editar e importar novamente quando quiser.",
+    });
+  }
+
+  async function importarClientesCsv(event: ChangeEvent<HTMLInputElement>) {
+    if (!user) return;
+
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportando(true);
+    setImportFeedback(null);
+
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+
+      if (rows.length < 2) {
+        throw new Error("A planilha esta vazia ou sem linhas de dados.");
+      }
+
+      const headers = rows[0].map((header) => normalizeHeader(header));
+      const dataRows = rows.slice(1);
+      const counts = new Map<string, number>();
+      const p2pUsers = new Set<string>();
+
+      acessos.forEach((item) => {
+        const key = item.usuario.trim().toLowerCase();
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+        if (normalizeHeader(item.app) === "p2p") p2pUsers.add(key);
+      });
+
+      let importados = 0;
+      let semWhatsapp = 0;
+      const erros: string[] = [];
+
+      for (let index = 0; index < dataRows.length; index += 1) {
+        const values = dataRows[index];
+        const row: Record<string, string> = {};
+
+        headers.forEach((header, headerIndex) => {
+          row[header] = values[headerIndex]?.trim() ?? "";
+        });
+
+        const usuario = getFieldValue(row, FIELD_ALIASES.usuario).trim();
+        const cliente = getFieldValue(row, FIELD_ALIASES.cliente).trim();
+        const telefoneInformado = getFieldValue(row, FIELD_ALIASES.telefone).trim();
+        const telefone = normalizePhone(telefoneInformado);
+        const app = getFieldValue(row, FIELD_ALIASES.app).trim() || "P2P";
+        const valorImportado = getFieldValue(row, FIELD_ALIASES.valor).trim();
+        const vencimentoImportado = getFieldValue(row, FIELD_ALIASES.vencimento).trim();
+        const dataImportada = getFieldValue(row, FIELD_ALIASES.data).trim();
+
+        if (!usuario || !cliente) {
+          erros.push(`Linha ${index + 2}: faltou usuario/login ou nome do cliente.`);
+          continue;
+        }
+
+        if (telefone && !isValidPhone(telefone)) {
+          erros.push(`Linha ${index + 2}: WhatsApp inválido para ${cliente}.`);
+          continue;
+        }
+
+        const usuarioKey = usuario.toLowerCase();
+        const totalAtual = counts.get(usuarioKey) ?? 0;
+        const isP2P = normalizeHeader(app) === "p2p";
+
+        if (totalAtual >= 3) {
+          erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 3 clientes.`);
+          continue;
+        }
+
+        if (isP2P && p2pUsers.has(usuarioKey)) {
+          erros.push(`Linha ${index + 2}: ${usuario} já possui P2P.`);
+          continue;
+        }
+
+        const vencimento = parseFlexibleDate(vencimentoImportado);
+        const dataCadastro = parseFlexibleDate(dataImportada);
+        const dataBase = new Date();
+        dataBase.setDate(dataBase.getDate() + 30);
+
+        await addDoc(collection(db, "acessos"), {
+          usuario,
+          cliente,
+          telefone,
+          valor: parseCurrency(valorImportado),
+          app,
+          vencimento: vencimento || dataBase.toISOString(),
+          data: dataCadastro || new Date().toISOString(),
+          createdAt: Timestamp.now(),
+          userId: user.uid,
+        });
+
+        counts.set(usuarioKey, totalAtual + 1);
+        if (isP2P) p2pUsers.add(usuarioKey);
+        if (!telefone) semWhatsapp += 1;
+        importados += 1;
+      }
+
+      const resumo: string[] = [];
+      resumo.push(`${importados} cliente(s) importado(s).`);
+      if (semWhatsapp > 0) resumo.push(`${semWhatsapp} ficou(aram) sem WhatsApp para você completar depois.`);
+      if (erros.length > 0) resumo.push(`${erros.length} linha(s) foram ignoradas.`);
+      if (erros.length > 0) resumo.push(erros.slice(0, 5).join(" "));
+
+      setImportFeedback({
+        type: importados > 0 ? "success" : "error",
+        message: resumo.join(" "),
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao importar a planilha.";
+      setImportFeedback({ type: "error", message });
+    } finally {
+      event.target.value = "";
+      setImportando(false);
+    }
+  }
+
   async function addDespesa() {
     if (!user) return;
     if (!descricao.trim() || !valorDespesa) {
@@ -386,6 +583,10 @@ export default function HomePage() {
   const totalEntrada = acessos.reduce((sum, item) => sum + Number(item.valor || 0), 0);
   const totalSaida = despesas.reduce((sum, item) => sum + Number(item.valor || 0), 0);
   const lucro = totalEntrada - totalSaida;
+  const appOptions = useMemo(
+    () => Array.from(new Set([...APP_OPTIONS, ...acessos.map((item) => item.app).filter(Boolean)])).sort(),
+    [acessos],
+  );
 
   if (authLoading) {
     return (
@@ -482,9 +683,46 @@ export default function HomePage() {
         <div className="space-y-4">
           <Card>
             <CardContent className="grid gap-3">
-              <div className="flex items-center gap-2 text-lg font-semibold">
-                <Plus className="h-4 w-4 text-blue-600" /> Novo acesso
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                  <Plus className="h-4 w-4 text-blue-600" /> Novo acesso
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={exportarClientesCsv}>
+                    <Download className="mr-1 h-4 w-4" /> Exportar CSV
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importando}>
+                    {importando ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
+                    Importar CSV
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={importarClientesCsv}
+                  />
+                </div>
               </div>
+
+              <p className="text-sm text-slate-500">
+                Use a planilha em CSV com colunas como `usuario` ou `login`, `cliente` ou `nome`, `whatsapp` ou `telefone`,
+                `valor`, `app`, `vencimento` e `data`. Datas podem vir em `dd/mm/aaaa`.
+              </p>
+
+              {importFeedback && (
+                <div
+                  className={`rounded-xl border px-3 py-2 text-sm ${
+                    importFeedback.type === "error"
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : importFeedback.type === "success"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-blue-200 bg-blue-50 text-blue-700"
+                  }`}
+                >
+                  {importFeedback.message}
+                </div>
+              )}
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="relative">
@@ -505,11 +743,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <select className="h-11 rounded-xl border border-slate-200 bg-white px-3" value={appSelecionado} onChange={(e) => setAppSelecionado(e.target.value)}>
-                <option value="P2P">P2P</option>
-                <option value="OTT">OTT</option>
-                <option value="KPLAY">KPLAY</option>
-              </select>
+              <Input list="app-options" placeholder="Aplicativo" value={appSelecionado} onChange={(e) => setAppSelecionado(e.target.value.toUpperCase())} />
 
               <Button onClick={addCliente}>Adicionar cliente</Button>
             </CardContent>
@@ -643,11 +877,7 @@ export default function HomePage() {
             </div>
             <div className="grid gap-1">
               <Label>App</Label>
-              <select className="h-11 rounded-xl border border-slate-200 bg-white px-3" value={editForm.app} onChange={(e) => setEditForm((prev) => ({ ...prev, app: e.target.value }))}>
-                <option value="P2P">P2P</option>
-                <option value="OTT">OTT</option>
-                <option value="KPLAY">KPLAY</option>
-              </select>
+              <Input list="app-options" value={editForm.app} onChange={(e) => setEditForm((prev) => ({ ...prev, app: e.target.value.toUpperCase() }))} />
             </div>
             <div className="grid gap-1">
               <Label>Vencimento</Label>
@@ -661,6 +891,12 @@ export default function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <datalist id="app-options">
+        {appOptions.map((option) => (
+          <option key={option} value={option} />
+        ))}
+      </datalist>
     </main>
   );
 }
