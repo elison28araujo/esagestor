@@ -69,14 +69,21 @@ export function parseFlexibleDate(value: string) {
 }
 
 export function parseCsv(text: string) {
-  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  const normalizedText = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
   if (!normalizedText) return [];
 
-  const lines = normalizedText.split("\n").filter((line) => line.trim().length > 0);
+  const lines = normalizedText
+    .split("\n")
+    .map((line) => line.replace(/^\uFEFF/, "").trim())
+    .filter((line) => line.length > 0 && !/^sep\s*=\s*.+$/i.test(line));
   if (lines.length === 0) return [];
 
-  const delimiter =
-    (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ";" : ",";
+  const delimiterCandidates = [";", ",", "\t"];
+  const delimiter = delimiterCandidates.reduce((best, candidate) => {
+    const candidateCount = lines[0].split(candidate).length;
+    const bestCount = lines[0].split(best).length;
+    return candidateCount > bestCount ? candidate : best;
+  }, ";");
 
   return lines.map((line) => {
     const values: string[] = [];

@@ -98,6 +98,8 @@ const FIELD_ALIASES = {
   data: ["data", "data inicial", "inicio", "inicial", "cadastro"],
 };
 
+const FALLBACK_COLUMNS = ["usuario", "cliente", "telefone", "valor", "app", "vencimento", "data"] as const;
+
 function getFieldValue(row: Record<string, string>, aliases: string[]) {
   for (const alias of aliases) {
     const match = row[normalizeHeader(alias)];
@@ -392,6 +394,7 @@ export default function HomePage() {
       }
 
       const headers = rows[0].map((header) => normalizeHeader(header));
+      const headersReconhecidos = Object.values(FIELD_ALIASES).flat().some((alias) => headers.includes(normalizeHeader(alias)));
       const dataRows = rows.slice(1);
       const counts = new Map<string, number>();
       const p2pUsers = new Set<string>();
@@ -410,9 +413,15 @@ export default function HomePage() {
         const values = dataRows[index];
         const row: Record<string, string> = {};
 
-        headers.forEach((header, headerIndex) => {
-          row[header] = values[headerIndex]?.trim() ?? "";
-        });
+        if (headersReconhecidos) {
+          headers.forEach((header, headerIndex) => {
+            row[header] = values[headerIndex]?.trim() ?? "";
+          });
+        } else {
+          FALLBACK_COLUMNS.forEach((column, columnIndex) => {
+            row[column] = values[columnIndex]?.trim() ?? "";
+          });
+        }
 
         const usuario = getFieldValue(row, FIELD_ALIASES.usuario).trim();
         const cliente = getFieldValue(row, FIELD_ALIASES.cliente).trim();
