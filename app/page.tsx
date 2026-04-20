@@ -146,6 +146,7 @@ export default function HomePage() {
   const [descricao, setDescricao] = useState("");
   const [valorDespesa, setValorDespesa] = useState("");
   const [importando, setImportando] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState("");
   const [importFeedback, setImportFeedback] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
 
   const [editando, setEditando] = useState<Acesso | null>(null);
@@ -498,6 +499,140 @@ export default function HomePage() {
     }
   }
 
+  async function importarGoogleSheet() {
+    if (!user || !db) return;
+    if (!sheetUrl.trim()) {
+      setImportFeedback({ type: "error", message: "Cole o link da planilha do Google Sheets." });
+      return;
+    }
+
+    setImportando(true);
+    setImportFeedback(null);
+
+    try {
+      const response = await fetch("/api/google-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: sheetUrl.trim() }),
+      });
+
+      const payload = (await response.json()) as { csv?: string; error?: string; sourceLabel?: string };
+
+      if (!response.ok || !payload.csv) {
+        throw new Error(payload.error || "Nao foi possivel ler a planilha do Google Sheets.");
+      }
+
+      const rows = parseCsv(payload.csv);
+
+      if (rows.length < 2) {
+        throw new Error("A planilha esta vazia ou sem linhas de dados.");
+      }
+
+      const headers = rows[0].map((header) => normalizeHeader(header));
+      const headersReconhecidos = Object.values(FIELD_ALIASES).flat().some((alias) => headers.includes(normalizeHeader(alias)));
+      const dataRows = rows.slice(1);
+      const counts = new Map<string, number>();
+      const p2pUsers = new Set<string>();
+
+      acessos.forEach((item) => {
+        const key = item.usuario.trim().toLowerCase();
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+        if (normalizeHeader(item.app) === "p2p") p2pUsers.add(key);
+      });
+
+      let importados = 0;
+      let semWhatsapp = 0;
+      const erros: string[] = [];
+
+      for (let index = 0; index < dataRows.length; index += 1) {
+        const values = dataRows[index];
+        const row: Record<string, string> = {};
+
+        if (headersReconhecidos) {
+          headers.forEach((header, headerIndex) => {
+            row[header] = values[headerIndex]?.trim() ?? "";
+          });
+        } else {
+          FALLBACK_COLUMNS.forEach((column, columnIndex) => {
+            row[column] = values[columnIndex]?.trim() ?? "";
+          });
+        }
+
+        const usuario = getFieldValue(row, FIELD_ALIASES.usuario).trim();
+        const cliente = getFieldValue(row, FIELD_ALIASES.cliente).trim();
+        const telefoneInformado = getFieldValue(row, FIELD_ALIASES.telefone).trim();
+        const telefone = normalizePhone(telefoneInformado);
+        const app = getFieldValue(row, FIELD_ALIASES.app).trim() || "P2P";
+        const valorImportado = getFieldValue(row, FIELD_ALIASES.valor).trim();
+        const vencimentoImportado = getFieldValue(row, FIELD_ALIASES.vencimento).trim();
+        const dataImportada = getFieldValue(row, FIELD_ALIASES.data).trim();
+
+        if (!usuario || !cliente) {
+          erros.push(`Linha ${index + 2}: faltou usuario/login ou nome do cliente.`);
+          continue;
+        }
+
+        if (telefone && !isValidPhone(telefone)) {
+          erros.push(`Linha ${index + 2}: WhatsApp invalido para ${cliente}.`);
+          continue;
+        }
+
+        const usuarioKey = usuario.toLowerCase();
+        const totalAtual = counts.get(usuarioKey) ?? 0;
+        const isP2P = normalizeHeader(app) === "p2p";
+
+        if (totalAtual >= 3) {
+          erros.push(`Linha ${index + 2}: ${usuario} ja atingiu o limite de 3 clientes.`);
+          continue;
+        }
+
+        if (isP2P && p2pUsers.has(usuarioKey)) {
+          erros.push(`Linha ${index + 2}: ${usuario} ja possui P2P.`);
+          continue;
+        }
+
+        const vencimento = parseFlexibleDate(vencimentoImportado);
+        const dataCadastro = parseFlexibleDate(dataImportada);
+        const dataBase = new Date();
+        dataBase.setDate(dataBase.getDate() + 30);
+
+        await addDoc(collection(db, "acessos"), {
+          usuario,
+          cliente,
+          telefone,
+          valor: parseCurrency(valorImportado),
+          app,
+          vencimento: vencimento || dataBase.toISOString(),
+          data: dataCadastro || new Date().toISOString(),
+          createdAt: Timestamp.now(),
+          userId: user.uid,
+        });
+
+        counts.set(usuarioKey, totalAtual + 1);
+        if (isP2P) p2pUsers.add(usuarioKey);
+        if (!telefone) semWhatsapp += 1;
+        importados += 1;
+      }
+
+      const resumo: string[] = [];
+      resumo.push(`${importados} cliente(s) importado(s).`);
+      resumo.push(`Origem: ${payload.sourceLabel || "Google Sheets"}.`);
+      if (semWhatsapp > 0) resumo.push(`${semWhatsapp} ficou(aram) sem WhatsApp para voce completar depois.`);
+      if (erros.length > 0) resumo.push(`${erros.length} linha(s) foram ignoradas.`);
+      if (erros.length > 0) resumo.push(erros.slice(0, 5).join(" "));
+
+      setImportFeedback({
+        type: importados > 0 ? "success" : "error",
+        message: resumo.join(" "),
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao importar do Google Sheets.";
+      setImportFeedback({ type: "error", message });
+    } finally {
+      setImportando(false);
+    }
+  }
+
   async function addDespesa() {
     if (!user || !db) return;
     if (!descricao.trim() || !valorDespesa) {
@@ -773,6 +908,18 @@ export default function HomePage() {
                 Use a planilha em CSV com colunas como `usuario` ou `login`, `cliente` ou `nome`, `whatsapp` ou `telefone`,
                 `valor`, `app`, `vencimento` e `data`. Datas podem vir em `dd/mm/aaaa`.
               </p>
+
+              <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                <Input
+                  placeholder="Cole aqui o link da planilha do Google Sheets"
+                  value={sheetUrl}
+                  onChange={(e) => setSheetUrl(e.target.value)}
+                />
+                <Button type="button" variant="outline" onClick={importarGoogleSheet} disabled={importando}>
+                  {importando ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
+                  Importar link
+                </Button>
+              </div>
 
               {importFeedback && (
                 <div
