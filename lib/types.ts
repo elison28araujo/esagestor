@@ -1,4 +1,5 @@
-export type Tab = "clientes" | "despesas";
+export type Tab = "clientes" | "despesas" | "configuracoes";
+export type Filter = "todos" | "ativos" | "vencendo" | "vencidos";
 
 export interface Acesso {
   id: string;
