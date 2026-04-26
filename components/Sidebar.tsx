@@ -191,5 +191,3 @@ export function Sidebar({
     </>
   );
 }
-  );
-}
