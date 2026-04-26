@@ -1,74 +1,5 @@
-"use client";
-
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { auth, db, firebaseConfigured } from "@/lib/firebase";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  query,
-  Timestamp,
-  updateDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore";
-import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
-import {
-  Loader2,
-  LogOut,
-  Moon,
-  Sun,
-  Settings,
-  TrendingDown,
-  Users,
-  Search,
-  X,
-} from "lucide-react";
-
-import { LoginForm } from "@/components/LoginForm";
-import { Dashboard } from "@/components/Dashboard";
-import { NovoClienteForm } from "@/components/NovoClienteForm";
-import { ClienteCard } from "@/components/ClienteCard";
-import { EditClienteDialog } from "@/components/EditClienteDialog";
-import { DespesaList } from "@/components/DespesaList";
-import { ConfigDialog } from "@/components/ConfigDialog";
-import { Toast } from "@/components/Toast";
-
-import { Acesso, Despesa, ImportFeedback, Tab, UsuarioAgrupado } from "@/lib/types";
-import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, FALLBACK_COLUMNS, FIELD_ALIASES } from "@/lib/constants";
-import {
-  escapeCsvValue,
-  isValidPhone,
-  normalizeHeader,
-  normalizePhone,
-  parseCsv,
-  parseFlexibleDate,
-} from "@/lib/utils";
-
-function parseCurrency(value: string) {
-  const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDateForCsv(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("pt-BR");
-}
-
-function getFieldValue(row: Record<string, string>, aliases: string[]) {
-  for (const alias of aliases) {
-    const match = row[normalizeHeader(alias)];
-    if (match) return match;
-  }
-  return "";
-}
+import { Sidebar } from "@/components/Sidebar";
+import { Acesso, Despesa, Filter, ImportFeedback, Tab, UsuarioAgrupado } from "@/lib/types";
 
 export default function HomePage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -77,6 +8,7 @@ export default function HomePage() {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [dadosLoading, setDadosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("clientes");
+  const [activeFilter, setActiveFilter] = useState<Filter>("todos");
   const [editando, setEditando] = useState<Acesso | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [importando, setImportando] = useState(false);
@@ -159,6 +91,26 @@ export default function HomePage() {
       userId: user.uid,
     });
     setToast({ type: "success", message: `Cliente "${cliente}" adicionado!` });
+  }
+
+  async function handleRenovar(id: string) {
+    if (!db) return;
+    const item = acessos.find((a) => a.id === id);
+    if (!item) return;
+
+    const hoje = new Date();
+    const dataVencimentoAtual = new Date(item.vencimento);
+    
+    // Se já venceu, renova a partir de hoje. Se não venceu, adiciona 30 dias à data atual de vencimento.
+    const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
+    novaData.setDate(novaData.getDate() + 30);
+
+    await updateDoc(doc(db, "acessos", id), {
+      vencimento: novaData.toISOString(),
+      data: hoje.toISOString(), // Atualiza a data da última renovação
+    });
+    
+    setToast({ type: "success", message: `Acesso de "${item.cliente}" renovado!` });
   }
 
   function exportarClientesCsv() {
@@ -356,10 +308,27 @@ export default function HomePage() {
   }, [acessos]);
 
   const usuariosFiltrados = useMemo(() => {
-    if (!busca.trim()) return usuariosAgrupados;
-    const q = busca.toLowerCase();
-    return usuariosAgrupados
-      .map((grupo) => ({
+    let list = usuariosAgrupados;
+
+    // Apply status filter
+    if (activeFilter !== "todos") {
+      const hoje = Date.now();
+      list = list.map(grupo => ({
+        ...grupo,
+        clientes: grupo.clientes.filter(c => {
+          const dias = Math.ceil((new Date(c.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
+          if (activeFilter === "vencidos") return dias <= 0;
+          if (activeFilter === "vencendo") return dias > 0 && dias <= 3;
+          if (activeFilter === "ativos") return dias > 3;
+          return true;
+        })
+      })).filter(g => g.clientes.length > 0);
+    }
+
+    // Apply search filter
+    if (busca.trim()) {
+      const q = busca.toLowerCase();
+      list = list.map((grupo) => ({
         ...grupo,
         clientes: grupo.clientes.filter(
           (c) =>
@@ -368,14 +337,23 @@ export default function HomePage() {
             c.app.toLowerCase().includes(q) ||
             c.telefone.includes(q)
         ),
-      }))
-      .filter((g) => g.clientes.length > 0 || g.nome.toLowerCase().includes(q));
-  }, [usuariosAgrupados, busca]);
+      })).filter((g) => g.clientes.length > 0 || g.nome.toLowerCase().includes(q));
+    }
+
+    return list;
+  }, [usuariosAgrupados, activeFilter, busca]);
 
   const appOptions = useMemo(
     () => Array.from(new Set([...APP_OPTIONS, ...acessos.map((a) => a.app).filter(Boolean)])).sort(),
     [acessos]
   );
+
+  useEffect(() => {
+    if (activeTab === "configuracoes") {
+      setConfigOpen(true);
+      setActiveTab("clientes");
+    }
+  }, [activeTab]);
 
   if (authLoading) {
     return (
@@ -403,123 +381,138 @@ export default function HomePage() {
   if (!user) return <LoginForm />;
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors p-4 pb-10">
-      {/* Header */}
-      <header className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">ESA GESTOR</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={toggleDark} title="Alternar tema">
-            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)} title="Configurações">
-            <Settings className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => auth && signOut(auth)}>
-            <LogOut className="mr-1 h-4 w-4" /> Sair
-          </Button>
-        </div>
-      </header>
+    <div className="flex min-h-screen bg-slate-50 transition-colors dark:bg-slate-950">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        activeFilter={activeFilter}
+        setActiveFilter={setActiveFilter}
+        darkMode={darkMode}
+        toggleDark={toggleDark}
+        onLogout={() => auth && signOut(auth)}
+        userEmail={user.email}
+      />
 
-      {/* Dashboard */}
-      <Dashboard acessos={acessos} despesas={despesas} usuariosAgrupados={usuariosAgrupados} />
+      <main className="flex-1 transition-all duration-300 md:pl-64">
+        <div className="mx-auto max-w-6xl p-4 md:p-8">
+          {/* Header (Desktop: Hidden or simplified, Mobile: Visible) */}
+          <header className="mb-8 flex items-center justify-between md:hidden">
+            <h1 className="text-xl font-bold text-blue-600">ESA GESTOR</h1>
+            <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}>
+              <Settings className="h-4 w-4" />
+            </Button>
+          </header>
 
-      {/* Tabs */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Button variant={activeTab === "clientes" ? "default" : "outline"} onClick={() => setActiveTab("clientes")}>
-          <Users className="mr-1 h-4 w-4" /> Clientes
-        </Button>
-        <Button variant={activeTab === "despesas" ? "default" : "outline"} onClick={() => setActiveTab("despesas")}>
-          <TrendingDown className="mr-1 h-4 w-4" /> Despesas
-        </Button>
-      </div>
+          {/* Page Content */}
+          <div className="space-y-8">
+            {/* Dashboard */}
+            <Dashboard acessos={acessos} despesas={despesas} usuariosAgrupados={usuariosAgrupados} />
 
-      {/* Clientes tab */}
-      {activeTab === "clientes" && (
-        <div className="space-y-4">
-          <NovoClienteForm
-            acessos={acessos}
-            appOptions={appOptions}
-            importFeedback={importFeedback}
-            importando={importando}
-            onAddCliente={addCliente}
-            onExportarCsv={exportarClientesCsv}
-            onImportarCsv={importarClientesCsv}
-            onImportarGoogleSheet={importarGoogleSheet}
-          />
+            {/* Content Area */}
+            {activeTab === "clientes" && (
+              <div className="space-y-6">
+                <NovoClienteForm
+                  acessos={acessos}
+                  appOptions={appOptions}
+                  importFeedback={importFeedback}
+                  importando={importando}
+                  onAddCliente={addCliente}
+                  onExportarCsv={exportarClientesCsv}
+                  onImportarCsv={importarClientesCsv}
+                  onImportarGoogleSheet={importarGoogleSheet}
+                />
 
-          {/* Busca */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              className="pl-10 pr-10 dark:bg-slate-800 dark:border-slate-700"
-              placeholder="Buscar por usuário, cliente, app ou telefone..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-            {busca && (
-              <button
-                onClick={() => setBusca("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {dadosLoading ? (
-            <Card><CardContent className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></CardContent></Card>
-          ) : usuariosFiltrados.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-slate-500">
-              {busca ? "Nenhum resultado encontrado" : "Nenhum usuário cadastrado"}
-            </CardContent></Card>
-          ) : (
-            usuariosFiltrados.map((grupo) => (
-              <Card key={grupo.nome} className="dark:bg-slate-800 dark:border-slate-700">
-                <CardContent className="p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
-                      {grupo.nome}
-                      <span className="text-sm font-normal text-slate-500">({grupo.clientes.length}/3)</span>
-                    </div>
-                    {grupo.temP2P ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs text-red-600 dark:bg-red-900 dark:text-red-300">
-                        Já tem P2P
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300">
-                        Pode usar P2P
-                      </span>
+                {/* Search & Results Info */}
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      className="h-11 pl-10 pr-10 dark:border-slate-800 dark:bg-slate-900"
+                      placeholder="Buscar por usuário, cliente, app ou telefone..."
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                    />
+                    {busca && (
+                      <button
+                        onClick={() => setBusca("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    {grupo.clientes.map((item) => (
-                      <ClienteCard
-                        key={item.id}
-                        item={item}
-                        mensagemCobranca={mensagemCobranca}
-                        onEditar={setEditando}
-                        onRemover={(id) => remover(id, "acessos")}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      )}
+                  
+                  {activeFilter !== "todos" && (
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <span>Filtro ativo:</span>
+                      <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                        {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => setActiveFilter("todos")} className="h-8 px-2 text-xs">
+                        Limpar
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
-      {/* Despesas tab */}
-      {activeTab === "despesas" && (
-        <DespesaList
-          despesas={despesas}
-          onAdd={addDespesa}
-          onRemover={(id) => remover(id, "despesas")}
-        />
-      )}
+                {/* Client List */}
+                <div className="grid gap-6">
+                  {dadosLoading ? (
+                    <div className="flex justify-center py-20">
+                      <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+                    </div>
+                  ) : usuariosFiltrados.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 py-20 dark:border-slate-800">
+                      <Users className="mb-4 h-12 w-12 text-slate-300" />
+                      <p className="text-slate-500">
+                        {busca ? "Nenhum resultado encontrado para sua busca." : "Nenhum cliente encontrado com este filtro."}
+                      </p>
+                      {activeFilter !== "todos" && (
+                        <Button variant="link" onClick={() => setActiveFilter("todos")}>
+                          Ver todos os clientes
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    usuariosFiltrados.map((grupo) => (
+                      <div key={grupo.nome} className="space-y-3">
+                        <div className="flex items-center justify-between px-2">
+                          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                            {grupo.nome}
+                            <span className="ml-2 text-sm font-normal text-slate-500">
+                              ({grupo.clientes.length} cliente{grupo.clientes.length !== 1 ? "s" : ""})
+                            </span>
+                          </h3>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {grupo.clientes.map((item) => (
+                            <ClienteCard
+                              key={item.id}
+                              item={item}
+                              mensagemCobranca={mensagemCobranca}
+                              onEditar={setEditando}
+                              onRemover={(id) => remover(id, "acessos")}
+                              onRenovar={handleRenovar}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "despesas" && (
+              <DespesaList
+                despesas={despesas}
+                onAdd={addDespesa}
+                onRemover={(id) => remover(id, "despesas")}
+              />
+            )}
+          </div>
+        </div>
+      </main>
 
       {/* Dialogs */}
       <EditClienteDialog
@@ -531,13 +524,16 @@ export default function HomePage() {
 
       <ConfigDialog
         open={configOpen}
-        onFechar={() => setConfigOpen(false)}
+        onFechar={() => {
+          setConfigOpen(false);
+          setActiveTab("clientes");
+        }}
         mensagem={mensagemCobranca}
         onSalvar={handleSalvarMensagem}
       />
 
       {/* Toast */}
       {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
-    </main>
+    </div>
   );
 }
