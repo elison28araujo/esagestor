@@ -535,7 +535,7 @@ export default function HomePage() {
                         {busca ? "Nenhum resultado encontrado para sua busca." : "Nenhum cliente encontrado com este filtro."}
                       </p>
                       {activeFilter !== "todos" && (
-                        <Button variant="link" onClick={() => setActiveFilter("todos")}>
+                        <Button variant="ghost" onClick={() => setActiveFilter("todos")}>
                           Ver todos os clientes
                         </Button>
                       )}
