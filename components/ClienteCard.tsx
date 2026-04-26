@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
-import { Calendar, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { Calendar, MessageCircle, Pencil, Trash2, Loader2 } from "lucide-react";
 
 interface ClienteCardProps {
   item: Acesso;
