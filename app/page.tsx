@@ -1,5 +1,72 @@
+"use client";
+
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { auth, db, firebaseConfigured } from "@/lib/firebase";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  Timestamp,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
+import {
+  Loader2,
+  Settings,
+  TrendingDown,
+  Users,
+  Search,
+  X,
+} from "lucide-react";
+
+import { LoginForm } from "@/components/LoginForm";
+import { Dashboard } from "@/components/Dashboard";
+import { NovoClienteForm } from "@/components/NovoClienteForm";
+import { ClienteCard } from "@/components/ClienteCard";
+import { EditClienteDialog } from "@/components/EditClienteDialog";
+import { DespesaList } from "@/components/DespesaList";
+import { ConfigDialog } from "@/components/ConfigDialog";
+import { Toast } from "@/components/Toast";
 import { Sidebar } from "@/components/Sidebar";
+
 import { Acesso, Despesa, Filter, ImportFeedback, Tab, UsuarioAgrupado } from "@/lib/types";
+import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, FALLBACK_COLUMNS, FIELD_ALIASES } from "@/lib/constants";
+import {
+  escapeCsvValue,
+  isValidPhone,
+  normalizeHeader,
+  normalizePhone,
+  parseCsv,
+  parseFlexibleDate,
+} from "@/lib/utils";
+
+function parseCurrency(value: string) {
+  const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatDateForCsv(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("pt-BR");
+}
+
+function getFieldValue(row: Record<string, string>, aliases: string[]) {
+  for (const alias of aliases) {
+    const match = row[normalizeHeader(alias)];
+    if (match) return match;
+  }
+  return "";
+}
 
 export default function HomePage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
