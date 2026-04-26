@@ -48,7 +48,8 @@
 }
 
 * {
-  @apply border-border transition-colors duration-200;
+  @apply transition-colors duration-200;
+  border-color: hsl(var(--border) / 0.1);
 }
 
 body {
