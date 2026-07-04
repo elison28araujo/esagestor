@@ -88,8 +88,9 @@ export function ConfigDialog({
           <Label className="text-blue-600 font-bold">Mensagem de cobrança (WhatsApp)</Label>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Use <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{"{cliente}"}</code>,{" "}
-            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{"{app}"}</code> e{" "}
-            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{"{valor}"}</code> para substituição.
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{"{app}"}</code>,{" "}
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{"{valor}"}</code> e{" "}
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{"{link}"}</code> para substituição.
           </p>
           <textarea
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] transition-all"

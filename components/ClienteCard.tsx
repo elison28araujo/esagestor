@@ -55,10 +55,18 @@ export function ClienteCard({
 
   function cobrar() {
     const phone = item.telefone.replace(/\D/g, "");
-    const mensagem = mensagemCobranca
+    const linkPortal = `${window.location.origin}/consulta`;
+    let mensagem = mensagemCobranca
       .replace("{cliente}", item.cliente)
       .replace("{app}", item.app)
       .replace("{valor}", Number(item.valor).toFixed(2));
+      
+    if (mensagem.includes("{link}")) {
+      mensagem = mensagem.replace("{link}", linkPortal);
+    } else {
+      mensagem = `${mensagem}\n\nEfetue o pagamento pelo link: ${linkPortal}`;
+    }
+    
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
   }
 
