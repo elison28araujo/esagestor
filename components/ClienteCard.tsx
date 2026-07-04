@@ -29,6 +29,7 @@ export function ClienteCard({
   onToggleSelecao,
 }: ClienteCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmRenewOpen, setConfirmRenewOpen] = useState(false);
   const [removendo, setRemovendo] = useState(false);
   const [renovando, setRenovando] = useState(false);
 
@@ -147,7 +148,7 @@ export function ClienteCard({
             <Button 
               size="sm" 
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold" 
-              onClick={handleRenovar}
+              onClick={() => setConfirmRenewOpen(true)}
               disabled={renovando}
             >
               {renovando ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Calendar className="mr-1 h-3 w-3" />}
@@ -173,6 +174,19 @@ export function ClienteCard({
         onConfirm={handleRemover}
         onCancel={() => setConfirmOpen(false)}
         loading={removendo}
+      />
+
+      <ConfirmDialog
+        open={confirmRenewOpen}
+        title="Confirmar Renovação"
+        message={`Deseja renovar o acesso de "${item.cliente}" por mais 30 dias? Isso registrará um pagamento de R$ ${Number(item.valor).toFixed(2)} no histórico.`}
+        onConfirm={async () => {
+          await handleRenovar();
+          setConfirmRenewOpen(false);
+        }}
+        onCancel={() => setConfirmRenewOpen(false)}
+        confirmLabel="Renovar"
+        confirmVariant="default"
       />
     </>
   );
