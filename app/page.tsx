@@ -194,13 +194,13 @@ export default function LandingPage() {
         
         {/* Imagem de Fundo Completa Enviada pelo Usuário */}
         <div 
-          className="absolute inset-0 bg-cover bg-center filter brightness-[0.35] md:brightness-[0.4] pointer-events-none scale-100 transition-all duration-700"
+          className="absolute inset-0 bg-cover bg-center filter brightness-[0.85] md:brightness-[0.9] pointer-events-none scale-100 transition-all duration-700"
           style={{ backgroundImage: "url('/banner-aniversario.png')" }}
         />
         
         {/* Gradientes e Fades para Suavizar Bordas */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060814] via-[#060814]/30 to-[#060814] pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#060814]/30 via-transparent to-[#060814]/30 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060814]/80 via-transparent to-[#060814]/80 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#060814]/50 via-transparent to-[#060814]/50 pointer-events-none" />
 
         {/* Balões de Aniversário Flutuantes (Esquerda) */}
         <div className="absolute left-[3%] top-[25%] z-20 animate-float-1 hidden xl:block">
