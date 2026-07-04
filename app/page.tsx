@@ -80,7 +80,7 @@ export default function HomePage() {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [dadosLoading, setDadosLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("clientes");
+  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [activeFilter, setActiveFilter] = useState<Filter>("todos");
   const [editando, setEditando] = useState<Acesso | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
@@ -676,11 +676,14 @@ export default function HomePage() {
           {/* Page Content */}
           <div className="space-y-8">
             {/* Dashboard */}
-            <Dashboard acessos={acessos} despesas={despesas} usuariosAgrupados={usuariosAgrupados} pagamentos={pagamentos} />
+            {activeTab === "dashboard" && (
+              <Dashboard acessos={acessos} despesas={despesas} usuariosAgrupados={usuariosAgrupados} pagamentos={pagamentos} />
+            )}
 
-            {/* Content Area */}
-            {activeTab === "clientes" && (
+            {/* Cadastro Form */}
+            {activeTab === "cadastro" && (
               <div className="space-y-6">
+                <h2 className="text-2xl font-heading font-bold tracking-tight text-slate-800 dark:text-slate-100">Cadastrar Novo Cliente</h2>
                 <NovoClienteForm
                   acessos={acessos}
                   appOptions={appOptions}
@@ -691,6 +694,12 @@ export default function HomePage() {
                   onImportarCsv={importarClientesCsv}
                   onImportarGoogleSheet={importarGoogleSheet}
                 />
+              </div>
+            )}
+
+            {/* Content Area */}
+            {activeTab === "clientes" && (
+              <div className="space-y-6">
 
                 {/* Search & Results Info */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

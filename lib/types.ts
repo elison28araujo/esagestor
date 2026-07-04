@@ -1,4 +1,4 @@
-export type Tab = "clientes" | "despesas" | "configuracoes" | "pagamentos";
+export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "configuracoes" | "pagamentos";
 export type Filter = "todos" | "ativos" | "vencendo" | "vencidos";
 
 export interface Acesso {

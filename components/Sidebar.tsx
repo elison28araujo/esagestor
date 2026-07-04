@@ -15,6 +15,8 @@ import {
   Menu,
   X as CloseIcon,
   History,
+  LayoutDashboard,
+  UserPlus,
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -64,7 +66,9 @@ export function Sidebar({
   }, [activeTab, activeFilter]);
 
   const menuItems = [
+    { id: "dashboard", label: "Painel", icon: LayoutDashboard },
     { id: "clientes", label: "Clientes", icon: Users },
+    { id: "cadastro", label: "Cadastrar", icon: UserPlus },
     { id: "despesas", label: "Despesas", icon: TrendingDown },
     { id: "pagamentos", label: "Histórico", icon: History },
     { id: "configuracoes", label: "Configurações", icon: Settings },
