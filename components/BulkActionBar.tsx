@@ -160,6 +160,8 @@ export function BulkActionBar({
         onConfirm={handleExcluir}
         onCancel={() => setConfirmDeleteOpen(false)}
         loading={processando}
+        confirmLabel="Excluir"
+        confirmVariant="destructive"
       />
 
       {/* Modal Confirmar Renovação em Lote */}
@@ -170,6 +172,8 @@ export function BulkActionBar({
         onConfirm={handleRenovar}
         onCancel={() => setConfirmRenewOpen(false)}
         loading={processando}
+        confirmLabel="Renovar"
+        confirmVariant="default"
       />
 
       {/* Modal Alterar Valor em Lote */}
@@ -194,6 +198,8 @@ export function BulkActionBar({
           setNovoValor("");
         }}
         loading={processando}
+        confirmLabel="Salvar"
+        confirmVariant="default"
       />
 
       {/* Modal Alterar App em Lote */}
@@ -223,6 +229,8 @@ export function BulkActionBar({
           setNovoApp("");
         }}
         loading={processando}
+        confirmLabel="Salvar"
+        confirmVariant="default"
       />
     </>
   );
