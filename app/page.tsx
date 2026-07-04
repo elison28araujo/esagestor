@@ -50,25 +50,25 @@ export default function LandingPage() {
   const catalog = [
     {
       title: "Filmes e Lançamentos",
-      img: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80",
+      img: "/filmes.png",
       description: "Lançamentos e clássicos do cinema mundial.",
       badge: "4K Ultra HD"
     },
     {
       title: "Copa do Mundo 2026 & Esportes",
-      img: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80",
+      img: "/copa.png",
       description: "Transmissões ao vivo dos maiores campeonatos.",
       badge: "Ao Vivo"
     },
     {
       title: "Séries Exclusivas",
-      img: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
+      img: "/serie.png",
       description: "As melhores produções para maratonar.",
       badge: "Completo"
     },
     {
       title: "Canais Ao Vivo",
-      img: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80",
+      img: "/canais.png",
       description: "Mais de 500 canais abertos e fechados.",
       badge: "Sem Travamentos"
     }
