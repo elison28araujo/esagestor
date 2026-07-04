@@ -432,9 +432,49 @@ export default function LandingPage() {
                   <span>{faq.p}</span>
                   <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${faqAberto === i ? "rotate-180" : ""}`} />
                 </button>
-                {faqAberto === i && (
+                 {faqAberto === i && (
                   <div className="px-5 pb-4 text-xs text-slate-400 leading-relaxed border-t border-slate-900/30 pt-3">
-                    {faq.r}
+                    {i === 0 ? (
+                      <div className="space-y-3 text-slate-300">
+                        <p className="text-sm font-bold text-amber-500 flex items-center gap-1.5">
+                          🎉 Faça um teste GRATUITO por 4 horas!
+                        </p>
+                        <p>
+                          Antes de contratar, você pode testar nosso serviço por <strong>4 horas</strong>, sem compromisso, para conferir a qualidade da imagem, estabilidade e funcionamento.
+                        </p>
+                        
+                        <p className="font-bold text-slate-200 mt-2">Como funciona?</p>
+                        
+                        <ul className="space-y-2 text-slate-300">
+                          <li className="flex items-start gap-2">
+                            <span className="shrink-0 text-base">✅</span>
+                            <span>Solicite seu teste gratuito de 4 horas pelo WhatsApp.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="shrink-0 text-base">📺</span>
+                            <span>Se sua TV ainda não possui o aplicativo instalado, nossa equipe enviará o aplicativo compatível com o modelo da sua TV e auxiliará na instalação.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="shrink-0 text-base">💳</span>
+                            <span>Gostou do teste? O pagamento é realizado <strong>somente após a ativação do aplicativo na sua TV</strong>.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="shrink-0 text-base">🔐</span>
+                            <span>Após a confirmação do pagamento, enviaremos seu usuário e senha diretamente no WhatsApp em até <strong>5 minutos</strong>.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="shrink-0 text-base">💬</span>
+                            <span>Atendimento rápido, instalação assistida e suporte sempre que precisar.</span>
+                          </li>
+                        </ul>
+                        
+                        <p className="text-amber-500 font-bold border-t border-slate-900/50 pt-2 text-center text-xs">
+                          Assista primeiro. Pague depois. Simples, rápido e sem riscos!
+                        </p>
+                      </div>
+                    ) : (
+                      faq.r
+                    )}
                   </div>
                 )}
               </div>
