@@ -49,7 +49,7 @@ export default function LandingPage() {
 
   const catalog = [
     {
-      title: "Filmes Blockbuster",
+      title: "Filmes e Lançamentos",
       img: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80",
       description: "Lançamentos e clássicos do cinema mundial.",
       badge: "4K Ultra HD"
@@ -85,19 +85,19 @@ export default function LandingPage() {
     },
     {
       nome: "Plano Trimestral",
-      preco: "81,00",
+      preco: "87,00",
       precoOriginal: "105,00",
       duracao: "/trimestre",
       popular: true,
-      vantagens: ["Economia de R$ 24,00!", "Acesso por 90 dias", "Qualidade Ultra HD / 4K", "Suporte prioritário"]
+      vantagens: ["Economia de R$ 18,00!", "Acesso por 90 dias", "Qualidade Ultra HD / 4K", "Suporte prioritário"]
     },
     {
       nome: "Plano Semestral",
-      preco: "190,00",
+      preco: "162,00",
       precoOriginal: "210,00",
       duracao: "/semestre",
       popular: false,
-      vantagens: ["Economia de R$ 20,00!", "Acesso por 180 dias", "Qualidade Ultra HD / 4K", "Suporte VIP"]
+      vantagens: ["Economia de R$ 48,00!", "Acesso por 180 dias", "Qualidade Ultra HD / 4K", "Suporte VIP"]
     },
     {
       nome: "Plano Anual",
