@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonProps } from "@/components/ui/button";
 import { ReactNode } from "react";
 
 interface ConfirmDialogProps {
@@ -12,7 +12,7 @@ interface ConfirmDialogProps {
   onCancel: () => void;
   loading?: boolean;
   confirmLabel?: string;
-  confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  confirmVariant?: ButtonProps["variant"];
 }
 
 export function ConfirmDialog({
