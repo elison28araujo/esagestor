@@ -75,25 +75,36 @@ export default function LandingPage() {
 
   const planos = [
     {
-      nome: "Bronze - 1 Tela",
-      preco: "30,00",
-      telas: 1,
-      popular: false,
-      vantagens: ["Qualidade Full HD", "Acesso imediato", "Sem fidelidade", "Suporte 24h"]
-    },
-    {
-      nome: "Prata - 2 Telas",
-      preco: "33,00",
-      telas: 2,
-      popular: true,
-      vantagens: ["Qualidade Ultra HD / 4K", "Acesso imediato", "Sem fidelidade", "Suporte prioritário"]
-    },
-    {
-      nome: "Ouro - 3 Telas",
+      nome: "Plano Mensal",
       preco: "35,00",
-      telas: 3,
+      precoOriginal: null,
+      duracao: "/mês",
       popular: false,
-      vantagens: ["Qualidade Ultra HD / 4K", "Acesso imediato", "Sem fidelidade", "Suporte VIP", "Economia máxima"]
+      vantagens: ["Acesso completo a canais, filmes e séries", "Qualidade Ultra HD / 4K", "Sem fidelidade", "Suporte 24h"]
+    },
+    {
+      nome: "Plano Trimestral",
+      preco: "81,00",
+      precoOriginal: "105,00",
+      duracao: "/trimestre",
+      popular: true,
+      vantagens: ["Economia de R$ 24,00!", "Acesso por 90 dias", "Qualidade Ultra HD / 4K", "Suporte prioritário"]
+    },
+    {
+      nome: "Plano Semestral",
+      preco: "190,00",
+      precoOriginal: "210,00",
+      duracao: "/semestre",
+      popular: false,
+      vantagens: ["Economia de R$ 20,00!", "Acesso por 180 dias", "Qualidade Ultra HD / 4K", "Suporte VIP"]
+    },
+    {
+      nome: "Plano Anual",
+      preco: "300,00",
+      precoOriginal: "420,00",
+      duracao: "/ano",
+      popular: false,
+      vantagens: ["Economia gigante de R$ 120,00!", "Acesso por 365 dias", "Qualidade Ultra HD / 4K", "Suporte Ultra VIP"]
     }
   ];
 
@@ -237,12 +248,17 @@ export default function LandingPage() {
       <section id="planos" className="py-20 relative">
         <div className="max-w-6xl mx-auto px-4">
           
-          <div className="text-center mb-16 space-y-2">
+          <div className="text-center mb-16 space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-extrabold uppercase tracking-wide">
+              🎉 1 Ano de TV Online - Aniversário ESA Play!
+            </div>
             <h2 className="text-3xl font-extrabold tracking-tight">Escolha o seu plano</h2>
-            <p className="text-slate-400 text-sm max-w-md mx-auto">Sem taxas ocultas. Cancele ou altere o plano quando desejar.</p>
+            <p className="text-slate-400 text-sm max-w-lg mx-auto">
+              Aproveite nossas promoções de aniversário por tempo limitado (de 05/07/2026 a 05/08/2026) e garanta sua diversão!
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {planos.map((plano, index) => (
               <div 
                 key={index} 
@@ -261,13 +277,20 @@ export default function LandingPage() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="font-bold text-lg text-slate-100">{plano.nome}</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{plano.telas} tela{plano.telas > 1 ? "s" : ""} simultânea{plano.telas > 1 ? "s" : ""}</p>
+                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Acesso Imediato</span>
                   </div>
                   
-                  <div className="flex items-baseline">
-                    <span className="text-sm font-semibold text-slate-400">R$</span>
-                    <span className="text-4xl font-black text-slate-50 ml-1">{plano.preco}</span>
-                    <span className="text-xs text-slate-400 ml-1">/mês</span>
+                  <div className="flex flex-col">
+                    {plano.precoOriginal && (
+                      <span className="text-xs text-slate-500 line-through">
+                        De R$ {plano.precoOriginal}
+                      </span>
+                    )}
+                    <div className="flex items-baseline">
+                      <span className="text-sm font-semibold text-slate-400">R$</span>
+                      <span className="text-3xl font-black text-slate-50 ml-1">{plano.preco}</span>
+                      <span className="text-[11px] text-slate-400 ml-1">{plano.duracao}</span>
+                    </div>
                   </div>
 
                   <hr className="border-slate-900" />
