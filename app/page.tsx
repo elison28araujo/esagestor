@@ -12,6 +12,7 @@ import {
   doc,
   onSnapshot,
   query,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -89,6 +90,11 @@ export default function HomePage() {
   const [configOpen, setConfigOpen] = useState(false);
   const [mensagemCobranca, setMensagemCobranca] = useState(DEFAULT_COBRANCA_MSG);
   const [mensagemRenovacao, setMensagemRenovacao] = useState(DEFAULT_RENOVACAO_MSG);
+  const [pixKey, setPixKey] = useState("");
+  const [pixNome, setPixNome] = useState("");
+  const [pixCidade, setPixCidade] = useState("");
+  const [mpAccessToken, setMpAccessToken] = useState("");
+  const [whatsappGestor, setWhatsappGestor] = useState("");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
@@ -113,23 +119,46 @@ export default function HomePage() {
     localStorage.setItem("esa_dark", next ? "1" : "0");
   }
 
-  // Load saved mensagens
+  // Load saved configuracoes in real-time from Firestore
   useEffect(() => {
-    const savedCobranca = localStorage.getItem("esa_cobranca_msg");
-    if (savedCobranca) setMensagemCobranca(savedCobranca);
+    if (!user || !db) return;
+    const configDocRef = doc(db, "configuracoes", user.uid);
+    const unsubConfig = onSnapshot(configDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.mensagemCobranca) setMensagemCobranca(data.mensagemCobranca);
+        if (data.mensagemRenovacao) setMensagemRenovacao(data.mensagemRenovacao);
+        setPixKey(data.pixKey || "");
+        setPixNome(data.pixNome || "");
+        setPixCidade(data.pixCidade || "");
+        setMpAccessToken(data.mpAccessToken || "");
+        setWhatsappGestor(data.whatsappGestor || "");
+      }
+    });
+    return () => unsubConfig();
+  }, [user]);
 
-    const savedRenovacao = localStorage.getItem("esa_renovacao_msg");
-    if (savedRenovacao) setMensagemRenovacao(savedRenovacao);
-  }, []);
-
-  function handleSalvarMensagens(msgCobranca: string, msgRenovacao: string) {
-    setMensagemCobranca(msgCobranca);
-    localStorage.setItem("esa_cobranca_msg", msgCobranca);
-    
-    setMensagemRenovacao(msgRenovacao);
-    localStorage.setItem("esa_renovacao_msg", msgRenovacao);
-
-    setToast({ type: "success", message: "Configurações salvas!" });
+  async function handleSalvarConfiguracoes(data: {
+    mensagemCobranca: string;
+    mensagemRenovacao: string;
+    pixKey: string;
+    pixNome: string;
+    pixCidade: string;
+    mpAccessToken: string;
+    whatsappGestor: string;
+  }) {
+    if (!user || !db) return;
+    try {
+      const configDocRef = doc(db, "configuracoes", user.uid);
+      await setDoc(configDocRef, {
+        userId: user.uid,
+        ...data,
+      }, { merge: true });
+      setToast({ type: "success", message: "Configurações salvas!" });
+    } catch (e) {
+      console.error("Erro ao salvar configurações:", e);
+      setToast({ type: "error", message: "Erro ao salvar configurações." });
+    }
   }
 
   useEffect(() => {
@@ -859,7 +888,12 @@ export default function HomePage() {
         }}
         mensagem={mensagemCobranca}
         mensagemRenovacao={mensagemRenovacao}
-        onSalvar={handleSalvarMensagens}
+        pixKey={pixKey}
+        pixNome={pixNome}
+        pixCidade={pixCidade}
+        mpAccessToken={mpAccessToken}
+        whatsappGestor={whatsappGestor}
+        onSalvar={handleSalvarConfiguracoes}
       />
 
       <BulkActionBar

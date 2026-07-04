@@ -42,3 +42,15 @@ export interface ImportFeedback {
   type: "success" | "error" | "info";
   message: string;
 }
+
+export interface Configuracoes {
+  id?: string;
+  userId: string;
+  mensagemCobranca: string;
+  mensagemRenovacao: string;
+  pixKey: string;
+  pixNome: string;
+  pixCidade: string;
+  mpAccessToken: string;
+  whatsappGestor: string;
+}
