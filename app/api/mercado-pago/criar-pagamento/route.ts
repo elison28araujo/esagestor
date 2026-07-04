@@ -4,6 +4,12 @@ import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "O servidor do banco de dados (Firebase Admin) não está configurado." },
+        { status: 500 }
+      );
+    }
     const { acessoId } = await req.json();
 
     if (!acessoId) {

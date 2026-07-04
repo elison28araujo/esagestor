@@ -3,6 +3,9 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json({ error: "Banco de dados não configurado." }, { status: 500 });
+    }
     let paymentId: string | null = null;
     let topic: string | null = null;
 

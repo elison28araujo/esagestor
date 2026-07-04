@@ -3,6 +3,9 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function GET(req: Request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json({ error: "Banco de dados não configurado." }, { status: 500 });
+    }
     const { searchParams } = new URL(req.url);
     const paymentId = searchParams.get("paymentId");
 

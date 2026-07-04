@@ -3,6 +3,13 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "O servidor do banco de dados (Firebase Admin) não está configurado. Por favor, adicione a variável de ambiente FIREBASE_SERVICE_ACCOUNT nas configurações da Vercel." },
+        { status: 500 }
+      );
+    }
+
     const { telefone } = await req.json();
 
     if (!telefone) {
