@@ -459,9 +459,10 @@ export default function HomePage() {
 
   async function handleExcluirEmLote() {
     if (!db || selecionados.length === 0) return;
-    const batch = writeBatch(db);
+    const database = db;
+    const batch = writeBatch(database);
     selecionados.forEach((id) => {
-      batch.delete(doc(db, "acessos", id));
+      batch.delete(doc(database, "acessos", id));
     });
     await batch.commit();
     setToast({ type: "info", message: `${selecionados.length} clientes removidos em lote.` });
@@ -469,7 +470,8 @@ export default function HomePage() {
 
   async function handleRenovarEmLote() {
     if (!db || !user || selecionados.length === 0) return;
-    const batch = writeBatch(db);
+    const database = db;
+    const batch = writeBatch(database);
     const hoje = new Date();
     
     selecionados.forEach((id) => {
@@ -480,12 +482,12 @@ export default function HomePage() {
       const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
       novaData.setDate(novaData.getDate() + 30);
 
-      batch.update(doc(db, "acessos", id), {
+      batch.update(doc(database, "acessos", id), {
         vencimento: novaData.toISOString(),
         data: hoje.toISOString(),
       });
 
-      const pagDocRef = doc(collection(db, "pagamentos"));
+      const pagDocRef = doc(collection(database, "pagamentos"));
       batch.set(pagDocRef, {
         acessoId: id,
         usuario: item.usuario,
@@ -503,9 +505,10 @@ export default function HomePage() {
 
   async function handleAlterarValorEmLote(novoValor: number) {
     if (!db || selecionados.length === 0) return;
-    const batch = writeBatch(db);
+    const database = db;
+    const batch = writeBatch(database);
     selecionados.forEach((id) => {
-      batch.update(doc(db, "acessos", id), { valor: novoValor });
+      batch.update(doc(database, "acessos", id), { valor: novoValor });
     });
     await batch.commit();
     setToast({ type: "success", message: `Valor de ${selecionados.length} clientes alterado para R$ ${novoValor.toFixed(2)}.` });
@@ -513,9 +516,10 @@ export default function HomePage() {
 
   async function handleAlterarAppEmLote(novoApp: string) {
     if (!db || selecionados.length === 0) return;
-    const batch = writeBatch(db);
+    const database = db;
+    const batch = writeBatch(database);
     selecionados.forEach((id) => {
-      batch.update(doc(db, "acessos", id), { app: novoApp });
+      batch.update(doc(database, "acessos", id), { app: novoApp });
     });
     await batch.commit();
     setToast({ type: "success", message: `App de ${selecionados.length} clientes alterado para ${novoApp}.` });
