@@ -1,922 +1,388 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { auth, db, firebaseConfigured } from "@/lib/firebase";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  query,
-  setDoc,
-  Timestamp,
-  updateDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore";
-import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
-import {
-  Loader2,
-  Settings,
-  TrendingDown,
-  Users,
-  Search,
-  X,
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  Play, 
+  Tv, 
+  Film, 
+  Award, 
+  HelpCircle, 
+  ArrowRight, 
+  Smartphone, 
+  Laptop, 
+  ChevronDown, 
+  ExternalLink,
+  ShieldCheck,
+  Zap,
+  Lock
 } from "lucide-react";
+import Link from "next/link";
 
-import { LoginForm } from "@/components/LoginForm";
-import { Dashboard } from "@/components/Dashboard";
-import { NovoClienteForm } from "@/components/NovoClienteForm";
-import { ClienteCard } from "@/components/ClienteCard";
-import { EditClienteDialog } from "@/components/EditClienteDialog";
-import { DespesaList } from "@/components/DespesaList";
-import { ConfigDialog } from "@/components/ConfigDialog";
-import { Toast } from "@/components/Toast";
-import { Sidebar } from "@/components/Sidebar";
-import { PagamentosList } from "@/components/PagamentosList";
-import { BulkActionBar } from "@/components/BulkActionBar";
-import { enviarResumoAlertasEmail } from "@/lib/email";
-
-import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado } from "@/lib/types";
-import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES } from "@/lib/constants";
-import {
-  escapeCsvValue,
-  isValidPhone,
-  normalizeHeader,
-  normalizePhone,
-  parseCsv,
-  parseFlexibleDate,
-  parseGoogleSheetUrl,
-} from "@/lib/utils";
-
-function parseCurrency(value: string) {
-  const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDateForCsv(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("pt-BR");
-}
-
-function getFieldValue(row: Record<string, string>, aliases: string[]) {
-  for (const alias of aliases) {
-    const match = row[normalizeHeader(alias)];
-    if (match) return match;
-  }
-  return "";
-}
-
-export default function HomePage() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [acessos, setAcessos] = useState<Acesso[]>([]);
-  const [despesas, setDespesas] = useState<Despesa[]>([]);
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
-  const [dadosLoading, setDadosLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
-  const [activeFilter, setActiveFilter] = useState<Filter>("todos");
-  const [editando, setEditando] = useState<Acesso | null>(null);
-  const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
-  const [importando, setImportando] = useState(false);
-  const [toast, setToast] = useState<ImportFeedback | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
-  const [mensagemCobranca, setMensagemCobranca] = useState(DEFAULT_COBRANCA_MSG);
-  const [mensagemRenovacao, setMensagemRenovacao] = useState(DEFAULT_RENOVACAO_MSG);
-  const [pixKey, setPixKey] = useState("");
-  const [pixNome, setPixNome] = useState("");
-  const [pixCidade, setPixCidade] = useState("");
-  const [mpAccessToken, setMpAccessToken] = useState("");
+export default function LandingPage() {
   const [whatsappGestor, setWhatsappGestor] = useState("");
-  const [busca, setBusca] = useState("");
-  const [pagina, setPagina] = useState(1);
-  const [itensPorPagina] = useState(12);
-  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [faqAberto, setFaqAberto] = useState<number | null>(null);
 
-  // Reset pagination and selection on search or filter change
+  // Carregar dados de contato públicos do gestor
   useEffect(() => {
-    setPagina(1);
-    setSelecionados([]);
-  }, [busca, activeFilter]);
-
-  // Dark mode toggle
-  useEffect(() => {
-    const saved = localStorage.getItem("esa_dark");
-    if (saved === "1") { setDarkMode(true); document.documentElement.classList.add("dark"); }
-  }, []);
-
-  function toggleDark() {
-    const next = !darkMode;
-    setDarkMode(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("esa_dark", next ? "1" : "0");
-  }
-
-  // Load saved configuracoes in real-time from Firestore
-  useEffect(() => {
-    if (!user || !db) return;
-    const configDocRef = doc(db, "configuracoes", user.uid);
-    const unsubConfig = onSnapshot(configDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.mensagemCobranca) setMensagemCobranca(data.mensagemCobranca);
-        if (data.mensagemRenovacao) setMensagemRenovacao(data.mensagemRenovacao);
-        setPixKey(data.pixKey || "");
-        setPixNome(data.pixNome || "");
-        setPixCidade(data.pixCidade || "");
-        setMpAccessToken(data.mpAccessToken || "");
-        setWhatsappGestor(data.whatsappGestor || "");
-      }
-    });
-    return () => unsubConfig();
-  }, [user]);
-
-  async function handleSalvarConfiguracoes(data: {
-    mensagemCobranca: string;
-    mensagemRenovacao: string;
-    pixKey: string;
-    pixNome: string;
-    pixCidade: string;
-    mpAccessToken: string;
-    whatsappGestor: string;
-  }) {
-    if (!user || !db) return;
-    try {
-      const configDocRef = doc(db, "configuracoes", user.uid);
-      await setDoc(configDocRef, {
-        userId: user.uid,
-        ...data,
-      }, { merge: true });
-      setToast({ type: "success", message: "Configurações salvas!" });
-    } catch (e) {
-      console.error("Erro ao salvar configurações:", e);
-      setToast({ type: "error", message: "Erro ao salvar configurações." });
-    }
-  }
-
-  useEffect(() => {
-    if (!auth) { setAuthLoading(false); return; }
-    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user || !db) { setAcessos([]); setDespesas([]); setPagamentos([]); setDadosLoading(false); return; }
-    setDadosLoading(true);
-    const acessosQ = query(collection(db, "acessos"), where("userId", "==", user.uid));
-    const despesasQ = query(collection(db, "despesas"), where("userId", "==", user.uid));
-    const pagamentosQ = query(collection(db, "pagamentos"), where("userId", "==", user.uid));
-    const unsubA = onSnapshot(acessosQ, (snap) => {
-      setAcessos(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Acesso[]);
-      setDadosLoading(false);
-    });
-    const unsubD = onSnapshot(despesasQ, (snap) => {
-      setDespesas(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Despesa[]);
-    });
-    const unsubP = onSnapshot(pagamentosQ, (snap) => {
-      setPagamentos(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Pagamento[]);
-    });
-    return () => { unsubA(); unsubD(); unsubP(); };
-  }, [user]);
-
-  // Daily email alert check
-  useEffect(() => {
-    if (!user || acessos.length === 0) return;
-
-    const emailAlertsEnabled = localStorage.getItem("esa_email_alerts") !== "0"; // Default enabled
-    if (!emailAlertsEnabled) return;
-
-    const lastAlertDate = localStorage.getItem("esa_last_email_alert_date");
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (lastAlertDate === today) return;
-
-    if (user.email) {
-      enviarResumoAlertasEmail(user.email, acessos).then((sent) => {
-        if (sent) {
-          localStorage.setItem("esa_last_email_alert_date", today);
-          setToast({ type: "info", message: "Resumo de vencimentos enviado para seu e-mail." });
+    async function loadLandingInfo() {
+      try {
+        const res = await fetch("/api/landing-info");
+        const data = await res.json();
+        if (data.whatsappGestor) {
+          setWhatsappGestor(data.whatsappGestor);
         }
-      }).catch((err) => {
-        console.error("Erro no envio do e-mail diário:", err);
-      });
-    }
-  }, [user, acessos]);
-
-  async function addCliente({ nomeUser, cliente, telefone, valor, app }: {
-    nomeUser: string; cliente: string; telefone: string; valor: string; app: string;
-  }) {
-    if (!user || !db) return;
-    const clientesMesmoUsuario = acessos.filter(
-      (item) => item.usuario.trim().toLowerCase() === nomeUser.trim().toLowerCase()
-    );
-    if (clientesMesmoUsuario.length >= 3) {
-      setToast({ type: "error", message: "Máximo de 3 clientes por usuário" }); return;
-    }
-    if (app === "P2P" && clientesMesmoUsuario.some((item) => item.app === "P2P")) {
-      setToast({ type: "error", message: "Esse usuário já possui P2P" }); return;
-    }
-    const vencimento = new Date();
-    vencimento.setDate(vencimento.getDate() + 30);
-    const valNumerico = Number(valor) || 0;
-    const docRef = await addDoc(collection(db, "acessos"), {
-      usuario: nomeUser.trim(),
-      cliente: cliente.trim(),
-      telefone: normalizePhone(telefone),
-      valor: valNumerico,
-      app,
-      vencimento: vencimento.toISOString(),
-      data: new Date().toISOString(),
-      createdAt: Timestamp.now(),
-      userId: user.uid,
-    });
-    // Criar registro inicial de pagamento
-    await addDoc(collection(db, "pagamentos"), {
-      acessoId: docRef.id,
-      usuario: nomeUser.trim(),
-      cliente: cliente.trim(),
-      app,
-      valor: valNumerico,
-      data: new Date().toISOString(),
-      userId: user.uid,
-    });
-    setToast({ type: "success", message: `Cliente "${cliente}" adicionado!` });
-  }
-
-  async function handleRenovar(id: string) {
-    if (!db || !user) return;
-    const item = acessos.find((a) => a.id === id);
-    if (!item) return;
-
-    const hoje = new Date();
-    const dataVencimentoAtual = new Date(item.vencimento);
-    
-    // Se já venceu, renova a partir de hoje. Se não venceu, adiciona 30 dias à data atual de vencimento.
-    const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-    novaData.setDate(novaData.getDate() + 30);
-
-    await updateDoc(doc(db, "acessos", id), {
-      vencimento: novaData.toISOString(),
-      data: hoje.toISOString(), // Atualiza a data da última renovação
-    });
-
-    // Registrar pagamento no histórico
-    await addDoc(collection(db, "pagamentos"), {
-      acessoId: id,
-      usuario: item.usuario,
-      cliente: item.cliente,
-      app: item.app,
-      valor: item.valor || 0,
-      data: hoje.toISOString(),
-      userId: user.uid,
-    });
-    
-    setToast({ type: "success", message: `Acesso de "${item.cliente}" renovado!` });
-  }
-
-  function exportarClientesCsv() {
-    const linhas = [
-      ["usuario", "cliente", "whatsapp", "valor", "app", "vencimento", "data"].join(";"),
-      ...acessos
-        .slice()
-        .sort((a, b) => a.usuario.localeCompare(b.usuario))
-        .map((item) =>
-          [
-            escapeCsvValue(item.usuario),
-            escapeCsvValue(item.cliente),
-            escapeCsvValue(item.telefone),
-            escapeCsvValue(Number(item.valor || 0).toFixed(2)),
-            escapeCsvValue(item.app),
-            escapeCsvValue(formatDateForCsv(item.vencimento)),
-            escapeCsvValue(formatDateForCsv(item.data)),
-          ].join(";")
-        ),
-    ];
-    const blob = new Blob([`\uFEFF${linhas.join("\n")}`], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `clientes-esa-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setToast({ type: "info", message: "CSV exportado com sucesso!" });
-  }
-
-  async function processarImportacao(rows: string[][], sourceLabel?: string) {
-    if (!user || !db) return;
-    if (rows.length < 2) throw new Error("A planilha está vazia ou sem linhas de dados.");
-
-    const headers = rows[0].map((h) => normalizeHeader(h));
-    const headersReconhecidos = Object.values(FIELD_ALIASES).flat().some((a) => headers.includes(normalizeHeader(a)));
-    const dataRows = rows.slice(1);
-    const counts = new Map<string, number>();
-    const p2pUsers = new Set<string>();
-
-    acessos.forEach((item) => {
-      const key = item.usuario.trim().toLowerCase();
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-      if (normalizeHeader(item.app) === "p2p") p2pUsers.add(key);
-    });
-
-    let importados = 0;
-    let semWhatsapp = 0;
-    const erros: string[] = [];
-    const BATCH_SIZE = 200; // Reduzido pois gravamos 2 docs por linha (acesso + pagamento)
-    let batch = writeBatch(db);
-    let batchCount = 0;
-
-    for (let index = 0; index < dataRows.length; index++) {
-      const values = dataRows[index];
-      const row: Record<string, string> = {};
-      if (headersReconhecidos) {
-        headers.forEach((h, i) => { row[h] = values[i]?.trim() ?? ""; });
-      } else {
-        FALLBACK_COLUMNS.forEach((col, i) => { row[col] = values[i]?.trim() ?? ""; });
-      }
-
-      const usuario = getFieldValue(row, FIELD_ALIASES.usuario).trim();
-      const cliente = getFieldValue(row, FIELD_ALIASES.cliente).trim();
-      const telefoneInformado = getFieldValue(row, FIELD_ALIASES.telefone).trim();
-      const telefone = normalizePhone(telefoneInformado);
-      const app = getFieldValue(row, FIELD_ALIASES.app).trim() || "P2P";
-      const valorImportado = getFieldValue(row, FIELD_ALIASES.valor).trim();
-      const vencimentoImportado = getFieldValue(row, FIELD_ALIASES.vencimento).trim();
-      const dataImportada = getFieldValue(row, FIELD_ALIASES.data).trim();
-
-      if (!usuario || !cliente) { erros.push(`Linha ${index + 2}: faltou usuário ou cliente.`); continue; }
-      if (telefone && !isValidPhone(telefone)) { erros.push(`Linha ${index + 2}: WhatsApp inválido para ${cliente}.`); continue; }
-
-      const usuarioKey = usuario.toLowerCase();
-      const totalAtual = counts.get(usuarioKey) ?? 0;
-      const isP2P = normalizeHeader(app) === "p2p";
-
-      if (totalAtual >= 3) { erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 3 clientes.`); continue; }
-      if (isP2P && p2pUsers.has(usuarioKey)) { erros.push(`Linha ${index + 2}: ${usuario} já possui P2P.`); continue; }
-
-      const dataBase = new Date(); dataBase.setDate(dataBase.getDate() + 30);
-      const dataVenc = parseFlexibleDate(vencimentoImportado) || dataBase.toISOString();
-      const dataCad = parseFlexibleDate(dataImportada) || new Date().toISOString();
-      const val = parseCurrency(valorImportado);
-
-      const docRef = doc(collection(db, "acessos"));
-      batch.set(docRef, {
-        usuario, cliente, telefone,
-        valor: val,
-        app,
-        vencimento: dataVenc,
-        data: dataCad,
-        createdAt: Timestamp.now(),
-        userId: user.uid,
-      });
-
-      // Gravar pagamento correspondente
-      const pagDocRef = doc(collection(db, "pagamentos"));
-      batch.set(pagDocRef, {
-        acessoId: docRef.id,
-        usuario,
-        cliente,
-        app,
-        valor: val,
-        data: dataCad,
-        userId: user.uid,
-      });
-
-      counts.set(usuarioKey, totalAtual + 1);
-      if (isP2P) p2pUsers.add(usuarioKey);
-      if (!telefone) semWhatsapp++;
-      importados++;
-      batchCount += 2;
-
-      if (batchCount >= BATCH_SIZE) {
-        await batch.commit();
-        batch = writeBatch(db);
-        batchCount = 0;
+      } catch (err) {
+        console.error("Erro ao carregar informações da landing page:", err);
       }
     }
+    loadLandingInfo();
+  }, []);
 
-    if (batchCount > 0) await batch.commit();
-
-    const resumo: string[] = [`${importados} cliente(s) importado(s).`];
-    if (sourceLabel) resumo.push(`Origem: ${sourceLabel}.`);
-    if (semWhatsapp > 0) resumo.push(`${semWhatsapp} sem WhatsApp para completar depois.`);
-    if (erros.length > 0) resumo.push(`${erros.length} linha(s) ignorada(s): ${erros.slice(0, 3).join(" ")}`);
-
-    setImportFeedback({ type: importados > 0 ? "success" : "error", message: resumo.join(" ") });
+  function handleAssinar(plano: string, valor: string) {
+    const telefone = whatsappGestor ? whatsappGestor.replace(/\D/g, "") : "5511999999999";
+    const mensagem = `Olá! Vi o site da ESA Play e gostaria de assinar o *${plano}* (R$ ${valor}). Como posso fazer para ativar?`;
+    window.open(`https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(mensagem)}`, "_blank");
   }
 
-  async function importarClientesCsv(event: ChangeEvent<HTMLInputElement>) {
-    if (!user || !db) return;
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setImportando(true); setImportFeedback(null);
-    try {
-      const text = await file.text();
-      await processarImportacao(parseCsv(text));
-    } catch (e: unknown) {
-      setImportFeedback({ type: "error", message: e instanceof Error ? e.message : "Erro ao importar." });
-    } finally {
-      event.target.value = "";
-      setImportando(false);
+  const catalog = [
+    {
+      title: "Filmes Blockbuster",
+      img: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80",
+      description: "Lançamentos e clássicos do cinema mundial.",
+      badge: "4K Ultra HD"
+    },
+    {
+      title: "Copa do Mundo 2026 & Esportes",
+      img: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80",
+      description: "Transmissões ao vivo dos maiores campeonatos.",
+      badge: "Ao Vivo"
+    },
+    {
+      title: "Séries Exclusivas",
+      img: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
+      description: "As melhores produções para maratonar.",
+      badge: "Completo"
+    },
+    {
+      title: "Canais Ao Vivo",
+      img: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80",
+      description: "Mais de 500 canais abertos e fechados.",
+      badge: "Sem Travamentos"
     }
-  }
+  ];
 
-  async function importarGoogleSheet(url: string) {
-    if (!user || !db) return;
-    if (!url.trim()) { setImportFeedback({ type: "error", message: "Cole o link da planilha." }); return; }
-    setImportando(true); setImportFeedback(null);
-    try {
-      const { spreadsheetId, gid } = parseGoogleSheetUrl(url);
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(exportUrl)}`;
-      
-      const res = await fetch(proxyUrl);
-      if (!res.ok) throw new Error("Não foi possível ler a planilha. Verifique se ela está pública.");
-      
-      const csv = await res.text();
-      if (!csv.trim()) throw new Error("A planilha retornou vazia.");
-
-      await processarImportacao(parseCsv(csv), `Google Sheets (gid ${gid})`);
-    } catch (e: unknown) {
-      setImportFeedback({ type: "error", message: e instanceof Error ? e.message : "Erro ao importar." });
-    } finally {
-      setImportando(false);
+  const planos = [
+    {
+      nome: "Bronze - 1 Tela",
+      preco: "30,00",
+      telas: 1,
+      popular: false,
+      vantagens: ["Qualidade Full HD", "Acesso imediato", "Sem fidelidade", "Suporte 24h"]
+    },
+    {
+      nome: "Prata - 2 Telas",
+      preco: "33,00",
+      telas: 2,
+      popular: true,
+      vantagens: ["Qualidade Ultra HD / 4K", "Acesso imediato", "Sem fidelidade", "Suporte prioritário"]
+    },
+    {
+      nome: "Ouro - 3 Telas",
+      preco: "35,00",
+      telas: 3,
+      popular: false,
+      vantagens: ["Qualidade Ultra HD / 4K", "Acesso imediato", "Sem fidelidade", "Suporte VIP", "Economia máxima"]
     }
-  }
+  ];
 
-  async function addDespesa(descricao: string, valor: string) {
-    if (!user || !db) return;
-    await addDoc(collection(db, "despesas"), {
-      descricao: descricao.trim(),
-      valor: Number(valor),
-      data: new Date().toISOString(),
-      createdAt: Timestamp.now(),
-      userId: user.uid,
-    });
-    setToast({ type: "success", message: "Despesa adicionada!" });
-  }
-
-  async function remover(id: string, tipo: "acessos" | "despesas" | "pagamentos") {
-    if (!db) return;
-    await deleteDoc(doc(db, tipo, id));
-    let msg = "";
-    if (tipo === "acessos") msg = "Cliente removido.";
-    else if (tipo === "despesas") msg = "Despesa removida.";
-    else if (tipo === "pagamentos") msg = "Pagamento estornado.";
-    setToast({ type: "info", message: msg });
-  }
-
-  async function salvarEdicao(id: string, data: Partial<Acesso>) {
-    if (!db) return;
-    await updateDoc(doc(db, "acessos", id), data);
-    setToast({ type: "success", message: "Cliente atualizado!" });
-  }
-
-  function toggleSelecao(id: string) {
-    setSelecionados((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
-
-  async function handleExcluirEmLote() {
-    if (!db || selecionados.length === 0) return;
-    const database = db;
-    const batch = writeBatch(database);
-    selecionados.forEach((id) => {
-      batch.delete(doc(database, "acessos", id));
-    });
-    await batch.commit();
-    setToast({ type: "info", message: `${selecionados.length} clientes removidos em lote.` });
-  }
-
-  async function handleRenovarEmLote() {
-    if (!db || !user || selecionados.length === 0) return;
-    const database = db;
-    const batch = writeBatch(database);
-    const hoje = new Date();
-    
-    selecionados.forEach((id) => {
-      const item = acessos.find((a) => a.id === id);
-      if (!item) return;
-
-      const dataVencimentoAtual = new Date(item.vencimento);
-      const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-      novaData.setDate(novaData.getDate() + 30);
-
-      batch.update(doc(database, "acessos", id), {
-        vencimento: novaData.toISOString(),
-        data: hoje.toISOString(),
-      });
-
-      const pagDocRef = doc(collection(database, "pagamentos"));
-      batch.set(pagDocRef, {
-        acessoId: id,
-        usuario: item.usuario,
-        cliente: item.cliente,
-        app: item.app,
-        valor: item.valor || 0,
-        data: hoje.toISOString(),
-        userId: user.uid,
-      });
-    });
-
-    await batch.commit();
-    setToast({ type: "success", message: `${selecionados.length} acessos renovados em lote!` });
-  }
-
-  async function handleAlterarValorEmLote(novoValor: number) {
-    if (!db || selecionados.length === 0) return;
-    const database = db;
-    const batch = writeBatch(database);
-    selecionados.forEach((id) => {
-      batch.update(doc(database, "acessos", id), { valor: novoValor });
-    });
-    await batch.commit();
-    setToast({ type: "success", message: `Valor de ${selecionados.length} clientes alterado para R$ ${novoValor.toFixed(2)}.` });
-  }
-
-  async function handleAlterarAppEmLote(novoApp: string) {
-    if (!db || selecionados.length === 0) return;
-    const database = db;
-    const batch = writeBatch(database);
-    selecionados.forEach((id) => {
-      batch.update(doc(database, "acessos", id), { app: novoApp });
-    });
-    await batch.commit();
-    setToast({ type: "success", message: `App de ${selecionados.length} clientes alterado para ${novoApp}.` });
-  }
-
-  const usuariosAgrupados: UsuarioAgrupado[] = useMemo(() => {
-    const groups: Record<string, Acesso[]> = {};
-    acessos.forEach((item) => {
-      if (!groups[item.usuario]) groups[item.usuario] = [];
-      groups[item.usuario].push(item);
-    });
-    return Object.keys(groups)
-      .map((nome) => ({
-        nome,
-        clientes: groups[nome].sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime()),
-        temP2P: groups[nome].some((item) => item.app === "P2P"),
-      }))
-      .sort((a, b) => {
-        if (a.temP2P !== b.temP2P) return a.temP2P ? 1 : -1;
-        return a.clientes.length - b.clientes.length;
-      });
-  }, [acessos]);
-
-  const usuariosFiltrados = useMemo(() => {
-    let list = usuariosAgrupados;
-
-    // Apply status filter
-    if (activeFilter !== "todos") {
-      const hoje = Date.now();
-      list = list.map(grupo => ({
-        ...grupo,
-        clientes: grupo.clientes.filter(c => {
-          const dias = Math.ceil((new Date(c.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
-          if (activeFilter === "vencidos") return dias <= 0;
-          if (activeFilter === "vencendo") return dias > 0 && dias <= 3;
-          if (activeFilter === "ativos") return dias > 3;
-          return true;
-        })
-      })).filter(g => g.clientes.length > 0);
+  const faqs = [
+    {
+      p: "Como funciona a ativação?",
+      r: "Após escolher o plano e realizar o pagamento, nosso suporte envia os dados de acesso (usuário e senha) no seu WhatsApp em menos de 5 minutos."
+    },
+    {
+      p: "Em quais dispositivos posso assistir?",
+      r: "Você pode assistir na Smart TV (Samsung, LG, Android TV), TV Box, Chromecast, celulares (Android e iOS), tablet, computador ou notebook."
+    },
+    {
+      p: "Preciso de quantos megas de internet?",
+      r: "Recomendamos uma internet mínima de 15 Mbps para conteúdos em HD/Full HD e 30 Mbps para assistir transmissões ao vivo ou filmes em 4K sem travamentos."
+    },
+    {
+      p: "Posso cancelar quando quiser?",
+      r: "Sim! Não temos contrato de fidelidade. Você paga mês a mês e pode cancelar ou trocar de plano a qualquer momento sem taxas adicionais."
     }
-
-    // Apply search filter
-    if (busca.trim()) {
-      const q = busca.toLowerCase();
-      list = list.map((grupo) => ({
-        ...grupo,
-        clientes: grupo.clientes.filter(
-          (c) =>
-            c.cliente.toLowerCase().includes(q) ||
-            c.usuario.toLowerCase().includes(q) ||
-            c.app.toLowerCase().includes(q) ||
-            c.telefone.includes(q)
-        ),
-      })).filter((g) => g.clientes.length > 0 || g.nome.toLowerCase().includes(q));
-    }
-
-    return list;
-  }, [usuariosAgrupados, activeFilter, busca]);
-
-  const totalPaginas = Math.ceil(usuariosFiltrados.length / itensPorPagina);
-  const usuariosPaginados = useMemo(() => {
-    return usuariosFiltrados.slice((pagina - 1) * itensPorPagina, pagina * itensPorPagina);
-  }, [usuariosFiltrados, pagina, itensPorPagina]);
-
-  const appOptions = useMemo(
-    () => Array.from(new Set([...APP_OPTIONS, ...acessos.map((a) => a.app).filter(Boolean)])).sort(),
-    [acessos]
-  );
-
-  useEffect(() => {
-    if (activeTab === "configuracoes") {
-      setConfigOpen(true);
-      setActiveTab("clientes");
-    }
-  }, [activeTab]);
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center dark:bg-slate-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  if (!firebaseConfigured) {
-    return (
-      <main className="flex min-h-screen items-center justify-center p-4 dark:bg-slate-900">
-        <Card className="w-full max-w-lg shadow-xl">
-          <CardContent className="space-y-4 p-6">
-            <h1 className="text-2xl font-bold text-center">ESA GESTOR</h1>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              Configure as variáveis de ambiente do Firebase na Vercel para começar.
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    );
-  }
-
-  if (!user) return <LoginForm />;
+  ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50 transition-colors dark:bg-slate-950">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        activeFilter={activeFilter}
-        setActiveFilter={setActiveFilter}
-        darkMode={darkMode}
-        toggleDark={toggleDark}
-        onLogout={() => auth && signOut(auth)}
-        userEmail={user.email}
-      />
+    <div className="min-h-screen bg-[#060814] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-900">
+      
+      {/* Header */}
+      <header className="fixed top-0 left-0 w-full z-50 bg-[#060814]/80 backdrop-blur-md border-b border-slate-900/50">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-xl font-heading font-black tracking-tighter text-slate-50">
+              ESA<span className="bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded-lg ml-1 text-sm inline-block transform rotate-[-2deg]">Play</span>
+            </span>
+          </Link>
 
-      <main className="flex-1 transition-all duration-300 md:pl-64">
-        <div className="mx-auto max-w-6xl p-4 md:p-8">
-          {/* Header (Desktop: Hidden or simplified, Mobile: Visible) */}
-          <header className="mb-8 flex items-center justify-between md:hidden">
-            <h1 className="text-xl font-bold text-blue-600">ESA GESTOR</h1>
-            <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}>
-              <Settings className="h-4 w-4" />
-            </Button>
-          </header>
+          {/* Links Navegação */}
+          <nav className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <a href="#" className="hover:text-slate-100 transition">Home</a>
+            <a href="#catalogo" className="hover:text-slate-100 transition">Catálogo</a>
+            <a href="#planos" className="hover:text-slate-100 transition">Planos</a>
+            <a href="#faq" className="hover:text-slate-100 transition">Dúvidas</a>
+            <Link 
+              href="/consulta" 
+              className="text-amber-500 hover:text-amber-400 transition flex items-center gap-1"
+            >
+              Área do Cliente <ExternalLink className="h-3 w-3" />
+            </Link>
+          </nav>
 
-          {/* Page Content */}
-          <div className="space-y-8">
-            {/* Dashboard */}
-            {activeTab === "dashboard" && (
-              <Dashboard acessos={acessos} despesas={despesas} usuariosAgrupados={usuariosAgrupados} pagamentos={pagamentos} />
-            )}
+          {/* Botões do Topo */}
+          <div className="flex items-center gap-3">
+            <Link href="/consulta">
+              <Button variant="ghost" className="hidden sm:inline-flex rounded-xl font-bold text-xs text-slate-300 hover:text-white hover:bg-slate-900">
+                Área do Cliente
+              </Button>
+            </Link>
+            <a href="#planos">
+              <Button className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-5 shadow-lg shadow-amber-500/10">
+                Assine Já
+              </Button>
+            </a>
+          </div>
 
-            {/* Cadastro Form */}
-            {activeTab === "cadastro" && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-heading font-bold tracking-tight text-slate-800 dark:text-slate-100">Cadastrar Novo Cliente</h2>
-                <NovoClienteForm
-                  acessos={acessos}
-                  appOptions={appOptions}
-                  importFeedback={importFeedback}
-                  importando={importando}
-                  onAddCliente={addCliente}
-                  onExportarCsv={exportarClientesCsv}
-                  onImportarCsv={importarClientesCsv}
-                  onImportarGoogleSheet={importarGoogleSheet}
-                />
-              </div>
-            )}
+        </div>
+      </header>
 
-            {/* Content Area */}
-            {activeTab === "clientes" && (
-              <div className="space-y-6">
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-24 md:pt-40 md:pb-36 overflow-hidden flex items-center">
+        {/* Imagem de Fundo Estilizada (Cinema / Esportes) */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-[0.25] pointer-events-none scale-105 filter blur-sm transition-all"
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1600&auto=format&fit=crop&q=80')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060814] via-[#060814]/70 to-[#060814] pointer-events-none" />
+        
+        <div className="max-w-4xl mx-auto px-4 text-center relative z-10 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-amber-500 text-xs font-bold uppercase tracking-wider animate-pulse">
+            <Zap className="h-4.5 w-4.5 text-amber-500" /> Ativação Imediata
+          </div>
+          
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-slate-50">
+            O melhor do entretenimento <br />
+            <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 bg-clip-text text-transparent">& esporte está aqui.</span>
+          </h1>
+          
+          <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto font-medium">
+            Filmes Blockbuster, Séries Exclusivas & a Copa do Mundo FIFA 2026™ ao vivo e em 4K. Assista na sua TV, Computador ou Celular sem travamentos.
+          </p>
 
-                {/* Search & Results Info */}
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      className="h-11 pl-10 pr-10 dark:border-slate-800 dark:bg-slate-900"
-                      placeholder="Buscar por usuário, cliente, app ou telefone..."
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                    />
-                    {busca && (
-                      <button
-                        onClick={() => setBusca("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                  
-                  {activeFilter !== "todos" && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span>Filtro ativo:</span>
-                      <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                        {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
-                      </span>
-                      <Button variant="ghost" size="sm" onClick={() => setActiveFilter("todos")} className="h-8 px-2 text-xs">
-                        Limpar
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Client List */}
-                <div className="grid gap-6">
-                  {dadosLoading ? (
-                    <div className="flex justify-center py-20">
-                      <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-                    </div>
-                  ) : usuariosFiltrados.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 py-20 dark:border-slate-800">
-                      <Users className="mb-4 h-12 w-12 text-slate-300" />
-                      <p className="text-slate-500">
-                        {busca ? "Nenhum resultado encontrado para sua busca." : "Nenhum cliente encontrado com este filtro."}
-                      </p>
-                      {activeFilter !== "todos" && (
-                        <Button variant="ghost" onClick={() => setActiveFilter("todos")}>
-                          Ver todos os clientes
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    usuariosPaginados.map((grupo) => (
-                      <div key={grupo.nome} className="space-y-3">
-                        <div className="flex items-center justify-between px-2">
-                          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                            {grupo.nome}
-                            <span className="ml-2 text-sm font-normal text-slate-500">
-                              ({grupo.clientes.length} cliente{grupo.clientes.length !== 1 ? "s" : ""})
-                            </span>
-                          </h3>
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          {grupo.clientes.map((item) => (
-                            <ClienteCard
-                              key={item.id}
-                              item={item}
-                              mensagemCobranca={mensagemCobranca}
-                              mensagemRenovacao={mensagemRenovacao}
-                              onEditar={setEditando}
-                              onRemover={(id) => remover(id, "acessos")}
-                              onRenovar={handleRenovar}
-                              selecionado={selecionados.includes(item.id)}
-                              onToggleSelecao={toggleSelecao}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  )}
-
-                  {/* Controles de Paginação */}
-                  {totalPaginas > 1 && (
-                    <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-200/50 pt-6 dark:border-slate-800/50 sm:flex-row">
-                      <p className="text-sm text-slate-500">
-                        Mostrando página <strong>{pagina}</strong> de <strong>{totalPaginas}</strong> (total {usuariosFiltrados.length} grupos)
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPagina((p) => Math.max(p - 1, 1))}
-                          disabled={pagina === 1}
-                          className="rounded-xl"
-                        >
-                          Anterior
-                        </Button>
-                        
-                        {totalPaginas <= 6 ? (
-                          Array.from({ length: totalPaginas }, (_, i) => i + 1).map((p) => (
-                            <Button
-                              key={p}
-                              variant={pagina === p ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setPagina(p)}
-                              className={`h-9 w-9 rounded-xl p-0 ${
-                                pagina === p
-                                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                                  : ""
-                              }`}
-                            >
-                              {p}
-                            </Button>
-                          ))
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant={pagina === 1 ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setPagina(1)}
-                              className={`h-9 w-9 rounded-xl p-0 ${pagina === 1 ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}`}
-                            >
-                              1
-                            </Button>
-                            {pagina > 3 && <span className="px-1 text-slate-400">...</span>}
-                            {pagina > 1 && pagina < totalPaginas && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="h-9 w-9 rounded-xl p-0 bg-blue-600 text-white"
-                              >
-                                {pagina}
-                              </Button>
-                            )}
-                            {pagina < totalPaginas - 2 && <span className="px-1 text-slate-400">...</span>}
-                            <Button
-                              variant={pagina === totalPaginas ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setPagina(totalPaginas)}
-                              className={`h-9 w-9 rounded-xl p-0 ${pagina === totalPaginas ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}`}
-                            >
-                              {totalPaginas}
-                            </Button>
-                          </div>
-                        )}
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPagina((p) => Math.min(p + 1, totalPaginas))}
-                          disabled={pagina === totalPaginas}
-                          className="rounded-xl"
-                        >
-                          Próxima
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "despesas" && (
-              <DespesaList
-                despesas={despesas}
-                onAdd={addDespesa}
-                onRemover={(id) => remover(id, "despesas")}
-              />
-            )}
-
-            {activeTab === "pagamentos" && (
-              <PagamentosList
-                pagamentos={pagamentos}
-                onRemover={(id) => remover(id, "pagamentos")}
-              />
-            )}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <a href="#planos" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm px-8 flex items-center justify-center gap-2 shadow-xl shadow-amber-500/20 transform active:scale-95 transition-all">
+                Assine Agora <ArrowRight className="h-4.5 w-4.5" />
+              </Button>
+            </a>
+            <Link href="/consulta" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto h-12 rounded-xl border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-200 font-bold text-sm px-8 flex items-center justify-center gap-2 hover:border-slate-700">
+                <Play className="h-4.5 w-4.5 text-amber-500" /> Acessar Portal do Cliente
+              </Button>
+            </Link>
           </div>
         </div>
-      </main>
+      </section>
 
-      {/* Dialogs */}
-      <EditClienteDialog
-        acesso={editando}
-        appOptions={appOptions}
-        onSalvar={salvarEdicao}
-        onFechar={() => setEditando(null)}
-      />
+      {/* Catálogo Destaques */}
+      <section id="catalogo" className="py-20 bg-slate-950/40 relative">
+        <div className="max-w-6xl mx-auto px-4">
+          
+          <div className="text-center mb-16 space-y-2">
+            <h2 className="text-3xl font-extrabold tracking-tight">Conteúdo para toda a família</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">Várias categorias de canais, filmes e esportes com servidores de alta velocidade.</p>
+          </div>
 
-      <ConfigDialog
-        open={configOpen}
-        onFechar={() => {
-          setConfigOpen(false);
-          setActiveTab("clientes");
-        }}
-        mensagem={mensagemCobranca}
-        mensagemRenovacao={mensagemRenovacao}
-        pixKey={pixKey}
-        pixNome={pixNome}
-        pixCidade={pixCidade}
-        mpAccessToken={mpAccessToken}
-        whatsappGestor={whatsappGestor}
-        onSalvar={handleSalvarConfiguracoes}
-      />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {catalog.map((item, index) => (
+              <Card key={index} className="bg-slate-900/40 border-slate-900 rounded-3xl overflow-hidden hover:shadow-xl hover:border-slate-800 transition duration-300 group">
+                <div className="relative h-44 overflow-hidden">
+                  <img 
+                    src={item.img} 
+                    alt={item.title} 
+                    className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent" />
+                  <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                </div>
+                <CardContent className="p-5 space-y-1">
+                  <h3 className="font-bold text-slate-100 group-hover:text-amber-500 transition">{item.title}</h3>
+                  <p className="text-xs text-slate-400">{item.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-      <BulkActionBar
-        selecionadosCount={selecionados.length}
-        onLimparSelecao={() => setSelecionados([])}
-        onRenovarEmLote={handleRenovarEmLote}
-        onExcluirEmLote={handleExcluirEmLote}
-        onAlterarValorEmLote={handleAlterarValorEmLote}
-        onAlterarAppEmLote={handleAlterarAppEmLote}
-        appOptions={appOptions}
-      />
+        </div>
+      </section>
 
-      {/* Toast */}
-      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
+      {/* Planos */}
+      <section id="planos" className="py-20 relative">
+        <div className="max-w-6xl mx-auto px-4">
+          
+          <div className="text-center mb-16 space-y-2">
+            <h2 className="text-3xl font-extrabold tracking-tight">Escolha o seu plano</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">Sem taxas ocultas. Cancele ou altere o plano quando desejar.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {planos.map((plano, index) => (
+              <div 
+                key={index} 
+                className={`relative rounded-3xl p-6 border ${
+                  plano.popular 
+                    ? "border-amber-500/60 bg-gradient-to-b from-amber-500/[0.04] to-transparent shadow-xl" 
+                    : "border-slate-900 bg-slate-900/20"
+                } flex flex-col justify-between gap-6 transition hover:-translate-y-1`}
+              >
+                {plano.popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                    Mais Popular
+                  </span>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-bold text-lg text-slate-100">{plano.nome}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">{plano.telas} tela{plano.telas > 1 ? "s" : ""} simultânea{plano.telas > 1 ? "s" : ""}</p>
+                  </div>
+                  
+                  <div className="flex items-baseline">
+                    <span className="text-sm font-semibold text-slate-400">R$</span>
+                    <span className="text-4xl font-black text-slate-50 ml-1">{plano.preco}</span>
+                    <span className="text-xs text-slate-400 ml-1">/mês</span>
+                  </div>
+
+                  <hr className="border-slate-900" />
+
+                  <ul className="space-y-2.5 text-xs text-slate-300">
+                    {plano.vantagens.map((v, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <ShieldCheck className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
+                        <span>{v}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <Button 
+                  onClick={() => handleAssinar(plano.nome, plano.preco)}
+                  className={`w-full h-11 rounded-xl font-bold text-xs transition ${
+                    plano.popular 
+                      ? "bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-lg shadow-amber-500/10" 
+                      : "bg-slate-900 hover:bg-slate-800 text-slate-100"
+                  }`}
+                >
+                  Contratar Plano
+                </Button>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* Dispositivos Suportados */}
+      <section className="py-16 bg-[#04060e] border-y border-slate-900/40">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-around gap-8 text-center sm:text-left text-slate-400 text-sm">
+          <div className="flex items-center gap-3">
+            <Tv className="h-8 w-8 text-amber-500 shrink-0 mx-auto" />
+            <div>
+              <h4 className="font-bold text-slate-200">Smart TV / TV Box</h4>
+              <p className="text-xs">Aplicativos dedicados e leves.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Smartphone className="h-8 w-8 text-amber-500 shrink-0 mx-auto" />
+            <div>
+              <h4 className="font-bold text-slate-200">Celular / Tablet</h4>
+              <p className="text-xs">Assista de onde estiver.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Laptop className="h-8 w-8 text-amber-500 shrink-0 mx-auto" />
+            <div>
+              <h4 className="font-bold text-slate-200">Computador</h4>
+              <p className="text-xs">Player web direto no navegador.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="py-20 relative">
+        <div className="max-w-3xl mx-auto px-4">
+          
+          <div className="text-center mb-12 space-y-2">
+            <HelpCircle className="h-8 w-8 text-amber-500 mx-auto" />
+            <h2 className="text-3xl font-extrabold tracking-tight">Perguntas Frequentes</h2>
+            <p className="text-slate-400 text-sm">Tem alguma dúvida? Confira as respostas rápidas abaixo.</p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, i) => (
+              <div 
+                key={i} 
+                className="bg-slate-900/10 border border-slate-900 rounded-2xl overflow-hidden transition"
+              >
+                <button 
+                  onClick={() => setFaqAberto(faqAberto === i ? null : i)}
+                  className="w-full px-5 py-4 flex items-center justify-between font-bold text-slate-200 text-sm text-left hover:bg-slate-900/20"
+                >
+                  <span>{faq.p}</span>
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${faqAberto === i ? "rotate-180" : ""}`} />
+                </button>
+                {faqAberto === i && (
+                  <div className="px-5 pb-4 text-xs text-slate-400 leading-relaxed border-t border-slate-900/30 pt-3">
+                    {faq.r}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="mt-auto border-t border-slate-900/80 bg-[#04060e] py-12 text-center text-xs text-slate-500 relative">
+        <div className="max-w-6xl mx-auto px-4 space-y-6">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm font-heading font-black tracking-tighter text-slate-400">
+              ESA<span className="text-amber-500">Play</span>
+            </span>
+          </div>
+          <p className="max-w-md mx-auto text-[10px] text-slate-600 leading-relaxed">
+            ESA Play é uma plataforma de demonstração de serviços de streaming. Não hospedamos ou comercializamos arquivos protegidos por direitos autorais em nossos servidores.
+          </p>
+          <div className="flex justify-center gap-6 text-[11px] font-bold text-slate-500">
+            <Link href="/consulta" className="hover:text-slate-300">Portal de Pagamentos</Link>
+            <span>&bull;</span>
+            <Link href="/admin" className="hover:text-slate-300 flex items-center gap-1">
+              <Lock className="h-3 w-3" /> Painel do Gestor
+            </Link>
+          </div>
+          <p>&copy; {new Date().getFullYear()} ESA PLAY. Todos os direitos reservados.</p>
+        </div>
+      </footer>
+
     </div>
   );
 }
