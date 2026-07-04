@@ -128,15 +128,6 @@ export default function LandingPage() {
     }
   ];
 
-  const backgroundMovies = [
-    "https://images.unsplash.com/photo-1601513525393-8393e8789be9?w=400&q=80",
-    "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80",
-    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80",
-    "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&q=80",
-    "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&q=80",
-    "https://images.unsplash.com/photo-1542204172-e7052809a920?w=400&q=80"
-  ];
-
   return (
     <div className="min-h-screen bg-[#060814] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-900 overflow-x-hidden">
       
@@ -201,29 +192,15 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative min-h-[90vh] pt-32 pb-24 flex items-center overflow-hidden">
         
-        {/* Lado Esquerdo - Grade de Filmes Estilizada */}
-        <div className="absolute left-0 top-0 w-full md:w-[48%] h-full opacity-[0.15] md:opacity-[0.25] pointer-events-none overflow-hidden hidden sm:block">
-          <div className="grid grid-cols-2 gap-4 w-[120%] h-[120%] transform rotate-[-6deg] translate-x-[-15%] translate-y-[-10%]">
-            {backgroundMovies.map((url, i) => (
-              <div key={i} className="aspect-[3/4] rounded-2xl overflow-hidden border border-slate-900 shadow-2xl">
-                <img src={url} alt="Movie poster background" className="w-full h-full object-cover filter brightness-[0.7] grayscale-[20%]" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Lado Direito - Estádio e Esportes */}
-        <div className="absolute right-0 top-0 w-full md:w-[55%] h-full opacity-[0.2] md:opacity-[0.35] pointer-events-none overflow-hidden">
-          <div 
-            className="w-full h-full bg-cover bg-center filter brightness-[0.8] contrast-[1.1]"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&auto=format&fit=crop&q=80')` }}
-          />
-          {/* Luz dourada simulando o troféu/campo */}
-          <div className="absolute inset-0 bg-gradient-to-l from-amber-500/10 via-transparent to-[#060814] mix-blend-screen" />
-        </div>
-
-        {/* Overlay do Gradiente Principal do Fundo */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060814] via-[#060814]/80 to-[#060814]/90 pointer-events-none" />
+        {/* Imagem de Fundo Completa Enviada pelo Usuário */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center filter brightness-[0.35] md:brightness-[0.4] pointer-events-none scale-100 transition-all duration-700"
+          style={{ backgroundImage: "url('/banner-aniversario.png')" }}
+        />
+        
+        {/* Gradientes e Fades para Suavizar Bordas */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060814] via-[#060814]/30 to-[#060814] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#060814]/30 via-transparent to-[#060814]/30 pointer-events-none" />
 
         {/* Balões de Aniversário Flutuantes (Esquerda) */}
         <div className="absolute left-[3%] top-[25%] z-20 animate-float-1 hidden xl:block">
@@ -254,39 +231,41 @@ export default function LandingPage() {
         </div>
 
         {/* Conteúdo Central */}
-        <div className="max-w-4xl mx-auto px-4 text-center relative z-30 space-y-6 pt-6">
-          
-          {/* Selo/Bolo de Aniversário */}
-          <div className="inline-flex flex-col items-center gap-2">
-            <div className="h-14 w-14 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/25 border-2 border-[#060814] transform hover:scale-105 transition">
-              <Cake className="h-7 w-7 text-[#060814]" strokeWidth={2.5} />
+        <div className="max-w-2xl mx-auto px-4 relative z-30 pt-6">
+          <div className="bg-[#060814]/85 backdrop-blur-md border border-slate-900/80 rounded-3xl p-6 sm:p-10 space-y-6 shadow-2xl text-center">
+            
+            {/* Selo/Bolo de Aniversário */}
+            <div className="inline-flex flex-col items-center gap-2">
+              <div className="h-12 w-12 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/25 transform hover:scale-105 transition">
+                <Cake className="h-6 w-6 text-[#060814]" strokeWidth={2.5} />
+              </div>
+              <span className="text-xs font-black tracking-widest text-amber-500 uppercase">
+                Feliz 1º Aniversário ESA Play!
+              </span>
             </div>
-            <span className="text-lg font-black tracking-widest text-amber-500 uppercase">
-              Feliz 1º Aniversário ESA Play!
-            </span>
-          </div>
-          
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.08] text-slate-50 uppercase">
-            Celebrando nosso primeiro ano <br />
-            <span className="bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">de TV Online!</span>
-          </h1>
-          
-          <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto font-medium leading-relaxed">
-            Séries Exclusivas, Filmes Blockbuster & a Copa do Mundo FIFA 2026™ <br className="hidden sm:inline" />
-            tudo com <strong className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-wide inline-block">Ofertas Especiais!</strong>
-          </p>
+            
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-[1.1] text-slate-50 uppercase">
+              Celebrando nosso primeiro ano <br />
+              <span className="bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">de TV Online!</span>
+            </h1>
+            
+            <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto font-medium leading-relaxed">
+              Séries Exclusivas, Filmes Blockbuster & a Copa do Mundo FIFA 2026™ <br />
+              tudo com <strong className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-wide inline-block mt-1">Ofertas Especiais!</strong>
+            </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
-            <a href="#planos" className="w-full sm:w-auto">
-              <Button className="w-full sm:w-auto h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm px-8 flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 transform active:scale-95 transition-all">
-                Ver Ofertas de Aniversário <ArrowRight className="h-4.5 w-4.5" />
-              </Button>
-            </a>
-            <Link href="/consulta" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full sm:w-auto h-12 rounded-xl border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-200 font-bold text-sm px-8 flex items-center justify-center gap-2 hover:border-slate-700">
-                <Play className="h-4.5 w-4.5 text-amber-500 animate-pulse" /> Acessar Portal do Cliente
-              </Button>
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+              <a href="#planos" className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-6 flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 transform active:scale-95 transition-all">
+                  Ver Ofertas de Aniversário <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
+              <Link href="/consulta" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto h-11 rounded-xl border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-200 font-bold text-xs px-6 flex items-center justify-center gap-2 hover:border-slate-700">
+                  <Play className="h-4 w-4 text-amber-500 animate-pulse" /> Acessar Portal do Cliente
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
