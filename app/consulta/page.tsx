@@ -22,7 +22,6 @@ import {
 import { gerarPixEstatico } from "@/lib/pix";
 
 export default function ConsultaPage() {
-  const [usuario, setUsuario] = useState("");
   const [telefone, setTelefone] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -63,8 +62,8 @@ export default function ConsultaPage() {
   // Buscar acessos
   async function handleBuscar(e: React.FormEvent) {
     e.preventDefault();
-    if (!usuario.trim() || !telefone.trim()) {
-      setErro("Por favor, preencha o usuário e o telefone cadastrados.");
+    if (!telefone.trim()) {
+      setErro("Por favor, preencha o número de telefone.");
       return;
     }
 
@@ -80,7 +79,7 @@ export default function ConsultaPage() {
       const res = await fetch("/api/consulta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usuario, telefone }),
+        body: JSON.stringify({ telefone }),
       });
 
       const data = await res.json();
@@ -254,20 +253,10 @@ export default function ConsultaPage() {
             <CardContent className="pt-6">
               <div className="text-center mb-6">
                 <h1 className="text-2xl font-bold tracking-tight mb-2">Consulta de Mensalidade</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Entre com seus dados cadastrados para consultar e renovar seus acessos.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Entre com o número do seu celular com DDD para consultar e renovar seus acessos.</p>
               </div>
 
               <form onSubmit={handleBuscar} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="usuario">Usuário IPTV</Label>
-                  <Input 
-                    id="usuario"
-                    placeholder="Ex: joao123"
-                    value={usuario}
-                    onChange={(e) => setUsuario(e.target.value)}
-                    className="h-11 border-slate-200 dark:border-slate-800 rounded-xl"
-                  />
-                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="telefone">Telefone WhatsApp</Label>
                   <Input 
@@ -329,6 +318,7 @@ export default function ConsultaPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="font-extrabold text-slate-800 dark:text-slate-200">{acesso.cliente}</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">({acesso.usuario})</span>
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${badgeColor}`}>
                           {badgeText}
                         </span>

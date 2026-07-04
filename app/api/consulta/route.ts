@@ -3,34 +3,68 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
-    const { usuario, telefone } = await req.json();
+    const { telefone } = await req.json();
 
-    if (!usuario || !telefone) {
+    if (!telefone) {
       return NextResponse.json(
-        { error: "Usuário e telefone são obrigatórios." },
+        { error: "O número de telefone é obrigatório." },
         { status: 400 }
       );
     }
 
-    // Normalizar telefone digitado (remover caracteres não numéricos)
-    const normalizedPhone = telefone.replace(/\D/g, "");
+    const rawPhone = telefone.trim();
+    const clean = rawPhone.replace(/\D/g, "");
 
-    if (!normalizedPhone) {
+    if (!clean || clean.length < 8) {
       return NextResponse.json(
-        { error: "Telefone inválido." },
+        { error: "Por favor, digite um número de telefone válido com DDD." },
         { status: 400 }
       );
     }
 
-    // Buscar acessos que combinem com o usuário (busca exata)
+    // Gerar variações do telefone para busca no Firestore (IN aceita até 30 itens)
+    const variations = [rawPhone, clean];
+
+    if (clean.length === 11) {
+      const ddd = clean.substring(0, 2);
+      const part1 = clean.substring(2, 7);
+      const part2 = clean.substring(7);
+      variations.push(`(${ddd}) ${part1}-${part2}`);
+      variations.push(`(${ddd})${part1}-${part2}`);
+      variations.push(`${ddd} ${part1}-${part2}`);
+      variations.push(`55${clean}`);
+      variations.push(`+55 (${ddd}) ${part1}-${part2}`);
+      variations.push(`+55(${ddd})${part1}-${part2}`);
+    } else if (clean.length === 13 && clean.startsWith("55")) {
+      const clean11 = clean.substring(2);
+      variations.push(clean11);
+      const ddd = clean11.substring(0, 2);
+      const part1 = clean11.substring(2, 7);
+      const part2 = clean11.substring(7);
+      variations.push(`(${ddd}) ${part1}-${part2}`);
+      variations.push(`(${ddd})${part1}-${part2}`);
+      variations.push(`+55 (${ddd}) ${part1}-${part2}`);
+      variations.push(`+55${clean11}`);
+    } else if (clean.length === 10) {
+      const ddd = clean.substring(0, 2);
+      const part1 = clean.substring(2, 6);
+      const part2 = clean.substring(6);
+      variations.push(`(${ddd}) ${part1}-${part2}`);
+      variations.push(`(${ddd})${part1}-${part2}`);
+      variations.push(`55${clean}`);
+    }
+
+    const uniqueVariations = Array.from(new Set(variations.filter(Boolean)));
+
+    // Buscar no Firestore usando o operador IN
     const querySnapshot = await adminDb
       .collection("acessos")
-      .where("usuario", "==", usuario.trim())
+      .where("telefone", "in", uniqueVariations)
       .get();
 
     if (querySnapshot.empty) {
       return NextResponse.json(
-        { error: "Nenhum usuário encontrado com essas credenciais." },
+        { error: "Nenhum cliente cadastrado foi encontrado com esse telefone." },
         { status: 404 }
       );
     }
@@ -40,35 +74,18 @@ export async function POST(req: Request) {
 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      const docPhoneNormalized = (data.telefone || "").replace(/\D/g, "");
-
-      // Verifica se o telefone confere (aceita comparações parciais se terminar igual para acomodar DDI 55)
-      const match =
-        docPhoneNormalized === normalizedPhone ||
-        (docPhoneNormalized.length >= 8 && normalizedPhone.endsWith(docPhoneNormalized)) ||
-        (normalizedPhone.length >= 8 && docPhoneNormalized.endsWith(normalizedPhone));
-
-      if (match) {
-        acessosEncontrados.push({
-          id: doc.id,
-          cliente: data.cliente,
-          usuario: data.usuario,
-          vencimento: data.vencimento,
-          valor: Number(data.valor) || 0,
-          app: data.app,
-        });
-        gestorId = data.userId;
-      }
+      acessosEncontrados.push({
+        id: doc.id,
+        cliente: data.cliente,
+        usuario: data.usuario,
+        vencimento: data.vencimento,
+        valor: Number(data.valor) || 0,
+        app: data.app,
+      });
+      gestorId = data.userId;
     });
 
-    if (acessosEncontrados.length === 0) {
-      return NextResponse.json(
-        { error: "Telefone não confere com o cadastrado." },
-        { status: 404 }
-      );
-    }
-
-    // Buscar configurações do gestor correspondente
+    // Buscar configurações do gestor
     let useMp = false;
     let pixManual = null;
     let whatsappGestor = "";
@@ -96,7 +113,7 @@ export async function POST(req: Request) {
       whatsappGestor,
     });
   } catch (error: any) {
-    console.error("Erro na consulta do cliente:", error);
+    console.error("Erro na consulta do cliente por telefone:", error);
     return NextResponse.json(
       { error: "Erro interno no servidor.", details: error.message },
       { status: 500 }
