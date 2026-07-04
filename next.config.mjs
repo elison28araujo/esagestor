@@ -5,10 +5,12 @@ const withSerwist = withSerwistInit({
   swDest: "public/sw.js",
 });
 
+const isVercel = process.env.VERCEL === "1";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: "export",
+  output: isVercel ? undefined : "export",
   images: {
     unoptimized: true,
   },
