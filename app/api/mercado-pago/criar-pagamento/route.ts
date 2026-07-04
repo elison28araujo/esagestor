@@ -38,8 +38,23 @@ export async function POST(req: Request) {
 
     const { usuario, cliente, valor, userId } = acessoData;
 
+    let finalUserId = userId;
+    if (!finalUserId) {
+      const configsSnap = await adminDb.collection("configuracoes").limit(1).get();
+      if (!configsSnap.empty) {
+        finalUserId = configsSnap.docs[0].id;
+      }
+    }
+
+    if (!finalUserId) {
+      return NextResponse.json(
+        { error: "ID do gestor não encontrado para este acesso." },
+        { status: 400 }
+      );
+    }
+
     // Buscar token do gestor
-    const configDoc = await adminDb.collection("configuracoes").doc(userId).get();
+    const configDoc = await adminDb.collection("configuracoes").doc(finalUserId).get();
     if (!configDoc.exists) {
       return NextResponse.json(
         { error: "Configurações de pagamento do gestor não encontradas." },
@@ -79,7 +94,7 @@ export async function POST(req: Request) {
         payment_method_id: "pix",
         payer: {
           email: "pagamento-cliente@esagestor.com",
-          first_name: cliente.substring(0, 20) || "Cliente",
+          first_name: (cliente && typeof cliente === "string") ? cliente.substring(0, 20) : "Cliente",
           last_name: "IPTV",
         },
         notification_url: notificationUrl,
@@ -112,7 +127,7 @@ export async function POST(req: Request) {
     await adminDb.collection("pagamentos_pendentes").doc(String(paymentId)).set({
       paymentId: String(paymentId),
       acessoId,
-      userId,
+      userId: finalUserId,
       usuario,
       cliente,
       valor: Number(valor),
