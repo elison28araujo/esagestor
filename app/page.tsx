@@ -16,7 +16,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
-  Lock
+  Lock,
+  Cake
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,7 +43,7 @@ export default function LandingPage() {
 
   function handleAssinar(plano: string, valor: string) {
     const telefone = whatsappGestor ? whatsappGestor.replace(/\D/g, "") : "5511999999999";
-    const mensagem = `Olá! Vi o site da ESA Play e gostaria de assinar o *${plano}* (R$ ${valor}). Como posso fazer para ativar?`;
+    const mensagem = `Olá! Vi o site da ESA Play e gostaria de aproveitar a Promoção de Aniversário do *${plano}* (R$ ${valor}). Como faço para ativar?`;
     window.open(`https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(mensagem)}`, "_blank");
   }
 
@@ -127,9 +128,34 @@ export default function LandingPage() {
     }
   ];
 
+  const backgroundMovies = [
+    "https://images.unsplash.com/photo-1601513525393-8393e8789be9?w=400&q=80",
+    "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80",
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80",
+    "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&q=80",
+    "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&q=80",
+    "https://images.unsplash.com/photo-1542204172-e7052809a920?w=400&q=80"
+  ];
+
   return (
-    <div className="min-h-screen bg-[#060814] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-900">
+    <div className="min-h-screen bg-[#060814] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-900 overflow-x-hidden">
       
+      {/* Estilos para animações de balões e efeitos */}
+      <style>{`
+        @keyframes float-gentle {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-15px) rotate(3deg); }
+        }
+        @keyframes float-delayed {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(-3deg); }
+        }
+        .animate-float-1 { animation: float-gentle 6s ease-in-out infinite; }
+        .animate-float-2 { animation: float-delayed 8s ease-in-out infinite; }
+        .animate-float-3 { animation: float-gentle 7s ease-in-out infinite 1s; }
+        .animate-float-4 { animation: float-delayed 9s ease-in-out infinite 1.5s; }
+      `}</style>
+
       {/* Header */}
       <header className="fixed top-0 left-0 w-full z-50 bg-[#060814]/80 backdrop-blur-md border-b border-slate-900/50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -173,37 +199,92 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-24 md:pt-40 md:pb-36 overflow-hidden flex items-center">
-        {/* Imagem de Fundo Estilizada (Cinema / Esportes) */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-[0.25] pointer-events-none scale-105 filter blur-sm transition-all"
-          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1600&auto=format&fit=crop&q=80')` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060814] via-[#060814]/70 to-[#060814] pointer-events-none" />
+      <section className="relative min-h-[90vh] pt-32 pb-24 flex items-center overflow-hidden">
         
-        <div className="max-w-4xl mx-auto px-4 text-center relative z-10 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-amber-500 text-xs font-bold uppercase tracking-wider animate-pulse">
-            <Zap className="h-4.5 w-4.5 text-amber-500" /> Ativação Imediata
+        {/* Lado Esquerdo - Grade de Filmes Estilizada */}
+        <div className="absolute left-0 top-0 w-full md:w-[48%] h-full opacity-[0.15] md:opacity-[0.25] pointer-events-none overflow-hidden hidden sm:block">
+          <div className="grid grid-cols-2 gap-4 w-[120%] h-[120%] transform rotate-[-6deg] translate-x-[-15%] translate-y-[-10%]">
+            {backgroundMovies.map((url, i) => (
+              <div key={i} className="aspect-[3/4] rounded-2xl overflow-hidden border border-slate-900 shadow-2xl">
+                <img src={url} alt="Movie poster background" className="w-full h-full object-cover filter brightness-[0.7] grayscale-[20%]" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Lado Direito - Estádio e Esportes */}
+        <div className="absolute right-0 top-0 w-full md:w-[55%] h-full opacity-[0.2] md:opacity-[0.35] pointer-events-none overflow-hidden">
+          <div 
+            className="w-full h-full bg-cover bg-center filter brightness-[0.8] contrast-[1.1]"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&auto=format&fit=crop&q=80')` }}
+          />
+          {/* Luz dourada simulando o troféu/campo */}
+          <div className="absolute inset-0 bg-gradient-to-l from-amber-500/10 via-transparent to-[#060814] mix-blend-screen" />
+        </div>
+
+        {/* Overlay do Gradiente Principal do Fundo */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060814] via-[#060814]/80 to-[#060814]/90 pointer-events-none" />
+
+        {/* Balões de Aniversário Flutuantes (Esquerda) */}
+        <div className="absolute left-[3%] top-[25%] z-20 animate-float-1 hidden xl:block">
+          <div className="w-12 h-16 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-600 rounded-full shadow-lg relative">
+            <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-0 h-0 border-t-[5px] border-t-yellow-700 border-x-[3.5px] border-x-transparent" />
+            <div className="absolute bottom-[-35px] left-1/2 -translate-x-1/2 w-[1px] h-[35px] bg-slate-500/40" />
+          </div>
+        </div>
+        <div className="absolute left-[12%] top-[55%] z-20 animate-float-2 hidden xl:block">
+          <div className="w-16 h-20 bg-gradient-to-br from-sky-300 via-blue-500 to-blue-700 rounded-full shadow-lg relative">
+            <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-0 h-0 border-t-[5px] border-t-blue-800 border-x-[3.5px] border-x-transparent" />
+            <div className="absolute bottom-[-45px] left-1/2 -translate-x-1/2 w-[1px] h-[45px] bg-slate-500/40" />
+          </div>
+        </div>
+
+        {/* Balões de Aniversário Flutuantes (Direita) */}
+        <div className="absolute right-[4%] top-[20%] z-20 animate-float-3 hidden xl:block">
+          <div className="w-14 h-18 bg-gradient-to-br from-amber-300 via-yellow-400 to-yellow-600 rounded-full shadow-lg relative">
+            <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-0 h-0 border-t-[5px] border-t-yellow-700 border-x-[3.5px] border-x-transparent" />
+            <div className="absolute bottom-[-40px] left-1/2 -translate-x-1/2 w-[1px] h-[40px] bg-slate-500/40" />
+          </div>
+        </div>
+        <div className="absolute right-[10%] top-[48%] z-20 animate-float-4 hidden xl:block">
+          <div className="w-16 h-21 bg-gradient-to-br from-sky-300 via-blue-500 to-blue-700 rounded-full shadow-lg relative">
+            <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-0 h-0 border-t-[5px] border-t-blue-800 border-x-[3.5px] border-x-transparent" />
+            <div className="absolute bottom-[-45px] left-1/2 -translate-x-1/2 w-[1px] h-[45px] bg-slate-500/40" />
+          </div>
+        </div>
+
+        {/* Conteúdo Central */}
+        <div className="max-w-4xl mx-auto px-4 text-center relative z-30 space-y-6 pt-6">
+          
+          {/* Selo/Bolo de Aniversário */}
+          <div className="inline-flex flex-col items-center gap-2">
+            <div className="h-14 w-14 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/25 border-2 border-[#060814] transform hover:scale-105 transition">
+              <Cake className="h-7 w-7 text-[#060814]" strokeWidth={2.5} />
+            </div>
+            <span className="text-lg font-black tracking-widest text-amber-500 uppercase">
+              Feliz 1º Aniversário ESA Play!
+            </span>
           </div>
           
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-slate-50">
-            O melhor do entretenimento <br />
-            <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 bg-clip-text text-transparent">& esporte está aqui.</span>
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.08] text-slate-50 uppercase">
+            Celebrando nosso primeiro ano <br />
+            <span className="bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">de TV Online!</span>
           </h1>
           
-          <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto font-medium">
-            Filmes Blockbuster, Séries Exclusivas & a Copa do Mundo FIFA 2026™ ao vivo e em 4K. Assista na sua TV, Computador ou Celular sem travamentos.
+          <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto font-medium leading-relaxed">
+            Séries Exclusivas, Filmes Blockbuster & a Copa do Mundo FIFA 2026™ <br className="hidden sm:inline" />
+            tudo com <strong className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-wide inline-block">Ofertas Especiais!</strong>
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
             <a href="#planos" className="w-full sm:w-auto">
-              <Button className="w-full sm:w-auto h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm px-8 flex items-center justify-center gap-2 shadow-xl shadow-amber-500/20 transform active:scale-95 transition-all">
-                Assine Agora <ArrowRight className="h-4.5 w-4.5" />
+              <Button className="w-full sm:w-auto h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm px-8 flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 transform active:scale-95 transition-all">
+                Ver Ofertas de Aniversário <ArrowRight className="h-4.5 w-4.5" />
               </Button>
             </a>
             <Link href="/consulta" className="w-full sm:w-auto">
               <Button variant="outline" className="w-full sm:w-auto h-12 rounded-xl border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-200 font-bold text-sm px-8 flex items-center justify-center gap-2 hover:border-slate-700">
-                <Play className="h-4.5 w-4.5 text-amber-500" /> Acessar Portal do Cliente
+                <Play className="h-4.5 w-4.5 text-amber-500 animate-pulse" /> Acessar Portal do Cliente
               </Button>
             </Link>
           </div>
@@ -211,7 +292,7 @@ export default function LandingPage() {
       </section>
 
       {/* Catálogo Destaques */}
-      <section id="catalogo" className="py-20 bg-slate-950/40 relative">
+      <section id="catalogo" className="py-20 bg-slate-950/40 relative border-t border-slate-900/30">
         <div className="max-w-6xl mx-auto px-4">
           
           <div className="text-center mb-16 space-y-2">
