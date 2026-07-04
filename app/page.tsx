@@ -281,23 +281,23 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {catalog.map((item, index) => (
-              <Card key={index} className="bg-slate-900/40 border-slate-900 rounded-3xl overflow-hidden hover:shadow-xl hover:border-slate-800 transition duration-300 group">
+              <div key={index} className="bg-[#0e122b] border border-slate-900/80 rounded-3xl overflow-hidden hover:shadow-xl hover:border-slate-800 transition duration-300 group flex flex-col">
                 <div className="relative h-44 overflow-hidden">
                   <img 
                     src={item.img} 
                     alt={item.title} 
                     className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0e122b] via-transparent to-transparent" />
                   <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
                     {item.badge}
                   </span>
                 </div>
-                <CardContent className="p-5 space-y-1">
+                <div className="p-5 space-y-1 bg-[#0e122b]">
                   <h3 className="font-bold text-slate-100 group-hover:text-amber-500 transition">{item.title}</h3>
                   <p className="text-xs text-slate-400">{item.description}</p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
 
