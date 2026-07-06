@@ -42,7 +42,8 @@ export default function LandingPage() {
   }, []);
 
   function handleAssinar(plano: string, valor: string) {
-    const telefone = whatsappGestor ? whatsappGestor.replace(/\D/g, "") : "5591985066711";
+    const numeroLimpo = whatsappGestor ? whatsappGestor.replace(/\D/g, "") : "";
+    const telefone = numeroLimpo.length >= 10 ? numeroLimpo : "5591985066711";
     const mensagem = `Olá! Vi o site da ESA Play e gostaria de aproveitar a Promoção de Aniversário do *${plano}* (R$ ${valor}). Como faço para ativar?`;
     window.open(`https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(mensagem)}`, "_blank");
   }
