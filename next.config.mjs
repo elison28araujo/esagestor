@@ -12,7 +12,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: isVercel ? undefined : "export",
   images: {
-    unoptimized: true,
+    unoptimized: !isVercel,
   },
 };
 

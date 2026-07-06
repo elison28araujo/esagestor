@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { 
   Play, 
   Tv, 
-  Film, 
-  Award, 
   HelpCircle, 
   ArrowRight, 
   Smartphone, 
@@ -15,7 +12,6 @@ import {
   ChevronDown, 
   ExternalLink,
   ShieldCheck,
-  Zap,
   Lock,
   Cake
 } from "lucide-react";
@@ -51,25 +47,25 @@ export default function LandingPage() {
   const catalog = [
     {
       title: "Filmes e Lançamentos",
-      img: "/filmes.png",
+      img: "/filmes.jpg",
       description: "Lançamentos e clássicos do cinema mundial.",
       badge: "4K Ultra HD"
     },
     {
       title: "Copa do Mundo 2026 & Esportes",
-      img: "/copa.png",
+      img: "/copa.jpg",
       description: "Transmissões ao vivo dos maiores campeonatos.",
       badge: "Ao Vivo"
     },
     {
       title: "Séries Exclusivas",
-      img: "/serie.png",
+      img: "/serie.jpg",
       description: "As melhores produções para maratonar.",
       badge: "Completo"
     },
     {
       title: "Canais Ao Vivo",
-      img: "/canais.png",
+      img: "/canais.jpg",
       description: "Mais de 500 canais abertos e fechados.",
       badge: "Sem Travamentos"
     }
@@ -196,7 +192,7 @@ export default function LandingPage() {
         {/* Imagem de Fundo Completa Enviada pelo Usuário */}
         <div 
           className="absolute inset-0 bg-cover bg-center filter brightness-[0.85] md:brightness-[0.9] pointer-events-none scale-100 transition-all duration-700"
-          style={{ backgroundImage: "url('/banner-aniversario.png')" }}
+          style={{ backgroundImage: "url('/banner-aniversario.jpg')" }}
         />
         
         {/* Gradientes e Fades para Suavizar Bordas */}
@@ -287,6 +283,8 @@ export default function LandingPage() {
                   <img 
                     src={item.img} 
                     alt={item.title} 
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0e122b] via-transparent to-transparent" />
