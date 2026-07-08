@@ -20,6 +20,7 @@ import {
   AlertTriangle 
 } from "lucide-react";
 import { gerarPixEstatico } from "@/lib/pix";
+import { getApiUrl } from "@/lib/utils";
 
 export default function ConsultaPage() {
   const [telefone, setTelefone] = useState("");
@@ -76,7 +77,7 @@ export default function ConsultaPage() {
     setPaymentId("");
 
     try {
-      const res = await fetch("/api/consulta", {
+      const res = await fetch(getApiUrl("/api/consulta"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ telefone }),
@@ -110,7 +111,7 @@ export default function ConsultaPage() {
     if (useMp) {
       setCheckoutLoading(true);
       try {
-        const res = await fetch("/api/mercado-pago/criar-pagamento", {
+        const res = await fetch(getApiUrl("/api/mercado-pago/criar-pagamento"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ acessoId: acesso.id }),
@@ -160,7 +161,7 @@ export default function ConsultaPage() {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/mercado-pago/status?paymentId=${paymentId}`);
+        const res = await fetch(getApiUrl(`/api/mercado-pago/status?paymentId=${paymentId}`));
         const data = await res.json();
         if (data.status === "approved") {
           setPaymentStatus("approved");

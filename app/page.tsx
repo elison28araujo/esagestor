@@ -16,6 +16,7 @@ import {
   Cake
 } from "lucide-react";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/utils";
 
 export default function LandingPage() {
   const [whatsappGestor, setWhatsappGestor] = useState("");
@@ -25,7 +26,7 @@ export default function LandingPage() {
   useEffect(() => {
     async function loadLandingInfo() {
       try {
-        const res = await fetch("/api/landing-info");
+        const res = await fetch(getApiUrl("/api/landing-info"));
         const data = await res.json();
         if (data.whatsappGestor) {
           setWhatsappGestor(data.whatsappGestor);

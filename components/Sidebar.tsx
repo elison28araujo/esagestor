@@ -17,6 +17,7 @@ import {
   History,
   LayoutDashboard,
   UserPlus,
+  ShieldCheck,
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -65,7 +66,7 @@ export function Sidebar({
     setMobileOpen(false);
   }, [activeTab, activeFilter]);
 
-  const menuItems = [
+  const baseMenuItems = [
     { id: "dashboard", label: "Painel", icon: LayoutDashboard },
     { id: "clientes", label: "Clientes", icon: Users },
     { id: "cadastro", label: "Cadastrar", icon: UserPlus },
@@ -73,6 +74,11 @@ export function Sidebar({
     { id: "pagamentos", label: "Histórico", icon: History },
     { id: "configuracoes", label: "Configurações", icon: Settings },
   ];
+
+  const menuItems =
+    userEmail === "elison28araujo@gmail.com"
+      ? [...baseMenuItems, { id: "licencas", label: "Licenças", icon: ShieldCheck }]
+      : baseMenuItems;
 
   const filters = [
     { id: "todos", label: "Todos", color: "bg-slate-500" },

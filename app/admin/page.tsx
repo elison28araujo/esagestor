@@ -26,6 +26,12 @@ import {
   Users,
   Search,
   X,
+  ShieldCheck,
+  UserCheck,
+  UserX,
+  RotateCw,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { LoginForm } from "@/components/LoginForm";
@@ -40,6 +46,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { PagamentosList } from "@/components/PagamentosList";
 import { BulkActionBar } from "@/components/BulkActionBar";
 import { enviarResumoAlertasEmail } from "@/lib/email";
+import { TelaLicencaBloqueada } from "@/components/TelaLicencaBloqueada";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES } from "@/lib/constants";
@@ -99,6 +106,12 @@ export default function HomePage() {
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
   const [selecionados, setSelecionados] = useState<string[]>([]);
+  
+  // Estados de Licenciamento SaaS
+  const [licenca, setLicenca] = useState<any | null>(null);
+  const [licencasLoading, setLicencasLoading] = useState(true);
+  const [usuariosSaaS, setUsuariosSaaS] = useState<any[]>([]);
+  const [buscaSaaS, setBuscaSaaS] = useState("");
 
   // Reset pagination and selection on search or filter change
   useEffect(() => {
@@ -166,6 +179,95 @@ export default function HomePage() {
     const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); });
     return () => unsubscribe();
   }, []);
+
+  // Escutar licença do usuário logado
+  useEffect(() => {
+    if (!user || !db) { setLicenca(null); setLicencasLoading(false); return; }
+    
+    if (user.email === "elison28araujo@gmail.com") {
+      setLicenca({ status: "active", email: user.email, codigo: "MASTER", role: "admin" });
+      setLicencasLoading(false);
+      return;
+    }
+
+    setLicencasLoading(true);
+    const docRef = doc(db, "usuarios", user.uid);
+    const unsub = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setLicenca(docSnap.data());
+      } else {
+        const randomCode = "ESA-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const novoUserDoc = {
+          uid: user.uid,
+          email: user.email || "",
+          whatsapp: "",
+          status: "pending",
+          codigo: randomCode,
+          vencimentoLicenca: "",
+          createdAt: new Date().toISOString(),
+        };
+        setDoc(docRef, novoUserDoc).then(() => {
+          setLicenca(novoUserDoc);
+        });
+      }
+      setLicencasLoading(false);
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  // Escutar todos os usuários SaaS (apenas para Admin Master)
+  useEffect(() => {
+    if (!user || !db || user.email !== "elison28araujo@gmail.com") { setUsuariosSaaS([]); return; }
+    
+    const q = query(collection(db, "usuarios"));
+    const unsub = onSnapshot(q, (snap) => {
+      setUsuariosSaaS(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    
+    return () => unsub();
+  }, [user]);
+
+  async function handleRenovarLicenca(uid: string, vencimentoAtual?: string) {
+    if (!db) return;
+    const hoje = new Date();
+    let novaData = vencimentoAtual ? new Date(vencimentoAtual) : hoje;
+    if (novaData < hoje) novaData = hoje;
+    novaData.setDate(novaData.getDate() + 30);
+    
+    try {
+      await updateDoc(doc(db, "usuarios", uid), {
+        status: "active",
+        vencimentoLicenca: novaData.toISOString(),
+      });
+      setToast({ type: "success", message: "Licença renovada por 30 dias!" });
+    } catch (err) {
+      console.error(err);
+      setToast({ type: "error", message: "Erro ao renovar licença." });
+    }
+  }
+
+  async function handleBloquearUsuario(uid: string, status: "blocked" | "pending") {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, "usuarios", uid), { status });
+      setToast({ type: "info", message: status === "blocked" ? "Usuário bloqueado." : "Usuário suspenso (pendente)." });
+    } catch (err) {
+      console.error(err);
+      setToast({ type: "error", message: "Erro ao atualizar status." });
+    }
+  }
+
+  async function handleExcluirUsuario(uid: string) {
+    if (!db) return;
+    try {
+      await deleteDoc(doc(db, "usuarios", uid));
+      setToast({ type: "info", message: "Cadastro de usuário excluído." });
+    } catch (err) {
+      console.error(err);
+      setToast({ type: "error", message: "Erro ao excluir usuário." });
+    }
+  }
 
   useEffect(() => {
     if (!user || !db) { setAcessos([]); setDespesas([]); setPagamentos([]); setDadosLoading(false); return; }
@@ -658,6 +760,30 @@ export default function HomePage() {
 
   if (!user) return <LoginForm />;
 
+  if (licencasLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center dark:bg-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  // Se logado e não for o admin master, verifica a licença
+  if (user && user.email !== "elison28araujo@gmail.com") {
+    const isVencido = licenca?.status === "active" && licenca?.vencimentoLicenca && new Date(licenca.vencimentoLicenca) < new Date();
+    if (!licenca || licenca.status === "pending" || licenca.status === "blocked" || isVencido) {
+      return (
+        <TelaLicencaBloqueada
+          email={user.email || ""}
+          codigo={licenca?.codigo || "GERANDO..."}
+          status={licenca?.status || "pending"}
+          vencimentoLicenca={licenca?.vencimentoLicenca}
+          onLogout={() => auth && signOut(auth)}
+        />
+      );
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50 transition-colors dark:bg-slate-950">
       <Sidebar
@@ -884,6 +1010,141 @@ export default function HomePage() {
                 pagamentos={pagamentos}
                 onRemover={(id) => remover(id, "pagamentos")}
               />
+            )}
+
+            {activeTab === "licencas" && user?.email === "elison28araujo@gmail.com" && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-heading font-bold tracking-tight text-slate-800 dark:text-slate-100">Gerenciamento de Licenças SaaS</h2>
+                
+                {/* Search Bar for Licenças */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    className="h-11 pl-10 pr-10 dark:border-slate-800 dark:bg-slate-900"
+                    placeholder="Buscar por email, whatsapp ou código do usuário..."
+                    value={buscaSaaS}
+                    onChange={(e) => setBuscaSaaS(e.target.value)}
+                  />
+                  {buscaSaaS && (
+                    <button
+                      onClick={() => setBuscaSaaS("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Users List */}
+                <div className="grid gap-4">
+                  {usuariosSaaS.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 py-20 dark:border-slate-800">
+                      <Users className="mb-4 h-12 w-12 text-slate-300" />
+                      <p className="text-slate-500">Nenhum usuário cadastrado no sistema ainda.</p>
+                    </div>
+                  ) : (
+                    usuariosSaaS
+                      .filter((u) => {
+                        const q = buscaSaaS.toLowerCase().trim();
+                        if (!q) return true;
+                        return (
+                          u.email?.toLowerCase().includes(q) ||
+                          u.codigo?.toLowerCase().includes(q) ||
+                          u.whatsapp?.includes(q)
+                        );
+                      })
+                      .map((u) => {
+                        const isExpired = u.status === "active" && u.vencimentoLicenca && new Date(u.vencimentoLicenca) < new Date();
+                        const vencimentoFormatado = u.vencimentoLicenca 
+                          ? new Date(u.vencimentoLicenca).toLocaleDateString("pt-BR")
+                          : "Sem Licença";
+                        
+                        let statusColor = "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+                        let statusText = "Pendente";
+                        if (u.status === "blocked") {
+                          statusColor = "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+                          statusText = "Bloqueado";
+                        } else if (isExpired) {
+                          statusColor = "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400";
+                          statusText = "Expirado";
+                        } else if (u.status === "active") {
+                          statusColor = "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
+                          statusText = "Ativo";
+                        }
+
+                        return (
+                          <Card key={u.id} className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md overflow-hidden hover:shadow-md transition">
+                            <CardContent className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="font-extrabold text-slate-800 dark:text-slate-200 text-base">{u.email}</span>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor}`}>
+                                    {statusText}
+                                  </span>
+                                  {u.id === user?.uid && (
+                                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Você</span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <div>
+                                    Código: <strong className="text-slate-700 dark:text-slate-300 font-mono text-sm">{u.codigo}</strong>
+                                  </div>
+                                  <div>
+                                    WhatsApp: <strong className="text-slate-700 dark:text-slate-300">{u.whatsapp || "Não cadastrado"}</strong>
+                                  </div>
+                                  <div>
+                                    Vencimento: <strong className="text-slate-700 dark:text-slate-300">{vencimentoFormatado}</strong>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Ações */}
+                              {u.email !== "elison28araujo@gmail.com" && (
+                                <div className="flex flex-wrap gap-2 pt-3 md:pt-0 border-t border-slate-100 dark:border-slate-800 md:border-none">
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-1"
+                                    onClick={() => handleRenovarLicenca(u.id, u.vencimentoLicenca)}
+                                  >
+                                    <RotateCw className="h-3 w-3" />
+                                    Renovar 30 dias
+                                  </Button>
+                                  {u.status !== "blocked" ? (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20 rounded-xl"
+                                      onClick={() => handleBloquearUsuario(u.id, "blocked")}
+                                    >
+                                      Bloquear
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-950/20 rounded-xl"
+                                      onClick={() => handleBloquearUsuario(u.id, "pending")}
+                                    >
+                                      Desbloquear
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="text-slate-400 hover:text-red-600 rounded-xl"
+                                    onClick={() => handleExcluirUsuario(u.id)}
+                                  >
+                                    Excluir
+                                  </Button>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

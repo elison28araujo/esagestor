@@ -7,3 +7,6 @@ node_modules
 
 # Credentials
 esagestor-firebase-adminsdk-*.json
+
+.vercel
+.env*

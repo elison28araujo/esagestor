@@ -144,3 +144,10 @@ export function parseGoogleSheetUrl(value: string) {
   const gid = url.searchParams.get("gid") || url.hash.match(/gid=(\d+)/)?.[1] || "0";
   return { spreadsheetId, gid };
 }
+
+export function getApiUrl(path: string): string {
+  const baseUrl = typeof window !== "undefined" && !window.location.origin.includes("localhost")
+    ? ""
+    : "https://www.esaplay.site";
+  return `${baseUrl}${path}`;
+}

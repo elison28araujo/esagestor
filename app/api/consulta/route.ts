@@ -94,6 +94,23 @@ export async function POST(req: Request) {
       gestorId = data.userId;
     });
 
+    // Verificar se a licença do gestor está ativa
+    if (gestorId) {
+      const userDoc = await adminDb.collection("usuarios").doc(gestorId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData && userData.email !== "elison28araujo@gmail.com") {
+          const isExpired = userData.vencimentoLicenca && new Date(userData.vencimentoLicenca) < new Date();
+          if (userData.status !== "active" || isExpired) {
+            return NextResponse.json(
+              { error: "O sistema de consulta deste gestor está suspenso temporariamente." },
+              { status: 403 }
+            );
+          }
+        }
+      }
+    }
+
     // Buscar configurações do gestor
     let useMp = false;
     let pixManual = null;
