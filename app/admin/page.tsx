@@ -1043,8 +1043,8 @@ export default function HomePage() {
                       <p className="text-slate-500">Nenhum usuário cadastrado no sistema ainda.</p>
                     </div>
                   ) : (
-                    usuariosSaaS
-                      .filter((u) => {
+                    (() => {
+                      const filtrados = usuariosSaaS.filter((u) => {
                         const q = buscaSaaS.toLowerCase().trim();
                         if (!q) return true;
                         return (
@@ -1052,8 +1052,18 @@ export default function HomePage() {
                           u.codigo?.toLowerCase().includes(q) ||
                           u.whatsapp?.includes(q)
                         );
-                      })
-                      .map((u) => {
+                      });
+
+                      if (filtrados.length === 0) {
+                        return (
+                          <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 py-20 dark:border-slate-800">
+                            <Search className="mb-4 h-12 w-12 text-slate-300" />
+                            <p className="text-slate-500">Nenhum usuário encontrado para "{buscaSaaS}".</p>
+                          </div>
+                        );
+                      }
+
+                      return filtrados.map((u) => {
                         const isExpired = u.status === "active" && u.vencimentoLicenca && new Date(u.vencimentoLicenca) < new Date();
                         const vencimentoFormatado = u.vencimentoLicenca 
                           ? new Date(u.vencimentoLicenca).toLocaleDateString("pt-BR")
@@ -1141,7 +1151,8 @@ export default function HomePage() {
                             </CardContent>
                           </Card>
                         );
-                      })
+                      });
+                    })()
                   )}
                 </div>
               </div>
