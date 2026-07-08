@@ -88,6 +88,8 @@ export async function POST(req: Request) {
         vencimento: data.vencimento,
         valor: Number(data.valor) || 0,
         app: data.app,
+        enderecoMac: data.enderecoMac || "",
+        chaveKey: data.chaveKey || "",
       });
       gestorId = data.userId;
     });

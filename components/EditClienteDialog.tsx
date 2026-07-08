@@ -17,7 +17,16 @@ interface EditClienteDialogProps {
 }
 
 export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: EditClienteDialogProps) {
-  const [form, setForm] = useState({ usuario: "", cliente: "", telefone: "", valor: "", app: "P2P", vencimento: "" });
+  const [form, setForm] = useState({
+    usuario: "",
+    cliente: "",
+    telefone: "",
+    valor: "",
+    app: "P2P",
+    vencimento: "",
+    enderecoMac: "",
+    chaveKey: "",
+  });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -30,6 +39,8 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
         valor: String(acesso.valor ?? ""),
         app: acesso.app,
         vencimento: toDateInput(acesso.vencimento),
+        enderecoMac: acesso.enderecoMac || "",
+        chaveKey: acesso.chaveKey || "",
       });
       setErro("");
     }
@@ -48,6 +59,8 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
       valor: Number(form.valor) || 0,
       app: form.app,
       vencimento: fromDateInput(form.vencimento),
+      enderecoMac: form.enderecoMac.trim(),
+      chaveKey: form.chaveKey.trim(),
     });
     setSalvando(false);
     onFechar();
@@ -55,14 +68,14 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
 
   return (
     <Dialog open={!!acesso} onOpenChange={(o) => !o && onFechar()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar cliente</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
           {["usuario", "cliente"].map((field) => (
             <div key={field} className="grid gap-1">
-              <Label className="capitalize">{field}</Label>
+              <Label className="capitalize">{field === "usuario" ? "Usuário / Login" : "Nome do Cliente"}</Label>
               <Input value={form[field as "usuario" | "cliente"]} onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))} />
             </div>
           ))}
@@ -84,6 +97,14 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
           <div className="grid gap-1">
             <Label>Vencimento</Label>
             <Input type="date" value={form.vencimento} onChange={(e) => setForm((p) => ({ ...p, vencimento: e.target.value }))} />
+          </div>
+          <div className="grid gap-1">
+            <Label>Endereço MAC (opcional)</Label>
+            <Input value={form.enderecoMac} onChange={(e) => setForm((p) => ({ ...p, enderecoMac: e.target.value }))} />
+          </div>
+          <div className="grid gap-1">
+            <Label>Chave Key (opcional)</Label>
+            <Input value={form.chaveKey} onChange={(e) => setForm((p) => ({ ...p, chaveKey: e.target.value }))} />
           </div>
           {erro && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{erro}</p>}
         </div>

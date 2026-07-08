@@ -124,6 +124,16 @@ export function ClienteCard({
                 R$ {Number(item.valor).toFixed(2)}
               </div>
               <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">{formatPhone(item.telefone)}</div>
+              {item.enderecoMac && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">MAC:</span> {item.enderecoMac}
+                </div>
+              )}
+              {item.chaveKey && (
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">Key:</span> {item.chaveKey}
+                </div>
+              )}
             </div>
           </div>
           <div className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${status.style}`}>

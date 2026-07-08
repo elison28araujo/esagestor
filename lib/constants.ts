@@ -8,9 +8,11 @@ export const FIELD_ALIASES = {
   app: ["app", "aplicativo", "plataforma"],
   vencimento: ["vencimento", "data final", "final", "renovacao", "expira"],
   data: ["data", "data inicial", "inicio", "inicial", "cadastro"],
+  enderecoMac: ["mac", "macaddress", "enderecomac", "endereco mac", "mac address"],
+  chaveKey: ["key", "chavekey", "chave key", "chavekay", "chave kay", "kay"],
 };
 
-export const FALLBACK_COLUMNS = ["usuario", "cliente", "telefone", "valor", "app", "vencimento", "data"] as const;
+export const FALLBACK_COLUMNS = ["usuario", "cliente", "telefone", "valor", "app", "vencimento", "data", "enderecoMac", "chaveKey"] as const;
 
 export const DEFAULT_COBRANCA_MSG =
   "Olá {cliente}, seu acesso {app} venceu ou está próximo do vencimento. Deseja renovar? Valor: R$ {valor}.";

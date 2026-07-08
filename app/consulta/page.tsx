@@ -333,6 +333,20 @@ export default function ConsultaPage() {
                           <span>Vence em: <strong className="text-slate-700 dark:text-slate-300">{formatarData(acesso.vencimento)}</strong></span>
                         </div>
                       </div>
+                      {(acesso.enderecoMac || acesso.chaveKey) && (
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/50 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                          {acesso.enderecoMac && (
+                            <div>
+                              <span className="font-semibold text-slate-600 dark:text-slate-300">MAC:</span> {acesso.enderecoMac}
+                            </div>
+                          )}
+                          {acesso.chaveKey && (
+                            <div>
+                              <span className="font-semibold text-slate-600 dark:text-slate-300">Key:</span> {acesso.chaveKey}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between md:justify-end gap-3 pt-3 md:pt-0 border-t border-slate-100 dark:border-slate-800 md:border-none">

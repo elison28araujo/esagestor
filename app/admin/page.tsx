@@ -210,8 +210,8 @@ export default function HomePage() {
     }
   }, [user, acessos]);
 
-  async function addCliente({ nomeUser, cliente, telefone, valor, app }: {
-    nomeUser: string; cliente: string; telefone: string; valor: string; app: string;
+  async function addCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey }: {
+    nomeUser: string; cliente: string; telefone: string; valor: string; app: string; enderecoMac?: string; chaveKey?: string;
   }) {
     if (!user || !db) return;
     const clientesMesmoUsuario = acessos.filter(
@@ -236,6 +236,8 @@ export default function HomePage() {
       data: new Date().toISOString(),
       createdAt: Timestamp.now(),
       userId: user.uid,
+      enderecoMac: (enderecoMac || "").trim(),
+      chaveKey: (chaveKey || "").trim(),
     });
     // Criar registro inicial de pagamento
     await addDoc(collection(db, "pagamentos"), {
@@ -283,7 +285,7 @@ export default function HomePage() {
 
   function exportarClientesCsv() {
     const linhas = [
-      ["usuario", "cliente", "whatsapp", "valor", "app", "vencimento", "data"].join(";"),
+      ["usuario", "cliente", "whatsapp", "valor", "app", "vencimento", "data", "mac", "key"].join(";"),
       ...acessos
         .slice()
         .sort((a, b) => a.usuario.localeCompare(b.usuario))
@@ -296,6 +298,8 @@ export default function HomePage() {
             escapeCsvValue(item.app),
             escapeCsvValue(formatDateForCsv(item.vencimento)),
             escapeCsvValue(formatDateForCsv(item.data)),
+            escapeCsvValue(item.enderecoMac || ""),
+            escapeCsvValue(item.chaveKey || ""),
           ].join(";")
         ),
     ];
@@ -351,6 +355,8 @@ export default function HomePage() {
       const valorImportado = getFieldValue(row, FIELD_ALIASES.valor).trim();
       const vencimentoImportado = getFieldValue(row, FIELD_ALIASES.vencimento).trim();
       const dataImportada = getFieldValue(row, FIELD_ALIASES.data).trim();
+      const enderecoMac = getFieldValue(row, FIELD_ALIASES.enderecoMac).trim();
+      const chaveKey = getFieldValue(row, FIELD_ALIASES.chaveKey).trim();
 
       if (!usuario || !cliente) { erros.push(`Linha ${index + 2}: faltou usuário ou cliente.`); continue; }
       if (telefone && !isValidPhone(telefone)) { erros.push(`Linha ${index + 2}: WhatsApp inválido para ${cliente}.`); continue; }
@@ -376,6 +382,8 @@ export default function HomePage() {
         data: dataCad,
         createdAt: Timestamp.now(),
         userId: user.uid,
+        enderecoMac,
+        chaveKey,
       });
 
       // Gravar pagamento correspondente

@@ -6,14 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Acesso, ImportFeedback } from "@/lib/types";
 import { formatPhone, isValidPhone, normalizePhone } from "@/lib/utils";
-import { Download, Loader2, Plus, Upload, User, Phone, DollarSign } from "lucide-react";
+import { Download, Loader2, Plus, Upload, User, Phone, DollarSign, Cpu, Key } from "lucide-react";
 
 interface NovoClienteFormProps {
   acessos: Acesso[];
   appOptions: string[];
   importFeedback: ImportFeedback | null;
   importando: boolean;
-  onAddCliente: (data: { nomeUser: string; cliente: string; telefone: string; valor: string; app: string }) => Promise<void>;
+  onAddCliente: (data: {
+    nomeUser: string;
+    cliente: string;
+    telefone: string;
+    valor: string;
+    app: string;
+    enderecoMac?: string;
+    chaveKey?: string;
+  }) => Promise<void>;
   onExportarCsv: () => void;
   onImportarCsv: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   onImportarGoogleSheet: (url: string) => Promise<void>;
@@ -33,6 +41,8 @@ export function NovoClienteForm({
   const [telefone, setTelefone] = useState("");
   const [valor, setValor] = useState("");
   const [app, setApp] = useState("P2P");
+  const [enderecoMac, setEnderecoMac] = useState("");
+  const [chaveKey, setChaveKey] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [adicionando, setAdicionando] = useState(false);
   const [erro, setErro] = useState("");
@@ -43,8 +53,8 @@ export function NovoClienteForm({
     if (!isValidPhone(telefone)) { setErro("Digite um telefone válido com DDD"); return; }
     setErro("");
     setAdicionando(true);
-    await onAddCliente({ nomeUser, cliente, telefone, valor, app });
-    setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setApp("P2P");
+    await onAddCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey });
+    setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setApp("P2P"); setEnderecoMac(""); setChaveKey("");
     setAdicionando(false);
   }
 
@@ -68,7 +78,7 @@ export function NovoClienteForm({
         </div>
 
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Importar CSV com colunas: <code>usuario</code>, <code>cliente</code>, <code>whatsapp</code>, <code>valor</code>, <code>app</code>, <code>vencimento</code>, <code>data</code>.
+          Importar CSV com colunas: <code>usuario</code>, <code>cliente</code>, <code>whatsapp</code>, <code>valor</code>, <code>app</code>, <code>vencimento</code>, <code>data</code>, <code>mac</code> (opcional), <code>key</code> (opcional).
         </p>
 
         <div className="grid gap-2 md:grid-cols-[1fr_auto]">
@@ -109,6 +119,14 @@ export function NovoClienteForm({
           <div className="relative">
             <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input className="pl-10" placeholder="Valor (R$)" type="number" value={valor} onChange={(e) => setValor(e.target.value)} />
+          </div>
+          <div className="relative">
+            <Cpu className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input className="pl-10" placeholder="Endereço MAC (opcional)" value={enderecoMac} onChange={(e) => setEnderecoMac(e.target.value)} />
+          </div>
+          <div className="relative">
+            <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input className="pl-10" placeholder="Chave Key (opcional)" value={chaveKey} onChange={(e) => setChaveKey(e.target.value)} />
           </div>
         </div>
 

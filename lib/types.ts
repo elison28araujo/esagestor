@@ -11,6 +11,8 @@ export interface Acesso {
   vencimento: string;
   data: string;
   userId: string;
+  enderecoMac?: string;
+  chaveKey?: string;
 }
 
 export interface Pagamento {
