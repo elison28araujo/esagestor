@@ -16,8 +16,30 @@ interface DashboardProps {
 }
 
 export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: DashboardProps) {
-  // Estado para o período selecionado (Mês/Ano). Padrão é o mês atual.
+  // Helper para obter o período (AAAA-MM) no fuso horário de Brasília
+  function getPeriodoBrasilia(dateInput: string | number | Date) {
+    try {
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return null;
+      
+      const formatter = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+      });
+      
+      const formatted = formatter.format(d);
+      const [mes, ano] = formatted.split("/");
+      return `${ano}-${mes}`;
+    } catch {
+      return null;
+    }
+  }
+
+  // Estado para o período selecionado (Mês/Ano). Padrão é o mês atual de Brasília.
   const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    const periodoAtual = getPeriodoBrasilia(new Date());
+    if (periodoAtual) return periodoAtual;
     const hoje = new Date();
     return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
   });
@@ -27,21 +49,21 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
     const periods = new Set<string>();
     
     // Sempre incluir mês atual na lista
-    const hoje = new Date();
-    periods.add(`${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`);
+    const periodoAtual = getPeriodoBrasilia(new Date());
+    if (periodoAtual) periods.add(periodoAtual);
+    else {
+      const hoje = new Date();
+      periods.add(`${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`);
+    }
     
     pagamentos.forEach((p) => {
-      const d = new Date(p.data);
-      if (!isNaN(d.getTime())) {
-        periods.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-      }
+      const periodStr = getPeriodoBrasilia(p.data);
+      if (periodStr) periods.add(periodStr);
     });
     
     despesas.forEach((d) => {
-      const dt = new Date(d.data);
-      if (!isNaN(dt.getTime())) {
-        periods.add(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
-      }
+      const periodStr = getPeriodoBrasilia(d.data);
+      if (periodStr) periods.add(periodStr);
     });
 
     // Ordenar decrescente (meses mais recentes primeiro)
@@ -59,9 +81,7 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
   // Filtrar pagamentos do período selecionado
   const pagamentosFiltrados = useMemo(() => {
     return pagamentos.filter((p) => {
-      const d = new Date(p.data);
-      if (isNaN(d.getTime())) return false;
-      const periodStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const periodStr = getPeriodoBrasilia(p.data);
       return periodStr === selectedPeriod;
     });
   }, [pagamentos, selectedPeriod]);
@@ -69,9 +89,7 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
   // Filtrar despesas do período selecionado
   const despesasFiltradas = useMemo(() => {
     return despesas.filter((d) => {
-      const dt = new Date(d.data);
-      if (isNaN(dt.getTime())) return false;
-      const periodStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+      const periodStr = getPeriodoBrasilia(d.data);
       return periodStr === selectedPeriod;
     });
   }, [despesas, selectedPeriod]);
