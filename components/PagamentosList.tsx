@@ -13,8 +13,42 @@ interface PagamentosListProps {
   onRemover: (id: string) => Promise<void>;
 }
 
+// Helpers para obter data/período no fuso horário de Brasília
+function getPeriodoBrasilia(dateInput: string | number | Date) {
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return null;
+    const formatter = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+    });
+    const formatted = formatter.format(d);
+    const [mes, ano] = formatted.split("/");
+    return `${ano}-${mes}`;
+  } catch {
+    return null;
+  }
+}
+
+function getDiaBrasilia(dateInput: string | number | Date) {
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return null;
+    const formatter = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+    });
+    return formatter.format(d);
+  } catch {
+    return null;
+  }
+}
+
 export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
   const [busca, setBusca] = useState("");
+  const [selectedPeriod, setSelectedPeriod] = useState("todos");
+  const [selectedDay, setSelectedDay] = useState("todos");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [removendo, setRemovendo] = useState(false);
 
@@ -28,24 +62,55 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
 
   const confirmItem = pagamentos.find((p) => p.id === confirmId);
 
+  // Períodos (Mês/Ano) disponíveis no histórico
+  const periodosDisponiveis = useMemo(() => {
+    const periods = new Set<string>();
+    pagamentos.forEach((p) => {
+      const periodStr = getPeriodoBrasilia(p.data);
+      if (periodStr) periods.add(periodStr);
+    });
+    return Array.from(periods).sort((a, b) => b.localeCompare(a));
+  }, [pagamentos]);
+
+  function formatPeriodoLabel(periodStr: string) {
+    const [year, month] = periodStr.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const mStr = date.toLocaleString("pt-BR", { month: "long" });
+    return `${mStr.charAt(0).toUpperCase() + mStr.slice(1)} de ${year}`;
+  }
+
+  // Filtragem dos pagamentos por busca, período e dia
   const pagamentosFiltrados = useMemo(() => {
+    let list = pagamentos.slice();
+
+    // 1. Filtrar por busca textual
     const q = busca.toLowerCase().trim();
-    if (!q) {
-      return pagamentos.slice().sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-    }
-    return pagamentos
-      .filter(
+    if (q) {
+      list = list.filter(
         (p) =>
           p.cliente.toLowerCase().includes(q) ||
           p.usuario.toLowerCase().includes(q) ||
           p.app.toLowerCase().includes(q)
-      )
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }, [pagamentos, busca]);
+      );
+    }
+
+    // 2. Filtrar por período (Mês/Ano) de Brasília
+    if (selectedPeriod !== "todos") {
+      list = list.filter((p) => getPeriodoBrasilia(p.data) === selectedPeriod);
+    }
+
+    // 3. Filtrar por dia do mês de Brasília
+    if (selectedDay !== "todos") {
+      list = list.filter((p) => getDiaBrasilia(p.data) === selectedDay);
+    }
+
+    // Ordenar por data decrescente
+    return list.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+  }, [pagamentos, busca, selectedPeriod, selectedDay]);
 
   const receitaTotal = useMemo(() => {
-    return pagamentos.reduce((sum, p) => sum + Number(p.valor || 0), 0);
-  }, [pagamentos]);
+    return pagamentosFiltrados.reduce((sum, p) => sum + Number(p.valor || 0), 0);
+  }, [pagamentosFiltrados]);
 
   return (
     <div className="space-y-4">
@@ -53,7 +118,11 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
       <Card className="border-none bg-gradient-to-br from-blue-500/10 to-blue-500/5 shadow-sm dark:from-blue-900/20 dark:to-blue-900/5">
         <CardContent className="p-5 flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80 dark:text-blue-400/80">Receita Acumulada no Histórico</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80 dark:text-blue-400/80">
+              {selectedPeriod !== "todos" || selectedDay !== "todos" 
+                ? "Receita do Filtro Selecionado" 
+                : "Receita Acumulada no Histórico"}
+            </div>
             <div className="mt-2 text-3xl font-heading font-bold text-blue-600 dark:text-blue-400">
               R$ {receitaTotal.toFixed(2)}
             </div>
@@ -62,23 +131,54 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
         </CardContent>
       </Card>
 
-      {/* Barra de Busca */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input
-          className="h-11 pl-10 pr-10 dark:border-slate-800 dark:bg-slate-900"
-          placeholder="Buscar pagamentos por cliente, usuário ou app..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
-        {busca && (
-          <button
-            onClick={() => setBusca("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+      {/* Filtros de Data e Busca */}
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+        {/* Barra de Busca */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            className="h-11 pl-10 pr-10 dark:border-slate-800 dark:bg-slate-900"
+            placeholder="Buscar por cliente, usuário ou app..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+          {busca && (
+            <button
+              onClick={() => setBusca("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Seletor de Mês/Ano */}
+        <select
+          className="h-11 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-all"
+          value={selectedPeriod}
+          onChange={(e) => setSelectedPeriod(e.target.value)}
+        >
+          <option value="todos">Todos os meses</option>
+          {periodosDisponiveis.map((p) => (
+            <option key={p} value={p}>
+              {formatPeriodoLabel(p)}
+            </option>
+          ))}
+        </select>
+
+        {/* Seletor de Dia */}
+        <select
+          className="h-11 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-all"
+          value={selectedDay}
+          onChange={(e) => setSelectedDay(e.target.value)}
+        >
+          <option value="todos">Todos os dias</option>
+          {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
+            <option key={d} value={d}>
+              Dia {d}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Lista de Pagamentos */}
@@ -86,7 +186,9 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
         {pagamentosFiltrados.length === 0 ? (
           <Card className="bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800/60">
             <CardContent className="py-12 text-center text-slate-500">
-              {busca ? "Nenhum pagamento encontrado para a busca." : "Nenhum histórico de pagamentos registrado."}
+              {busca || selectedPeriod !== "todos" || selectedDay !== "todos" 
+                ? "Nenhum pagamento encontrado para os filtros selecionados." 
+                : "Nenhum histórico de pagamentos registrado."}
             </CardContent>
           </Card>
         ) : (
