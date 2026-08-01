@@ -84,14 +84,14 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
       {/* Lista de Pagamentos */}
       <div className="grid gap-4">
         {pagamentosFiltrados.length === 0 ? (
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800/60">
             <CardContent className="py-12 text-center text-slate-500">
               {busca ? "Nenhum pagamento encontrado para a busca." : "Nenhum histórico de pagamentos registrado."}
             </CardContent>
           </Card>
         ) : (
           pagamentosFiltrados.map((item) => (
-            <Card key={item.id} className="border-slate-200/60 dark:border-slate-800/60 hover:shadow-md transition-shadow">
+            <Card key={item.id} className="border-slate-200/60 dark:border-slate-800/60 hover:shadow-md transition-shadow bg-white dark:bg-slate-900">
               <CardContent className="flex items-center justify-between gap-3 p-4">
                 <div>
                   <div className="font-bold text-slate-800 dark:text-slate-200 text-lg">

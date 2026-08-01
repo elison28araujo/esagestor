@@ -499,8 +499,19 @@ export default function HomePage() {
 
       const dataBase = new Date(); dataBase.setDate(dataBase.getDate() + 30);
       const dataVenc = parseFlexibleDate(vencimentoImportado) || dataBase.toISOString();
-      const dataCad = parseFlexibleDate(dataImportada) || new Date().toISOString();
+      let dataCad = parseFlexibleDate(dataImportada) || new Date().toISOString();
       const val = parseCurrency(valorImportado);
+
+      // Se a data de cadastro importada for no futuro, ou igual à data de vencimento,
+      // deduzimos que a planilha colocou o vencimento no campo data e corrigimos para
+      // a data real de início do ciclo (dataVenc - 30 dias).
+      const dtCad = new Date(dataCad);
+      const dtVenc = new Date(dataVenc);
+      if (dtCad > new Date() || dtCad.getTime() === dtVenc.getTime()) {
+        const dtInicio = new Date(dtVenc);
+        dtInicio.setDate(dtInicio.getDate() - 30);
+        dataCad = dtInicio.toISOString();
+      }
 
       const docRef = doc(collection(db, "acessos"));
       batch.set(docRef, {
