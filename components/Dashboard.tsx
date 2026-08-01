@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { Acesso, Despesa, Pagamento, UsuarioAgrupado } from "@/lib/types";
-import { AlertTriangle, FileText } from "lucide-react";
+import { AlertTriangle, FileText, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DashboardProps {
@@ -16,8 +16,69 @@ interface DashboardProps {
 }
 
 export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: DashboardProps) {
-  const totalEntrada = pagamentos.reduce((sum, item) => sum + Number(item.valor || 0), 0);
-  const totalSaida = despesas.reduce((sum, item) => sum + Number(item.valor || 0), 0);
+  // Estado para o período selecionado (Mês/Ano). Padrão é o mês atual.
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    const hoje = new Date();
+    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  // Gerar lista de períodos disponíveis (meses que possuem transações + mês atual)
+  const periodosDisponiveis = useMemo(() => {
+    const periods = new Set<string>();
+    
+    // Sempre incluir mês atual na lista
+    const hoje = new Date();
+    periods.add(`${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`);
+    
+    pagamentos.forEach((p) => {
+      const d = new Date(p.data);
+      if (!isNaN(d.getTime())) {
+        periods.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+    });
+    
+    despesas.forEach((d) => {
+      const dt = new Date(d.data);
+      if (!isNaN(dt.getTime())) {
+        periods.add(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
+      }
+    });
+
+    // Ordenar decrescente (meses mais recentes primeiro)
+    return Array.from(periods).sort((a, b) => b.localeCompare(a));
+  }, [pagamentos, despesas]);
+
+  // Formatar rótulo amigável (Ex: "Agosto de 2026")
+  function formatPeriodoLabel(periodStr: string) {
+    const [year, month] = periodStr.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const mStr = date.toLocaleString("pt-BR", { month: "long" });
+    return `${mStr.charAt(0).toUpperCase() + mStr.slice(1)} de ${year}`;
+  }
+
+  // Filtrar pagamentos do período selecionado
+  const pagamentosFiltrados = useMemo(() => {
+    return pagamentos.filter((p) => {
+      const d = new Date(p.data);
+      if (isNaN(d.getTime())) return false;
+      const periodStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return periodStr === selectedPeriod;
+    });
+  }, [pagamentos, selectedPeriod]);
+
+  // Filtrar despesas do período selecionado
+  const despesasFiltradas = useMemo(() => {
+    return despesas.filter((d) => {
+      const dt = new Date(d.data);
+      if (isNaN(dt.getTime())) return false;
+      const periodStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+      return periodStr === selectedPeriod;
+    });
+  }, [despesas, selectedPeriod]);
+
+  // Totais do período selecionado
+  const totalEntrada = pagamentosFiltrados.reduce((sum, item) => sum + Number(item.valor || 0), 0);
+  const totalSaida = despesasFiltradas.reduce((sum, item) => sum + Number(item.valor || 0), 0);
   const lucro = totalEntrada - totalSaida;
 
   const vencendoHoje = useMemo(() => {
@@ -32,6 +93,7 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
     return acessos.filter((a) => new Date(a.vencimento).getTime() < Date.now()).length;
   }, [acessos]);
 
+  // Histórico de lucro por mês (para o gráfico anual de linha)
   const dadosMensais = useMemo(() => {
     const meses: Record<string, { entrada: number; saida: number }> = {};
     pagamentos.forEach((item) => {
@@ -67,6 +129,7 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
       
       const doc = new jsPDF();
       const dataGeracao = new Date().toLocaleDateString("pt-BR");
+      const refLabel = formatPeriodoLabel(selectedPeriod);
 
       // Título
       doc.setFont("helvetica", "bold");
@@ -76,18 +139,18 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
       
       doc.setFontSize(14);
       doc.setTextColor(71, 85, 105);
-      doc.text("Relatório Financeiro de Fluxo de Caixa", 14, 28);
+      doc.text(`Relatório Financeiro - Referência: ${refLabel}`, 14, 28);
       
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.text(`Gerado em: ${dataGeracao}`, 14, 34);
       doc.line(14, 36, 196, 36);
-
+ 
       // Resumo Métricas
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(30, 41, 59);
-      doc.text("Resumo Financeiro Geral", 14, 45);
+      doc.text("Resumo Financeiro do Mês", 14, 45);
 
       autoTable(doc, {
         startY: 48,
@@ -106,9 +169,9 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
       let currentY = (doc as any).lastAutoTable.finalY + 12;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Histórico de Recebimentos (Entradas)", 14, currentY);
+      doc.text("Recebimentos no Período", 14, currentY);
 
-      const rowsPagamentos = pagamentos
+      const rowsPagamentos = pagamentosFiltrados
         .slice()
         .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
         .map((p) => [
@@ -136,9 +199,9 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
       
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Histórico de Despesas (Saídas)", 14, currentY);
+      doc.text("Despesas no Período", 14, currentY);
 
-      const rowsDespesas = despesas
+      const rowsDespesas = despesasFiltradas
         .slice()
         .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
         .map((d) => [
@@ -157,7 +220,7 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
       });
 
       // Salvar PDF
-      doc.save(`relatorio-financeiro-esa-${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(`relatorio-financeiro-esa-${selectedPeriod}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
     }
@@ -182,29 +245,51 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
         </div>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">Painel Geral</h2>
-        <Button size="sm" variant="outline" className="h-9 gap-1 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-slate-900" onClick={gerarRelatorioPDF}>
-          <FileText className="h-4 w-4" /> Exportar PDF
-        </Button>
+        
+        {/* Seletor de Período Mensal */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <select
+            id="period-selector"
+            className="h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer"
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value)}
+          >
+            {periodosDisponiveis.map((p) => (
+              <option key={p} value={p}>
+                {formatPeriodoLabel(p)}
+              </option>
+            ))}
+          </select>
+
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-9 gap-1 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-slate-900" 
+            onClick={gerarRelatorioPDF}
+          >
+            <FileText className="h-4 w-4" /> Exportar PDF
+          </Button>
+        </div>
       </div>
 
       <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card className="border-none bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 shadow-sm dark:from-emerald-900/20 dark:to-emerald-900/5">
           <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600/80 dark:text-emerald-400/80">Entrada total</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600/80 dark:text-emerald-400/80 text-ellipsis overflow-hidden whitespace-nowrap">Entrada no mês</div>
             <div className="mt-2 text-2xl font-heading font-bold text-emerald-600 dark:text-emerald-400">R$ {totalEntrada.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="border-none bg-gradient-to-br from-rose-500/10 to-rose-500/5 shadow-sm dark:from-rose-900/20 dark:to-rose-900/5">
           <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-rose-600/80 dark:text-rose-400/80">Saída total</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-rose-600/80 dark:text-rose-400/80 text-ellipsis overflow-hidden whitespace-nowrap">Saída no mês</div>
             <div className="mt-2 text-2xl font-heading font-bold text-rose-600 dark:text-rose-400">R$ {totalSaida.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className={cn("border-none shadow-sm", lucro >= 0 ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white" : "bg-gradient-to-br from-red-600 to-rose-600 text-white")}>
           <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider opacity-80">Lucro Líquido</div>
+            <div className="text-xs font-semibold uppercase tracking-wider opacity-80 text-ellipsis overflow-hidden whitespace-nowrap">Lucro no mês</div>
             <div className="mt-2 text-2xl font-heading font-bold">
               R$ {lucro.toFixed(2)}
             </div>
@@ -212,8 +297,8 @@ export function Dashboard({ acessos, despesas, usuariosAgrupados, pagamentos }: 
         </Card>
         <Card className="border-slate-200/50 shadow-sm dark:border-slate-800/50 dark:bg-slate-900/50 backdrop-blur-sm">
           <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Usuários</div>
-            <div className="mt-2 text-2xl font-heading font-bold text-slate-900 dark:text-slate-100">{usuariosAgrupados.length}</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap">Total Clientes</div>
+            <div className="mt-2 text-2xl font-heading font-bold text-slate-900 dark:text-slate-100">{acessos.length}</div>
           </CardContent>
         </Card>
       </section>
