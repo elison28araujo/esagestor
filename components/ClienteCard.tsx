@@ -13,7 +13,7 @@ interface ClienteCardProps {
   mensagemRenovacao: string;
   onEditar: (acesso: Acesso) => void;
   onRemover: (id: string) => Promise<void>;
-  onRenovar: (id: string) => Promise<void>;
+  onRenovar: (id: string) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
 }
@@ -29,9 +29,7 @@ export function ClienteCard({
   onToggleSelecao,
 }: ClienteCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmRenewOpen, setConfirmRenewOpen] = useState(false);
   const [removendo, setRemovendo] = useState(false);
-  const [renovando, setRenovando] = useState(false);
 
   const dias = Math.ceil((new Date(item.vencimento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   
@@ -75,32 +73,6 @@ export function ClienteCard({
     setRemovendo(true);
     await onRemover(item.id);
     setRemovendo(false);
-    setConfirmOpen(false);
-  }
-
-  async function handleRenovar() {
-    setRenovando(true);
-    await onRenovar(item.id);
-    
-    // Calcula a nova data igual ao page.tsx
-    const hoje = new Date();
-    const dataVencimentoAtual = new Date(item.vencimento);
-    const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-    novaData.setDate(novaData.getDate() + 30);
-    const vencimentoFormatado = novaData.toLocaleDateString("pt-BR");
-
-    const phone = item.telefone.replace(/\D/g, "");
-    const mensagem = mensagemRenovacao
-      .replace("{cliente}", item.cliente)
-      .replace("{app}", item.app)
-      .replace("{usuario}", item.usuario)
-      .replace("{vencimento}", vencimentoFormatado);
-
-    setRenovando(false);
-
-    if (phone) {
-      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
-    }
   }
 
   return (
@@ -158,10 +130,9 @@ export function ClienteCard({
             <Button 
               size="sm" 
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold" 
-              onClick={() => setConfirmRenewOpen(true)}
-              disabled={renovando}
+              onClick={() => onRenovar(item.id)}
             >
-              {renovando ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Calendar className="mr-1 h-3 w-3" />}
+              <Calendar className="mr-1 h-3 w-3" />
               Renovar Agora
             </Button>
           )}
@@ -184,19 +155,6 @@ export function ClienteCard({
         onConfirm={handleRemover}
         onCancel={() => setConfirmOpen(false)}
         loading={removendo}
-      />
-
-      <ConfirmDialog
-        open={confirmRenewOpen}
-        title="Confirmar Renovação"
-        message={`Deseja renovar o acesso de "${item.cliente}" por mais 30 dias? Isso registrará um pagamento de R$ ${Number(item.valor).toFixed(2)} no histórico.`}
-        onConfirm={async () => {
-          await handleRenovar();
-          setConfirmRenewOpen(false);
-        }}
-        onCancel={() => setConfirmRenewOpen(false)}
-        confirmLabel="Renovar"
-        confirmVariant="default"
       />
     </>
   );

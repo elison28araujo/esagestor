@@ -39,6 +39,7 @@ import { Dashboard } from "@/components/Dashboard";
 import { NovoClienteForm } from "@/components/NovoClienteForm";
 import { ClienteCard } from "@/components/ClienteCard";
 import { EditClienteDialog } from "@/components/EditClienteDialog";
+import { RenovarAcessoDialog } from "@/components/RenovarAcessoDialog";
 import { DespesaList } from "@/components/DespesaList";
 import { ConfigDialog } from "@/components/ConfigDialog";
 import { Toast } from "@/components/Toast";
@@ -106,6 +107,7 @@ export default function HomePage() {
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
   const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [renovandoAcesso, setRenovandoAcesso] = useState<Acesso | null>(null);
   
   // Estados de Licenciamento SaaS
   const [licenca, setLicenca] = useState<any | null>(null);
@@ -354,7 +356,14 @@ export default function HomePage() {
     setToast({ type: "success", message: `Cliente "${cliente}" adicionado!` });
   }
 
-  async function handleRenovar(id: string) {
+  function handleRenovar(id: string) {
+    const item = acessos.find((a) => a.id === id);
+    if (item) {
+      setRenovandoAcesso(item);
+    }
+  }
+
+  async function handleConfirmarRenovacao(id: string, meses: number, valorCobrado: number) {
     if (!db || !user) return;
     const item = acessos.find((a) => a.id === id);
     if (!item) return;
@@ -362,27 +371,45 @@ export default function HomePage() {
     const hoje = new Date();
     const dataVencimentoAtual = new Date(item.vencimento);
     
-    // Se já venceu, renova a partir de hoje. Se não venceu, adiciona 30 dias à data atual de vencimento.
-    const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-    novaData.setDate(novaData.getDate() + 30);
+    // Se já venceu, renova a partir de hoje. Se não venceu, adiciona meses
+    const novaData = dataVencimentoAtual > hoje ? new Date(dataVencimentoAtual) : new Date(hoje);
+    novaData.setMonth(novaData.getMonth() + meses);
 
-    await updateDoc(doc(db, "acessos", id), {
-      vencimento: novaData.toISOString(),
-      data: hoje.toISOString(), // Atualiza a data da última renovação
-    });
+    try {
+      await updateDoc(doc(db, "acessos", id), {
+        vencimento: novaData.toISOString(),
+        data: hoje.toISOString(), // Atualiza a data da última renovação
+      });
 
-    // Registrar pagamento no histórico
-    await addDoc(collection(db, "pagamentos"), {
-      acessoId: id,
-      usuario: item.usuario,
-      cliente: item.cliente,
-      app: item.app,
-      valor: item.valor || 0,
-      data: hoje.toISOString(),
-      userId: user.uid,
-    });
-    
-    setToast({ type: "success", message: `Acesso de "${item.cliente}" renovado!` });
+      // Registrar pagamento no histórico com o valor final cobrado
+      await addDoc(collection(db, "pagamentos"), {
+        acessoId: id,
+        usuario: item.usuario,
+        cliente: item.cliente,
+        app: item.app,
+        valor: valorCobrado,
+        data: hoje.toISOString(),
+        userId: user.uid,
+      });
+      
+      setToast({ type: "success", message: `Acesso de "${item.cliente}" renovado por ${meses} ${meses === 1 ? "mês" : "meses"}!` });
+      setRenovandoAcesso(null);
+
+      // Enviar WhatsApp de renovação se tiver telefone
+      const phone = item.telefone.replace(/\D/g, "");
+      if (phone) {
+        const vencimentoFormatado = novaData.toLocaleDateString("pt-BR");
+        const mensagem = mensagemRenovacao
+          .replace("{cliente}", item.cliente)
+          .replace("{app}", item.app)
+          .replace("{usuario}", item.usuario)
+          .replace("{vencimento}", vencimentoFormatado);
+        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+      }
+    } catch (e) {
+      console.error(e);
+      setToast({ type: "error", message: "Erro ao renovar acesso." });
+    }
   }
 
   function exportarClientesCsv() {
@@ -1183,6 +1210,13 @@ export default function HomePage() {
         mpAccessToken={mpAccessToken}
         whatsappGestor={whatsappGestor}
         onSalvar={handleSalvarConfiguracoes}
+      />
+
+      <RenovarAcessoDialog
+        acesso={renovandoAcesso}
+        open={!!renovandoAcesso}
+        onFechar={() => setRenovandoAcesso(null)}
+        onConfirmar={handleConfirmarRenovacao}
       />
 
       <BulkActionBar
