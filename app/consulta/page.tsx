@@ -53,6 +53,54 @@ export default function ConsultaPage() {
     }
   }, []);
 
+  // Autocompletar e buscar telefone se passado por parâmetro (ex: /consulta?telefone=5591985066711)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const telParam = params.get("telefone") || params.get("tel");
+      if (telParam) {
+        const cleanTel = telParam.replace(/\D/g, "");
+        if (cleanTel) {
+          setTelefone(cleanTel);
+          setLoading(true);
+          setErro(null);
+          setAcessos([]);
+          setAcessoSelecionado(null);
+          setPixCopiaCola("");
+          setQrCodeBase64("");
+          setPaymentId("");
+
+          fetch(getApiUrl("/api/consulta"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ telefone: cleanTel }),
+          })
+            .then(async (res) => {
+              const data = await res.json();
+              if (!res.ok) {
+                throw new Error(data.error || "Dados não encontrados.");
+              }
+              setAcessos(data.acessos);
+              setUseMp(data.useMp);
+              setPixManual(data.pixManual);
+              setWhatsappGestor(data.whatsappGestor);
+
+              // Se houver exatamente 1 acesso encontrado, já inicia o checkout automaticamente!
+              if (data.acessos && data.acessos.length === 1) {
+                iniciarPagamentoDireto(data.acessos[0], data.useMp, data.pixManual);
+              }
+            })
+            .catch((err) => {
+              setErro(err.message || "Falha na consulta automática.");
+            })
+            .finally(() => {
+              setLoading(false);
+            });
+        }
+      }
+    }
+  }, []);
+
   function toggleDark() {
     const next = !darkMode;
     setDarkMode(next);
@@ -101,6 +149,10 @@ export default function ConsultaPage() {
 
   // Iniciar Checkout do Pix
   async function handleIniciarPagamento(acesso: any) {
+    await iniciarPagamentoDireto(acesso, useMp, pixManual);
+  }
+
+  async function iniciarPagamentoDireto(acesso: any, mpActive: boolean, pixManualData: any) {
     setAcessoSelecionado(acesso);
     setPixCopiaCola("");
     setQrCodeBase64("");
@@ -108,7 +160,7 @@ export default function ConsultaPage() {
     setPaymentStatus("pending");
     setErro(null);
 
-    if (useMp) {
+    if (mpActive) {
       setCheckoutLoading(true);
       try {
         const res = await fetch(getApiUrl("/api/mercado-pago/criar-pagamento"), {
@@ -133,7 +185,7 @@ export default function ConsultaPage() {
       }
     } else {
       // Checkout Manual
-      if (!pixManual || !pixManual.pixKey) {
+      if (!pixManualData || !pixManualData.pixKey) {
         setErro("O gestor ainda não configurou as chaves de recebimento Pix.");
         setAcessoSelecionado(null);
         return;
@@ -141,9 +193,9 @@ export default function ConsultaPage() {
 
       try {
         const payload = gerarPixEstatico({
-          chave: pixManual.pixKey,
-          nome: pixManual.pixNome || "ESA GESTOR",
-          cidade: pixManual.pixCidade || "SAO PAULO",
+          chave: pixManualData.pixKey,
+          nome: pixManualData.pixNome || "ESA GESTOR",
+          cidade: pixManualData.pixCidade || "SAO PAULO",
           valor: Number(acesso.valor),
         });
         setPixCopiaCola(payload);

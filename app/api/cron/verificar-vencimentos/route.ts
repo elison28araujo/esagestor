@@ -78,10 +78,10 @@ export async function GET(req: any) {
         const phone = acesso.telefone.replace(/\D/g, "");
         if (!phone) continue;
 
-        // Construir link de consulta
+        // Construir link de consulta personalizado
         const host = (reqHeaders ? reqHeaders.get("host") : null) || "www.esaplay.site";
         const protocol = (reqHeaders ? reqHeaders.get("x-forwarded-proto") : null) || "https";
-        const linkPortal = `${protocol}://${host}/consulta`;
+        const linkPortal = `${protocol}://${host}/consulta?telefone=${phone}`;
 
         let msg = (mensagemCobranca || "Olá {cliente}, seu acesso {app} está vencendo.")
           .replace("{cliente}", acesso.cliente)

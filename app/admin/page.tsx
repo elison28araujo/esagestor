@@ -371,7 +371,7 @@ export default function HomePage() {
 
   async function handleCobrar(item: Acesso) {
     const phone = item.telefone.replace(/\D/g, "");
-    const linkPortal = `${window.location.origin}/consulta`;
+    const linkPortal = `${window.location.origin}/consulta?telefone=${phone}`;
     let mensagem = mensagemCobranca
       .replace("{cliente}", item.cliente)
       .replace("{app}", item.app)
