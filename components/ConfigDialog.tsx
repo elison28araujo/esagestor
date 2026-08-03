@@ -16,6 +16,8 @@ interface ConfigDialogProps {
   pixCidade: string;
   mpAccessToken: string;
   whatsappGestor: string;
+  zapiInstanceId: string;
+  zapiToken: string;
   onSalvar: (data: {
     mensagemCobranca: string;
     mensagemRenovacao: string;
@@ -24,6 +26,8 @@ interface ConfigDialogProps {
     pixCidade: string;
     mpAccessToken: string;
     whatsappGestor: string;
+    zapiInstanceId: string;
+    zapiToken: string;
   }) => void;
 }
 
@@ -37,6 +41,8 @@ export function ConfigDialog({
   pixCidade,
   mpAccessToken,
   whatsappGestor,
+  zapiInstanceId,
+  zapiToken,
   onSalvar,
 }: ConfigDialogProps) {
   const [msgCobranca, setMsgCobranca] = useState(mensagem);
@@ -46,6 +52,8 @@ export function ConfigDialog({
   const [pixCidadeState, setPixCidadeState] = useState(pixCidade);
   const [mpAccessTokenState, setMpAccessTokenState] = useState(mpAccessToken);
   const [whatsappGestorState, setWhatsappGestorState] = useState(whatsappGestor);
+  const [zapiInstanceIdState, setZapiInstanceIdState] = useState(zapiInstanceId);
+  const [zapiTokenState, setZapiTokenState] = useState(zapiToken);
   const [emailAlerts, setEmailAlerts] = useState(true);
 
   useEffect(() => {
@@ -59,8 +67,10 @@ export function ConfigDialog({
       setPixCidadeState(pixCidade);
       setMpAccessTokenState(mpAccessToken);
       setWhatsappGestorState(whatsappGestor);
+      setZapiInstanceIdState(zapiInstanceId);
+      setZapiTokenState(zapiToken);
     }
-  }, [open, mensagem, mensagemRenovacao, pixKey, pixNome, pixCidade, mpAccessToken, whatsappGestor]);
+  }, [open, mensagem, mensagemRenovacao, pixKey, pixNome, pixCidade, mpAccessToken, whatsappGestor, zapiInstanceId, zapiToken]);
 
   function handleSalvar() {
     onSalvar({
@@ -71,6 +81,8 @@ export function ConfigDialog({
       pixCidade: pixCidadeState.trim(),
       mpAccessToken: mpAccessTokenState.trim(),
       whatsappGestor: whatsappGestorState.trim(),
+      zapiInstanceId: zapiInstanceIdState.trim(),
+      zapiToken: zapiTokenState.trim(),
     });
     localStorage.setItem("esa_email_alerts", emailAlerts ? "1" : "0");
     onFechar();
@@ -133,6 +145,36 @@ export function ConfigDialog({
             value={whatsappGestorState}
             onChange={(e) => setWhatsappGestorState(e.target.value)}
           />
+        </div>
+
+        {/* Z-API Integração */}
+        <div className="grid gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 mb-2">
+          <Label className="text-blue-600 font-bold">Disparo Automático via Z-API (WhatsApp)</Label>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Insira suas credenciais da <strong>Z-API</strong> para disparar as mensagens de cobrança e renovação 100% no background (sem abrir outra guia). Deixe em branco para usar o WhatsApp Web padrão.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1">
+              <Label className="text-xs text-slate-500">ID da Instância</Label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-all"
+                placeholder="Ex: 3F711A..."
+                value={zapiInstanceIdState}
+                onChange={(e) => setZapiInstanceIdState(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs text-slate-500">Token da Instância</Label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-all"
+                placeholder="Ex: B07898..."
+                value={zapiTokenState}
+                onChange={(e) => setZapiTokenState(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Mercado Pago */}

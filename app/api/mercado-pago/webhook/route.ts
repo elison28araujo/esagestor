@@ -87,6 +87,8 @@ export async function POST(req: Request) {
       // 6. Atualizar a data de vencimento do ACESSO específico (+30 dias)
       const acessoDocRef = adminDb.collection("acessos").doc(acessoId);
       const acessoDoc = await acessoDocRef.get();
+      let formattedPhone = "";
+      let formattedMsg = "";
 
       if (acessoDoc.exists) {
         const acessoData = acessoDoc.data();
@@ -101,6 +103,18 @@ export async function POST(req: Request) {
             vencimento: novaData.toISOString(),
             data: hoje.toISOString(),
           });
+
+          // Preparar dados do WhatsApp
+          if (acessoData.telefone) {
+            formattedPhone = acessoData.telefone.replace(/\D/g, "");
+            const vencimentoFormatado = novaData.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+            const msgTemplate = configData?.mensagemRenovacao || "Olá {cliente}, seu acesso {app} foi renovado! Usuário: {usuario}. Novo vencimento: {vencimento}.";
+            formattedMsg = msgTemplate
+              .replace("{cliente}", cliente)
+              .replace("{app}", app)
+              .replace("{usuario}", usuario)
+              .replace("{vencimento}", vencimentoFormatado);
+          }
         }
       }
 
@@ -121,6 +135,25 @@ export async function POST(req: Request) {
         status: "approved",
         approvedAt: hojeStr,
       });
+
+      // 9. Enviar mensagem via Z-API se configurado
+      if (configData?.zapiInstanceId && configData?.zapiToken && formattedPhone && formattedMsg) {
+        try {
+          const phoneFormatted = formattedPhone.startsWith("55") ? formattedPhone : `55${formattedPhone}`;
+          await fetch(`https://api.z-api.io/instances/${configData.zapiInstanceId}/token/${configData.zapiToken}/send-text`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              phone: phoneFormatted,
+              message: formattedMsg,
+            }),
+          });
+        } catch (err) {
+          console.error("Erro ao disparar Z-API no webhook:", err);
+        }
+      }
 
       return NextResponse.json({ success: true, status: "approved" });
     } else {

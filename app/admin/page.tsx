@@ -103,6 +103,8 @@ export default function HomePage() {
   const [pixCidade, setPixCidade] = useState("");
   const [mpAccessToken, setMpAccessToken] = useState("");
   const [whatsappGestor, setWhatsappGestor] = useState("");
+  const [zapiInstanceId, setZapiInstanceId] = useState("");
+  const [zapiToken, setZapiToken] = useState("");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
@@ -148,6 +150,8 @@ export default function HomePage() {
         setPixCidade(data.pixCidade || "");
         setMpAccessToken(data.mpAccessToken || "");
         setWhatsappGestor(data.whatsappGestor || "");
+        setZapiInstanceId(data.zapiInstanceId || "");
+        setZapiToken(data.zapiToken || "");
       }
     });
     return () => unsubConfig();
@@ -161,6 +165,8 @@ export default function HomePage() {
     pixCidade: string;
     mpAccessToken: string;
     whatsappGestor: string;
+    zapiInstanceId: string;
+    zapiToken: string;
   }) {
     if (!user || !db) return;
     try {
@@ -363,6 +369,49 @@ export default function HomePage() {
     }
   }
 
+  async function handleCobrar(item: Acesso) {
+    const phone = item.telefone.replace(/\D/g, "");
+    const linkPortal = `${window.location.origin}/consulta`;
+    let mensagem = mensagemCobranca
+      .replace("{cliente}", item.cliente)
+      .replace("{app}", item.app)
+      .replace("{valor}", Number(item.valor).toFixed(2));
+      
+    if (mensagem.includes("{link}")) {
+      mensagem = mensagem.replace("{link}", linkPortal);
+    } else {
+      mensagem = `${mensagem}\n\nEfetue o pagamento pelo link: ${linkPortal}`;
+    }
+
+    if (zapiInstanceId && zapiToken && phone) {
+      setToast({ type: "info", message: "Enviando cobrança via WhatsApp..." });
+      try {
+        const phoneFormatted = phone.startsWith("55") ? phone : `55${phone}`;
+        const res = await fetch(`https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phone: phoneFormatted,
+            message: mensagem,
+          }),
+        });
+        if (res.ok) {
+          setToast({ type: "success", message: "Cobrança enviada com sucesso pelo WhatsApp!" });
+        } else {
+          throw new Error("Erro na Z-API");
+        }
+      } catch (err) {
+        console.error("Erro Z-API ao cobrar:", err);
+        setToast({ type: "error", message: "Falha na Z-API. Abrindo WhatsApp Web..." });
+        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+      }
+    } else {
+      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+    }
+  }
+
   async function handleConfirmarRenovacao(id: string, meses: number, valorCobrado: number) {
     if (!db || !user) return;
     const item = acessos.find((a) => a.id === id);
@@ -404,7 +453,30 @@ export default function HomePage() {
           .replace("{app}", item.app)
           .replace("{usuario}", item.usuario)
           .replace("{vencimento}", vencimentoFormatado);
-        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+
+        if (zapiInstanceId && zapiToken) {
+          setToast({ type: "info", message: "Enviando aviso de renovação automática..." });
+          try {
+            const phoneFormatted = phone.startsWith("55") ? phone : `55${phone}`;
+            await fetch(`https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                phone: phoneFormatted,
+                message: mensagem,
+              }),
+            });
+            setToast({ type: "success", message: `Acesso renovado e aviso enviado pelo WhatsApp!` });
+          } catch (err) {
+            console.error("Erro Z-API ao renovar:", err);
+            setToast({ type: "error", message: "Falha no envio automático. Abrindo WhatsApp Web..." });
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+          }
+        } else {
+          window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+        }
       }
     } catch (e) {
       console.error(e);
@@ -945,6 +1017,7 @@ export default function HomePage() {
                               onEditar={setEditando}
                               onRemover={(id) => remover(id, "acessos")}
                               onRenovar={handleRenovar}
+                              onCobrar={handleCobrar}
                               selecionado={selecionados.includes(item.id)}
                               onToggleSelecao={toggleSelecao}
                             />
@@ -1220,6 +1293,8 @@ export default function HomePage() {
         pixCidade={pixCidade}
         mpAccessToken={mpAccessToken}
         whatsappGestor={whatsappGestor}
+        zapiInstanceId={zapiInstanceId}
+        zapiToken={zapiToken}
         onSalvar={handleSalvarConfiguracoes}
       />
 
