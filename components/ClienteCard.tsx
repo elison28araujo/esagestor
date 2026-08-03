@@ -126,16 +126,14 @@ export function ClienteCard({
         </div>
 
         <div className="relative z-10 flex flex-wrap gap-2">
-          {dias <= 3 && (
-            <Button 
-              size="sm" 
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold" 
-              onClick={() => onRenovar(item.id)}
-            >
-              <Calendar className="mr-1 h-3 w-3" />
-              Renovar Agora
-            </Button>
-          )}
+          <Button 
+            size="sm" 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold" 
+            onClick={() => onRenovar(item.id)}
+          >
+            <Calendar className="mr-1 h-3 w-3" />
+            Renovar Agora
+          </Button>
           <Button size="sm" variant="outline" className="border-green-200 text-green-600 hover:bg-green-50 dark:border-green-900 dark:text-green-400 dark:hover:bg-green-950" onClick={cobrar}>
             <MessageCircle className="mr-1 h-3 w-3" /> Cobrar
           </Button>
