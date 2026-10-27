@@ -5,8 +5,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Acesso } from "@/lib/types";
-import { formatPhone, toDateInput, isValidPhone, normalizePhone, fromDateInput } from "@/lib/utils";
+import { Acesso, ServidorNome } from "@/lib/types";
+import { SERVIDOR_OPTIONS, SERVIDORES } from "@/lib/constants";
+import { formatPhone, toDateInput, isValidPhone, normalizePhone, fromDateInput, detectarServidor } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 interface EditClienteDialogProps {
@@ -23,6 +24,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
     telefone: "",
     valor: "",
     app: "P2P",
+    servidor: "Warez" as ServidorNome,
     vencimento: "",
     enderecoMac: "",
     chaveKey: "",
@@ -32,12 +34,14 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
 
   useEffect(() => {
     if (acesso) {
+      const servidorInicial = (acesso.servidor as ServidorNome) || detectarServidor(acesso);
       setForm({
         usuario: acesso.usuario,
         cliente: acesso.cliente,
         telefone: formatPhone(acesso.telefone),
         valor: String(acesso.valor ?? ""),
         app: acesso.app,
+        servidor: servidorInicial,
         vencimento: toDateInput(acesso.vencimento),
         enderecoMac: acesso.enderecoMac || "",
         chaveKey: acesso.chaveKey || "",
@@ -58,6 +62,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
       telefone: normalizePhone(form.telefone),
       valor: Number(form.valor) || 0,
       app: form.app,
+      servidor: form.servidor,
       vencimento: fromDateInput(form.vencimento),
       enderecoMac: form.enderecoMac.trim(),
       chaveKey: form.chaveKey.trim(),
@@ -79,6 +84,34 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
               <Input value={form[field as "usuario" | "cliente"]} onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))} />
             </div>
           ))}
+
+          {/* Seletor de Servidor */}
+          <div className="grid gap-1">
+            <div className="flex items-center justify-between">
+              <Label>Servidor</Label>
+              <span className="text-[11px] text-slate-500">
+                {SERVIDORES[form.servidor]?.descricao}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {SERVIDOR_OPTIONS.map((srv) => (
+                <button
+                  key={srv}
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, servidor: srv }))}
+                  className={`rounded-xl border p-2 text-center text-xs font-bold transition-all ${
+                    form.servidor === srv
+                      ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-300 ring-2 ring-blue-500/20"
+                      : "border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                  }`}
+                >
+                  <div>{srv}</div>
+                  <div className="text-[10px] font-normal opacity-75">R$ {SERVIDORES[srv].custoCredito.toFixed(2)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-1">
             <Label>Telefone / WhatsApp</Label>
             <Input value={form.telefone} onChange={(e) => setForm((p) => ({ ...p, telefone: formatPhone(e.target.value) }))} />

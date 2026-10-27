@@ -151,3 +151,94 @@ export function getApiUrl(path: string): string {
     : "https://www.esaplay.site";
   return `${baseUrl}${path}`;
 }
+
+export function isP2P(app: string | undefined): boolean {
+  if (!app) return false;
+  return app.trim().toUpperCase().includes("P2P");
+}
+
+export function detectarServidor(item: { servidor?: string; usuario?: string; app?: string }): "Warez" | "Genial" | "Five" {
+  if (item.servidor) {
+    const s = item.servidor.toLowerCase();
+    if (s.includes("genial")) return "Genial";
+    if (s.includes("five")) return "Five";
+    if (s.includes("warez")) return "Warez";
+  }
+  if (item.usuario) {
+    const u = item.usuario.toLowerCase();
+    if (u.includes("genial")) return "Genial";
+    if (u.includes("five")) return "Five";
+    if (u.includes("warez")) return "Warez";
+  }
+  // Padrão Warez (retrocompatível com a base já cadastrada)
+  return "Warez";
+}
+
+export function calcularVagasUsuario(
+  nomeUsuario: string,
+  clientes: Array<{ app: string; servidor?: string }>,
+  servidorForcado?: "Warez" | "Genial" | "Five"
+) {
+  const servidorDefinido = clientes.find((c) => c.servidor)?.servidor as "Warez" | "Genial" | "Five" | undefined;
+  const servidor = servidorForcado || servidorDefinido || detectarServidor({ usuario: nomeUsuario });
+
+  const total = clientes.length;
+  const qtdP2P = clientes.filter((c) => isP2P(c.app)).length;
+  const qtdIPTV = total - qtdP2P;
+
+  let vagasP2P = 0;
+  let vagasIPTV = 0;
+  let capacidadeTotal = 3;
+  let custoCredito = 9.0;
+  let detalhes = "";
+
+  if (servidor === "Genial") {
+    capacidadeTotal = 2;
+    custoCredito = 7.0;
+    if (qtdP2P > 0) {
+      vagasP2P = Math.max(0, 2 - qtdP2P);
+      vagasIPTV = 0;
+      detalhes = vagasP2P > 0 ? `${vagasP2P} vaga${vagasP2P > 1 ? "s" : ""} P2P livre` : "Lotado";
+    } else if (qtdIPTV > 0) {
+      vagasIPTV = Math.max(0, 2 - qtdIPTV);
+      vagasP2P = 0;
+      detalhes = vagasIPTV > 0 ? `${vagasIPTV} vaga${vagasIPTV > 1 ? "s" : ""} IPTV livre` : "Lotado";
+    } else {
+      vagasP2P = 2;
+      vagasIPTV = 2;
+      detalhes = "2 vagas livres (2 IPTV ou 2 P2P)";
+    }
+  } else if (servidor === "Five") {
+    capacidadeTotal = 2;
+    custoCredito = 8.0;
+    vagasP2P = 0;
+    vagasIPTV = Math.max(0, 2 - qtdIPTV);
+    detalhes = vagasIPTV > 0 ? `${vagasIPTV} vaga${vagasIPTV > 1 ? "s" : ""} IPTV livre` : "Lotado";
+  } else {
+    // Warez (padrão)
+    capacidadeTotal = 3;
+    custoCredito = 9.0;
+    vagasP2P = Math.max(0, 1 - qtdP2P);
+    vagasIPTV = Math.max(0, 2 - qtdIPTV);
+    const partes: string[] = [];
+    if (vagasP2P > 0) partes.push(`${vagasP2P} P2P`);
+    if (vagasIPTV > 0) partes.push(`${vagasIPTV} IPTV`);
+    detalhes = partes.length > 0 ? `${partes.join(" e ")} livre${partes.length > 1 || vagasIPTV > 1 ? "s" : ""}` : "Lotado";
+  }
+
+  const vagasTotal = Math.max(0, capacidadeTotal - total);
+  const disponivel = vagasTotal > 0 && (vagasP2P > 0 || vagasIPTV > 0);
+
+  return {
+    servidor,
+    capacidadeTotal,
+    custoCredito,
+    vagas: {
+      p2p: vagasP2P,
+      iptv: vagasIPTV,
+      total: vagasTotal,
+      detalhes,
+    },
+    disponivel,
+  };
+}

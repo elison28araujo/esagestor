@@ -10,3 +10,5 @@ esagestor-firebase-adminsdk-*.json
 
 .vercel
 .env*
+
+*.tsbuildinfo

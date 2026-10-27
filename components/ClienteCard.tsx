@@ -99,6 +99,17 @@ export function ClienteCard({
               <div className="text-xl font-heading font-bold tracking-tight text-slate-900 dark:text-slate-100">{item.cliente}</div>
               <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400">
                 <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] uppercase tracking-wider text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{item.app}</span>
+                {item.servidor && (
+                  <span className={`rounded-md px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
+                    item.servidor === "Genial"
+                      ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                      : item.servidor === "Five"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                      : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                  }`}>
+                    {item.servidor}
+                  </span>
+                )}
                 R$ {Number(item.valor).toFixed(2)}
               </div>
               <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">{formatPhone(item.telefone)}</div>

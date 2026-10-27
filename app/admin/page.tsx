@@ -49,8 +49,8 @@ import { BulkActionBar } from "@/components/BulkActionBar";
 import { enviarResumoAlertasEmail } from "@/lib/email";
 import { TelaLicencaBloqueada } from "@/components/TelaLicencaBloqueada";
 
-import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado } from "@/lib/types";
-import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES } from "@/lib/constants";
+import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
+import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
 import {
   escapeCsvValue,
   isValidPhone,
@@ -59,6 +59,9 @@ import {
   parseCsv,
   parseFlexibleDate,
   parseGoogleSheetUrl,
+  isP2P,
+  calcularVagasUsuario,
+  detectarServidor,
 } from "@/lib/utils";
 
 function parseCurrency(value: string) {
@@ -110,6 +113,7 @@ export default function HomePage() {
   const [itensPorPagina] = useState(12);
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [renovandoAcesso, setRenovandoAcesso] = useState<Acesso | null>(null);
+  const [cadastroPredefinido, setCadastroPredefinido] = useState<{ usuario: string; servidor?: string } | null>(null);
   
   // Estados de Licenciamento SaaS
   const [licenca, setLicenca] = useState<any | null>(null);
@@ -320,19 +324,65 @@ export default function HomePage() {
     }
   }, [user, acessos]);
 
-  async function addCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey }: {
-    nomeUser: string; cliente: string; telefone: string; valor: string; app: string; enderecoMac?: string; chaveKey?: string;
+  async function addCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey, servidor }: {
+    nomeUser: string;
+    cliente: string;
+    telefone: string;
+    valor: string;
+    app: string;
+    enderecoMac?: string;
+    chaveKey?: string;
+    servidor?: ServidorNome | string;
   }) {
     if (!user || !db) return;
     const clientesMesmoUsuario = acessos.filter(
       (item) => item.usuario.trim().toLowerCase() === nomeUser.trim().toLowerCase()
     );
-    if (clientesMesmoUsuario.length >= 3) {
-      setToast({ type: "error", message: "Máximo de 3 clientes por usuário" }); return;
+
+    // Servidor determinado (se não veio explicitamente, detecta ou assume do usuário)
+    const servidorEscolhido: ServidorNome = (servidor as ServidorNome) || detectarServidor({ usuario: nomeUser, servidor: servidor as string });
+    const isNovoP2P = isP2P(app);
+    const qtdP2PAtual = clientesMesmoUsuario.filter((c) => isP2P(c.app)).length;
+    const qtdIPTVAtual = clientesMesmoUsuario.length - qtdP2PAtual;
+
+    if (servidorEscolhido === "Genial") {
+      if (clientesMesmoUsuario.length >= 2) {
+        setToast({ type: "error", message: "O servidor Genial suporta no máximo 2 clientes por usuário (2 IPTV ou 2 P2P)." });
+        return;
+      }
+      if (isNovoP2P && qtdIPTVAtual > 0) {
+        setToast({ type: "error", message: "O servidor Genial aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui IPTV)." });
+        return;
+      }
+      if (!isNovoP2P && qtdP2PAtual > 0) {
+        setToast({ type: "error", message: "O servidor Genial aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui P2P)." });
+        return;
+      }
+    } else if (servidorEscolhido === "Five") {
+      if (clientesMesmoUsuario.length >= 2) {
+        setToast({ type: "error", message: "O servidor Five suporta no máximo 2 clientes por usuário (apenas IPTV)." });
+        return;
+      }
+      if (isNovoP2P) {
+        setToast({ type: "error", message: "O servidor Five aceita somente clientes IPTV (não aceita P2P)." });
+        return;
+      }
+    } else {
+      // Warez (padrão)
+      if (clientesMesmoUsuario.length >= 3) {
+        setToast({ type: "error", message: "O servidor Warez suporta no máximo 3 clientes por usuário (1 P2P e 2 IPTV)." });
+        return;
+      }
+      if (isNovoP2P && qtdP2PAtual >= 1) {
+        setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 1 cliente P2P neste usuário." });
+        return;
+      }
+      if (!isNovoP2P && qtdIPTVAtual >= 2) {
+        setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 2 clientes IPTV neste usuário." });
+        return;
+      }
     }
-    if (app === "P2P" && clientesMesmoUsuario.some((item) => item.app === "P2P")) {
-      setToast({ type: "error", message: "Esse usuário já possui P2P" }); return;
-    }
+
     const vencimento = new Date();
     vencimento.setDate(vencimento.getDate() + 30);
     const valNumerico = Number(valor) || 0;
@@ -342,6 +392,7 @@ export default function HomePage() {
       telefone: normalizePhone(telefone),
       valor: valNumerico,
       app,
+      servidor: servidorEscolhido,
       vencimento: vencimento.toISOString(),
       data: new Date().toISOString(),
       createdAt: Timestamp.now(),
@@ -359,7 +410,7 @@ export default function HomePage() {
       data: new Date().toISOString(),
       userId: user.uid,
     });
-    setToast({ type: "success", message: `Cliente "${cliente}" adicionado!` });
+    setToast({ type: "success", message: `Cliente "${cliente}" adicionado no servidor ${servidorEscolhido}!` });
   }
 
   function handleRenovar(id: string) {
@@ -486,7 +537,7 @@ export default function HomePage() {
 
   function exportarClientesCsv() {
     const linhas = [
-      ["usuario", "cliente", "whatsapp", "valor", "app", "vencimento", "data", "mac", "key"].join(";"),
+      ["usuario", "cliente", "whatsapp", "valor", "app", "vencimento", "data", "servidor", "mac", "key"].join(";"),
       ...acessos
         .slice()
         .sort((a, b) => a.usuario.localeCompare(b.usuario))
@@ -499,6 +550,7 @@ export default function HomePage() {
             escapeCsvValue(item.app),
             escapeCsvValue(formatDateForCsv(item.vencimento)),
             escapeCsvValue(formatDateForCsv(item.data)),
+            escapeCsvValue(item.servidor || detectarServidor(item)),
             escapeCsvValue(item.enderecoMac || ""),
             escapeCsvValue(item.chaveKey || ""),
           ].join(";")
@@ -556,27 +608,48 @@ export default function HomePage() {
       const valorImportado = getFieldValue(row, FIELD_ALIASES.valor).trim();
       const vencimentoImportado = getFieldValue(row, FIELD_ALIASES.vencimento).trim();
       const dataImportada = getFieldValue(row, FIELD_ALIASES.data).trim();
+      const servidorImportado = getFieldValue(row, FIELD_ALIASES.servidor).trim();
       const enderecoMac = getFieldValue(row, FIELD_ALIASES.enderecoMac).trim();
       const chaveKey = getFieldValue(row, FIELD_ALIASES.chaveKey).trim();
 
       if (!usuario || !cliente) { erros.push(`Linha ${index + 2}: faltou usuário ou cliente.`); continue; }
       if (telefone && !isValidPhone(telefone)) { erros.push(`Linha ${index + 2}: WhatsApp inválido para ${cliente}.`); continue; }
 
+      const servidorFinal = (servidorImportado as ServidorNome) || detectarServidor({ usuario, servidor: servidorImportado });
       const usuarioKey = usuario.toLowerCase();
       const totalAtual = counts.get(usuarioKey) ?? 0;
-      const isP2P = normalizeHeader(app) === "p2p";
+      const isNovoP2P = normalizeHeader(app) === "p2p";
 
-      if (totalAtual >= 3) { erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 3 clientes.`); continue; }
-      if (isP2P && p2pUsers.has(usuarioKey)) { erros.push(`Linha ${index + 2}: ${usuario} já possui P2P.`); continue; }
+      if (servidorFinal === "Genial" && totalAtual >= 2) {
+        erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 2 clientes do servidor Genial.`);
+        continue;
+      }
+      if (servidorFinal === "Five") {
+        if (totalAtual >= 2) {
+          erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 2 clientes do servidor Five.`);
+          continue;
+        }
+        if (isNovoP2P) {
+          erros.push(`Linha ${index + 2}: servidor Five aceita apenas IPTV (não aceita P2P).`);
+          continue;
+        }
+      }
+      if (servidorFinal === "Warez") {
+        if (totalAtual >= 3) {
+          erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 3 clientes do servidor Warez.`);
+          continue;
+        }
+        if (isNovoP2P && p2pUsers.has(usuarioKey)) {
+          erros.push(`Linha ${index + 2}: ${usuario} já possui P2P no servidor Warez.`);
+          continue;
+        }
+      }
 
       const dataBase = new Date(); dataBase.setDate(dataBase.getDate() + 30);
       const dataVenc = parseFlexibleDate(vencimentoImportado) || dataBase.toISOString();
       let dataCad = parseFlexibleDate(dataImportada) || new Date().toISOString();
       const val = parseCurrency(valorImportado);
 
-      // Se a data de cadastro importada for no futuro, ou igual à data de vencimento,
-      // deduzimos que a planilha colocou o vencimento no campo data e corrigimos para
-      // a data real de início do ciclo (dataVenc - 30 dias).
       const dtCad = new Date(dataCad);
       const dtVenc = new Date(dataVenc);
       if (dtCad > new Date() || dtCad.getTime() === dtVenc.getTime()) {
@@ -587,9 +660,12 @@ export default function HomePage() {
 
       const docRef = doc(collection(db, "acessos"));
       batch.set(docRef, {
-        usuario, cliente, telefone,
+        usuario,
+        cliente,
+        telefone,
         valor: val,
         app,
+        servidor: servidorFinal,
         vencimento: dataVenc,
         data: dataCad,
         createdAt: Timestamp.now(),
@@ -611,7 +687,7 @@ export default function HomePage() {
       });
 
       counts.set(usuarioKey, totalAtual + 1);
-      if (isP2P) p2pUsers.add(usuarioKey);
+      if (isNovoP2P) p2pUsers.add(usuarioKey);
       if (!telefone) semWhatsapp++;
       importados++;
       batchCount += 2;
@@ -781,13 +857,24 @@ export default function HomePage() {
       groups[item.usuario].push(item);
     });
     return Object.keys(groups)
-      .map((nome) => ({
-        nome,
-        clientes: groups[nome].sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime()),
-        temP2P: groups[nome].some((item) => item.app === "P2P"),
-      }))
+      .map((nome) => {
+        const clientes = groups[nome].sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
+        const temP2P = clientes.some((item) => isP2P(item.app));
+        const info = calcularVagasUsuario(nome, clientes);
+        return {
+          nome,
+          clientes,
+          temP2P,
+          servidor: info.servidor,
+          capacidadeTotal: info.capacidadeTotal,
+          custoCredito: info.custoCredito,
+          vagas: info.vagas,
+          disponivel: info.disponivel,
+        };
+      })
       .sort((a, b) => {
-        if (a.temP2P !== b.temP2P) return a.temP2P ? 1 : -1;
+        if (a.disponivel !== b.disponivel) return a.disponivel ? -1 : 1;
+        if (a.vagas.total !== b.vagas.total) return b.vagas.total - a.vagas.total;
         return a.clientes.length - b.clientes.length;
       });
   }, [acessos]);
@@ -820,7 +907,10 @@ export default function HomePage() {
             c.cliente.toLowerCase().includes(q) ||
             c.usuario.toLowerCase().includes(q) ||
             c.app.toLowerCase().includes(q) ||
-            c.telefone.includes(q)
+            c.telefone.includes(q) ||
+            (c.enderecoMac && c.enderecoMac.toLowerCase().includes(q)) ||
+            (c.chaveKey && c.chaveKey.toLowerCase().includes(q)) ||
+            (c.servidor && c.servidor.toLowerCase().includes(q))
         ),
       })).filter((g) => g.clientes.length > 0 || g.nome.toLowerCase().includes(q));
     }
@@ -921,7 +1011,16 @@ export default function HomePage() {
           <div className="space-y-8">
             {/* Dashboard */}
             {activeTab === "dashboard" && (
-              <Dashboard acessos={acessos} despesas={despesas} usuariosAgrupados={usuariosAgrupados} pagamentos={pagamentos} />
+              <Dashboard
+                acessos={acessos}
+                despesas={despesas}
+                usuariosAgrupados={usuariosAgrupados}
+                pagamentos={pagamentos}
+                onCadastrarComUsuario={(usuario, servidor) => {
+                  setCadastroPredefinido({ usuario, servidor });
+                  setActiveTab("cadastro");
+                }}
+              />
             )}
 
             {/* Cadastro Form */}
@@ -933,6 +1032,8 @@ export default function HomePage() {
                   appOptions={appOptions}
                   importFeedback={importFeedback}
                   importando={importando}
+                  usuarioPredefinido={cadastroPredefinido?.usuario}
+                  servidorPredefinido={cadastroPredefinido?.servidor}
                   onAddCliente={addCliente}
                   onExportarCsv={exportarClientesCsv}
                   onImportarCsv={importarClientesCsv}
@@ -951,7 +1052,7 @@ export default function HomePage() {
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
                       className="h-11 pl-10 pr-10 dark:border-slate-800 dark:bg-slate-900"
-                      placeholder="Buscar por usuário, cliente, app ou telefone..."
+                      placeholder="Buscar por usuário, cliente, app, telefone, MAC ou servidor..."
                       value={busca}
                       onChange={(e) => setBusca(e.target.value)}
                     />

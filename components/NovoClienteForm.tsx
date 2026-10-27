@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useRef, ChangeEvent } from "react";
+import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Acesso, ImportFeedback } from "@/lib/types";
+import { Acesso, ImportFeedback, ServidorNome } from "@/lib/types";
+import { SERVIDOR_OPTIONS, SERVIDORES } from "@/lib/constants";
 import { formatPhone, isValidPhone, normalizePhone } from "@/lib/utils";
-import { Download, Loader2, Plus, Upload, User, Phone, DollarSign, Cpu, Key } from "lucide-react";
+import { Download, Loader2, Plus, Upload, User, Phone, DollarSign, Cpu, Key, Server } from "lucide-react";
 
 interface NovoClienteFormProps {
   acessos: Acesso[];
   appOptions: string[];
   importFeedback: ImportFeedback | null;
   importando: boolean;
+  usuarioPredefinido?: string;
+  servidorPredefinido?: ServidorNome | string;
   onAddCliente: (data: {
     nomeUser: string;
     cliente: string;
@@ -21,6 +24,7 @@ interface NovoClienteFormProps {
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
+    servidor?: ServidorNome | string;
   }) => Promise<void>;
   onExportarCsv: () => void;
   onImportarCsv: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
@@ -31,6 +35,8 @@ export function NovoClienteForm({
   appOptions,
   importFeedback,
   importando,
+  usuarioPredefinido,
+  servidorPredefinido,
   onAddCliente,
   onExportarCsv,
   onImportarCsv,
@@ -41,6 +47,7 @@ export function NovoClienteForm({
   const [telefone, setTelefone] = useState("");
   const [valor, setValor] = useState("");
   const [app, setApp] = useState("P2P");
+  const [servidor, setServidor] = useState<ServidorNome>("Warez");
   const [enderecoMac, setEnderecoMac] = useState("");
   const [chaveKey, setChaveKey] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
@@ -48,12 +55,21 @@ export function NovoClienteForm({
   const [erro, setErro] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
+    if (usuarioPredefinido) {
+      setNomeUser(usuarioPredefinido);
+    }
+    if (servidorPredefinido && (SERVIDOR_OPTIONS as string[]).includes(servidorPredefinido)) {
+      setServidor(servidorPredefinido as ServidorNome);
+    }
+  }, [usuarioPredefinido, servidorPredefinido]);
+
   async function handleAdd() {
     if (!nomeUser.trim() || !cliente.trim()) { setErro("Preencha usuário e cliente"); return; }
     if (!isValidPhone(telefone)) { setErro("Digite um telefone válido com DDD"); return; }
     setErro("");
     setAdicionando(true);
-    await onAddCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey });
+    await onAddCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey, servidor });
     setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setApp("P2P"); setEnderecoMac(""); setChaveKey("");
     setAdicionando(false);
   }
@@ -78,7 +94,7 @@ export function NovoClienteForm({
         </div>
 
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Importar CSV com colunas: <code>usuario</code>, <code>cliente</code>, <code>whatsapp</code>, <code>valor</code>, <code>app</code>, <code>vencimento</code>, <code>data</code>, <code>mac</code> (opcional), <code>key</code> (opcional).
+          Importar CSV com colunas: <code>usuario</code>, <code>cliente</code>, <code>whatsapp</code>, <code>valor</code>, <code>app</code>, <code>vencimento</code>, <code>data</code>, <code>servidor</code> (opcional), <code>mac</code> (opcional), <code>key</code> (opcional).
         </p>
 
         <div className="grid gap-2 md:grid-cols-[1fr_auto]">
@@ -102,6 +118,40 @@ export function NovoClienteForm({
             {importFeedback.message}
           </div>
         )}
+
+        {/* Seleção do Servidor */}
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-900/50">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+              <Server className="h-3.5 w-3.5 text-blue-500" /> Servidor / Linha
+            </span>
+            <span className="text-xs text-slate-500">
+              {SERVIDORES[servidor].descricao}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {SERVIDOR_OPTIONS.map((srv) => {
+              const info = SERVIDORES[srv];
+              const isSelected = servidor === srv;
+              return (
+                <button
+                  key={srv}
+                  type="button"
+                  onClick={() => setServidor(srv)}
+                  className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
+                    isSelected
+                      ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-300 font-bold ring-2 ring-blue-500/20"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                  }`}
+                >
+                  <span className="text-sm font-bold">{srv}</span>
+                  <span className="text-[11px] opacity-80">R$ {info.custoCredito.toFixed(2)}/créd.</span>
+                  <span className="text-[10px] opacity-70">Até {info.capacidadeTotal} clientes</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="relative">
