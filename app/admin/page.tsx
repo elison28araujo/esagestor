@@ -48,6 +48,7 @@ import { PagamentosList } from "@/components/PagamentosList";
 import { BulkActionBar } from "@/components/BulkActionBar";
 import { enviarResumoAlertasEmail } from "@/lib/email";
 import { TelaLicencaBloqueada } from "@/components/TelaLicencaBloqueada";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
@@ -937,8 +938,10 @@ export default function HomePage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center dark:bg-slate-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex min-h-screen items-center justify-center p-6 dark:bg-slate-900">
+        <div className="w-full max-w-5xl">
+          <DashboardSkeleton />
+        </div>
       </div>
     );
   }
@@ -1016,6 +1019,10 @@ export default function HomePage() {
                 despesas={despesas}
                 usuariosAgrupados={usuariosAgrupados}
                 pagamentos={pagamentos}
+                onFiltrarStatus={(filtro) => {
+                  setActiveFilter(filtro);
+                  setActiveTab("clientes");
+                }}
                 onCadastrarComUsuario={(usuario, servidor) => {
                   setCadastroPredefinido({ usuario, servidor });
                   setActiveTab("cadastro");
@@ -1118,6 +1125,33 @@ export default function HomePage() {
                               onEditar={setEditando}
                               onRemover={(id) => remover(id, "acessos")}
                               onRenovar={handleRenovar}
+                              onRenovarRapido={async (id) => {
+                                if (!db || !user) return;
+                                const itemAcesso = acessos.find((a) => a.id === id);
+                                if (!itemAcesso) return;
+                                const hoje = new Date();
+                                const dataVencimentoAtual = new Date(itemAcesso.vencimento);
+                                const novaData = dataVencimentoAtual > hoje ? new Date(dataVencimentoAtual) : new Date(hoje);
+                                novaData.setMonth(novaData.getMonth() + 1);
+                                try {
+                                  await updateDoc(doc(db, "acessos", id), {
+                                    vencimento: novaData.toISOString(),
+                                    data: hoje.toISOString(),
+                                  });
+                                  await addDoc(collection(db, "pagamentos"), {
+                                    acessoId: id,
+                                    usuario: itemAcesso.usuario,
+                                    cliente: itemAcesso.cliente,
+                                    app: itemAcesso.app,
+                                    valor: itemAcesso.valor || 0,
+                                    data: hoje.toISOString(),
+                                    userId: user.uid,
+                                  });
+                                  setToast({ type: "success", message: `Acesso de ${itemAcesso.cliente} renovado por +30 dias!` });
+                                } catch (err) {
+                                  setToast({ type: "error", message: "Erro ao renovar acesso." });
+                                }
+                              }}
                               onCobrar={handleCobrar}
                               selecionado={selecionados.includes(item.id)}
                               onToggleSelecao={toggleSelecao}

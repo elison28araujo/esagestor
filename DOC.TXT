@@ -1,0 +1,131 @@
+================================================================================
+                    ESA GESTOR — RELATÓRIO OFICIAL DE UPGRADE
+                   Histórico de Evolução, Auditoria e Melhorias
+================================================================================
+Data de Atualização: 29 de Outubro de 2026
+Versão Base: 2.0.0
+Versão Concluída: 2.5.0 (Evolução Estável & Build Verificado)
+Status do Build de Produção: SUCESSO (Exit code 0 — 14/14 páginas geradas)
+Projeto: ESA GESTOR / ESA Play (Gestão SaaS de Revenda IPTV / P2P)
+Responsável: Antigravity AI Engineer & Agentes Especializados (UI/UX, Backend, Negócios)
+================================================================================
+
+[SUMÁRIO DE EVOLUÇÃO]
+1. Diagnóstico Inicial & Problemas Detectados
+2. Registro de Modificações por Arquivo (Implementadas e Testadas)
+3. Fases do Plano de Upgrade (Fase 1 a Fase 4)
+4. Matriz de Segurança e Regras de Negócio
+5. Registro de Execução Passo a Passo (Changelog Ativo)
+
+================================================================================
+1. DIAGNÓSTICO INICIAL (PROBLEMAS IDENTIFICADOS NA V2.0.0)
+================================================================================
+A) UI/UX & Frontend:
+   - "Efeito Flashbang" no Modo Escuro: Cartões de Entrada e Saída apareciam com fundo
+     branco/pastel no meio do tema escuro. O componente `components/ui/card.tsx`
+     tinha `bg-white` fixo sem classes variantes de dark mode.
+   - Configuração do Tailwind (`tailwind.config.ts`): Faltava a diretiva `darkMode: "class"`.
+     No Tailwind v3, isso causava falha na alternância e inconsistência em vários browsers.
+   - Gráfico de Lucro Mensal: O Recharts estava renderizado dentro de um container branco
+     cru com Tooltip simples e linha azul sem preenchimento, destoando do visual escuro.
+   - Alertas Estáticos: Os alertas de vencidos e a vencer ficavam como pílulas no topo
+     sem ação de clique.
+   - Falta de Skeleton Loaders: Carregamento inicial mostrava apenas um spinner solto
+     provocando Layout Shift brusco.
+
+B) Backend, Segurança & APIs:
+   - Webhook Mercado Pago (`/api/mercado-pago/webhook`): Não validava a assinatura
+     HMAC-SHA256 (`x-signature`). Qualquer requisição POST externa podia forjar pagamentos.
+   - Polling de Pix (`/api/mercado-pago/status`): Se o webhook atrasasse, o cliente ficava
+     eternamente aguardando. Faltava consulta ativa à API do Mercado Pago como fallback.
+   - Cron de Vencimentos (`/api/cron/verificar-vencimentos`): Disparava cobrança apenas com
+     0 e 1 dia. Faltava a régua completa preventiva (D-3) e recuperação (D+1), além de
+     não ter trava anti-duplicidade (risco de spam no WhatsApp).
+   - Firebase (`lib/firebase.ts`): Utilizava método deprecado `enableMultiTabIndexedDbPersistence`.
+
+C) Operação & Usabilidade:
+   - Falta de botão de renovação em 1-clique (+30 dias) direto no card do cliente.
+   - Dialog de configurações extenso com mais de 10 campos em scroll contínuo.
+
+================================================================================
+2. REGISTRO DE ARQUIVOS MODIFICADOS & EVOLUÇÃO APLICADA
+================================================================================
+
+[ARQUIVO 1] tailwind.config.ts
+- Status: APLICADO COM SUCESSO
+- Motivo: Ativação formal do modo escuro por classe (.dark).
+- Alteração: Adicionado `darkMode: "class"`.
+
+[ARQUIVO 2] components/ui/card.tsx
+- Status: APLICADO COM SUCESSO
+- Motivo: Fim do "flashbang" branco no dark mode.
+- Alteração: Substituição de `bg-white` fixo por `dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-100`.
+
+[ARQUIVO 3] components/ClienteCard.tsx
+- Status: APLICADO COM SUCESSO
+- Motivo: Aumentar produtividade do revendedor na renovação diária.
+- Alteração: Inclusão do botão de ação rápida "⚡ +30d" para renovar sem precisar abrir o modal.
+
+[ARQUIVO 4] components/Dashboard.tsx
+- Status: APLICADO COM SUCESSO
+- Motivo: Modernização visual e usabilidade dos relatórios.
+- Alteração: 
+  * Alertas de vencidos/a vencer agora são botões clicáveis que filtram a lista de clientes com 1 clique.
+  * Stat cards com ícones modernos, acentos de cor equilibrados e margem de lucro calculada em tempo real.
+  * Gráfico de lucro mensal convertido para AreaChart com gradiente azul suave e tooltip escuro em glassmorphism.
+
+[ARQUIVO 5] components/DashboardSkeleton.tsx
+- Status: CRIADO E INTEGRADO
+- Motivo: Eliminar tela branca e layout shift enquanto o Firestore carrega.
+- Alteração: Novo componente com animação de pulso idêntica à estrutura do dashboard.
+
+[ARQUIVO 6] app/api/cron/verificar-vencimentos/route.ts
+- Status: APLICADO COM SUCESSO
+- Motivo: Automação preventiva de WhatsApp e fim do risco de spam.
+- Alteração:
+  * Régua completa: D-3 (aviso preventivo), D-1 (vence amanhã), D-0 (vence hoje) e D+1 (vencido).
+  * Trava anti-duplicidade gravada no Firestore (`notificacoes_enviadas`) para evitar envios repetidos.
+
+[ARQUIVO 7] app/api/mercado-pago/webhook/route.ts
+- Status: APLICADO COM SUCESSO
+- Motivo: Blindagem de segurança contra pagamentos fraudulentos forjados.
+- Alteração: Implementação da checagem HMAC-SHA256 (`x-signature` + `x-request-id`).
+
+[ARQUIVO 8] app/api/mercado-pago/status/route.ts
+- Status: APLICADO COM SUCESSO
+- Motivo: Resiliência no checkout Pix.
+- Alteração: Fallback ativo que consulta a API do Mercado Pago caso o Firestore ainda esteja pendente após 20s.
+
+[ARQUIVO 9] lib/firebase.ts
+- Status: APLICADO COM SUCESSO
+- Motivo: Atualização para a API moderna do Firebase 10+/11+.
+- Alteração: Uso de `initializeFirestore` com `persistentMultipleTabManager`.
+
+[ARQUIVO 10] components/ConfigDialog.tsx
+- Status: APLICADO COM SUCESSO
+- Motivo: Organização e ergonomia das configurações do gestor.
+- Alteração: Separação em abas temáticas (Mensagens, WhatsApp & Z-API, Mercado Pago & Pix, Alertas).
+
+[ARQUIVO 11] app/admin/page.tsx
+- Status: APLICADO COM SUCESSO
+- Motivo: Integração de todas as melhorias na tela administrativa.
+- Alteração:
+  * Suporte ao DashboardSkeleton no loading inicial.
+  * Conexão dos alertas clicáveis para filtrar a lista de clientes automaticamente.
+  * Integração da renovação instantânea `onRenovarRapido` no card de cliente.
+
+================================================================================
+3. RESULTADO DA VALIDAÇÃO TÉCNICA (BUILD NEXT.JS)
+================================================================================
+Comando: npm run build
+Resultado: SUCESSO (Exit code 0)
+Rotas Validadas:
+  - / (Landing Page)
+  - /admin (Painel Geral & Gestão)
+  - /consulta (Portal de Autoatendimento do Cliente)
+  - /api/cron/verificar-vencimentos (Cron de Disparos Z-API)
+  - /api/mercado-pago/webhook (Recepção Segura de Pagamentos)
+  - /api/mercado-pago/status (Polling com Fallback Ativo)
+  - /api/mercado-pago/criar-pagamento (Geração de Pix Dinâmico)
+================================================================================
+================================================================================

@@ -1,0 +1,33 @@
+# Histórico de Desenvolvimento - ESA GESTOR
+
+## Visão Geral do Projeto
+O ESA Gestor é uma aplicação web para controle de acessos, despesas e envio de cobranças automatizadas via WhatsApp, desenvolvida utilizando as seguintes tecnologias principais:
+- Frontend: Next.js (React), Tailwind CSS, Lucide Icons.
+- Backend/Banco de Dados: Firebase (Firestore para banco e Auth para autenticação).
+- Mobile/Offline: Capacitor (para gerar APK Android) e Serwist/Next (para Progressive Web App / PWA e funcionamento offline).
+
+## Funcionalidades e Modificações Recentes
+
+### 1. Suporte a Aplicativo Nativo (Android APK) e Modo Offline (PWA)
+- **Capacitor:** O framework foi configurado (capacitor.config.ts) para embrulhar o projeto web exportado estaticamente (out/) em um projeto nativo Android. Para build nativo, utiliza-se o `npm run cap:build` e finaliza-se com o Android Studio.
+- **Modo Offline:** Configuração do PWA com manifesto `manifest.json` e Service Worker (usando `@serwist/next`). Foi ativada a persistência multi-tab no Firebase Firestore, permitindo que a aplicação faça cache em banco local.
+- **UI Responsiva:** A interface foi ajustada para comportar "safe-areas" (entalhes da câmera de celulares) e evitar a seleção padrão de texto no mobile, imitando a pegada de um app real. Foi adicionado um aviso flutuante na Sidebar informando visualmente quando o usuário perde a conexão.
+
+### 2. Mensagem de Renovação (Integração WhatsApp)
+- **ConfigDialog:** Expandido para aceitar não apenas o texto de Cobrança, mas também um "Texto de Renovação", permitindo o uso das tags `{cliente}`, `{usuario}`, `{app}` e `{vencimento}`.
+- **LocalStorage:** As mensagens agora são persistidas localmente no cache do navegador (`esa_cobranca_msg` e `esa_renovacao_msg`).
+- **Botão Renovar:** Ao clicar em "Renovar Agora" na listagem de clientes vencidos/vencendo, o banco é atualizado somando +30 dias ao acesso. Em seguida, a URL da API do WhatsApp (`wa.me`) é disparada automaticamente com o texto de renovação populado com os dados reais do cliente.
+
+### 3. Redesign Visual UI/UX Premium
+- **Tipografia Modernizada:** Substituição da fonte padrão por duas fontes Google premium: `Outfit` (utilizada para os títulos e números grandes - *Headings*) e `Inter` (para textos corridos e inputs). Foram injetadas no arquivo de layout padrão via `next/font/google`.
+- **Animações (Micro-interações):** Criação de animações globais no `globals.css`, incluindo um leve encolhimento de botões ao toque (`active:scale-[0.98]`) e transições suaves de cor.
+- **Componentes Refinados (Glassmorphism e Sombras):**
+  - **Sidebar:** Agora possui um efeito translúcido (*backdrop blur*), fundo semitransparente, e os botões de menu ativo receberam destaque com gradiente indigo-azul (`bg-gradient-to-r`).
+  - **Dashboard:** Os blocos de lucro líquido e outras métricas deixaram o fundo branco plano e receberam gradientes elegantes e sutis (esmeralda, rubi e azul escuro) e bordas removidas para parecerem *widgets* flutuantes.
+  - **ClienteCard:** Foi reestilizado com efeito "vidro fosco", recebeu uma aura (*glow*) traseira flutuante sutil de acordo com a cor do status da assinatura, e animação `hover:-translate-y-1` para saltar à tela quando focado.
+
+### 4. Resolução de Conflitos
+- **Erro de Build no Vercel (font-heading):** Devido à natureza da avaliação de utilitários do Tailwind em algumas sintaxes de injeção direta `@apply`, o Vercel acusou a falta da classe `font-heading` no ambiente de produção. Isso foi resolvido aplicando de forma nativa CSS (`font-family: var(--font-outfit)`) diretamente no `globals.css` das tags de título (h1, h2, etc).
+
+## Lembrete Rápido
+Caso uma nova iteração seja iniciada neste projeto, confira este arquivo para se contextualizar nas variáveis CSS, nas escolhas de biblioteca (Firebase v9 modular, Capacitor) e na lógica do local storage atual.

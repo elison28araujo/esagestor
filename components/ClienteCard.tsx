@@ -14,6 +14,7 @@ interface ClienteCardProps {
   onEditar: (acesso: Acesso) => void;
   onRemover: (id: string) => Promise<void>;
   onRenovar: (id: string) => void;
+  onRenovarRapido?: (id: string) => void;
   onCobrar?: (item: Acesso) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
@@ -26,6 +27,7 @@ export function ClienteCard({
   onEditar,
   onRemover,
   onRenovar,
+  onRenovarRapido,
   onCobrar,
   selecionado,
   onToggleSelecao,
@@ -143,6 +145,17 @@ export function ClienteCard({
         </div>
 
         <div className="relative z-10 flex flex-wrap gap-2">
+          {onRenovarRapido && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950 h-8 px-2.5 text-xs font-bold"
+              onClick={() => onRenovarRapido(item.id)}
+              title="Renovar 30 dias sem abrir dialog"
+            >
+              ⚡ +30d
+            </Button>
+          )}
           <Button 
             size="sm" 
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold" 

@@ -1,5 +1,33 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { createHmac } from "crypto";
+
+/**
+ * Valida a assinatura HMAC-SHA256 do Mercado Pago para evitar webhooks forjados.
+ */
+function validarAssinaturaMP(req: Request, paymentId: string | null): boolean {
+  const webhookSecret = process.env.MP_WEBHOOK_SECRET;
+  if (!webhookSecret) return true; // Se não configurado no ambiente, permite a requisição
+
+  const xSignature = req.headers.get("x-signature");
+  const xRequestId = req.headers.get("x-request-id");
+
+  if (!xSignature) return false;
+
+  const parts: Record<string, string> = {};
+  xSignature.split(",").forEach((part) => {
+    const [key, val] = part.trim().split("=");
+    if (key && val) parts[key] = val;
+  });
+
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+  if (!ts || !v1) return false;
+
+  const manifest = `id:${paymentId};request-id:${xRequestId || ""};ts:${ts};`;
+  const expectedHash = createHmac("sha256", webhookSecret).update(manifest).digest("hex");
+  return expectedHash === v1;
+}
 
 export async function POST(req: Request) {
   try {
@@ -27,10 +55,18 @@ export async function POST(req: Request) {
       // Ignora falha de parse se não for JSON
     }
 
-    // Se for notificação de teste ou sem ID, retornar OK de qualquer forma
-    // (O Mercado Pago exige retorno 200/201 em todas as requisições para evitar retentativas)
+    // Se for notificação de teste ou sem ID, retornar OK
     if (!paymentId || (topic && topic !== "payment")) {
       return NextResponse.json({ received: true });
+    }
+
+    // 2.1 Validar assinatura HMAC-SHA256 se o segredo estiver configurado
+    if (process.env.MP_WEBHOOK_SECRET) {
+      const assinaturaValida = validarAssinaturaMP(req, paymentId);
+      if (!assinaturaValida) {
+        console.warn(`Webhook Mercado Pago rejeitado: assinatura inválida para paymentId ${paymentId}`);
+        return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
+      }
     }
 
     // 3. Buscar transação na coleção 'pagamentos_pendentes'
@@ -39,7 +75,7 @@ export async function POST(req: Request) {
 
     if (!pendenteDoc.exists) {
       console.warn(`Webhook recebido para pagamento ${paymentId}, mas não foi encontrado localmente.`);
-      return NextResponse.json({ error: "Pagamento não rastreado." }, { status: 200 }); // Retorna 200 para cessar webhooks do MP
+      return NextResponse.json({ error: "Pagamento não rastreado." }, { status: 200 }); // Retorna 200 para cessar retentativas
     }
 
     const pendenteData = pendenteDoc.data();

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Acesso, Despesa, Pagamento, UsuarioAgrupado, ServidorNome } from "@/lib/types";
 import { SERVIDORES } from "@/lib/constants";
 import {
@@ -29,6 +29,7 @@ interface DashboardProps {
   usuariosAgrupados: UsuarioAgrupado[];
   pagamentos: Pagamento[];
   onCadastrarComUsuario?: (usuario: string, servidor: string) => void;
+  onFiltrarStatus?: (filtro: "vencidos" | "vencendo") => void;
 }
 
 export function Dashboard({
@@ -37,6 +38,7 @@ export function Dashboard({
   usuariosAgrupados,
   pagamentos,
   onCadastrarComUsuario,
+  onFiltrarStatus,
 }: DashboardProps) {
   // Helper para obter o período (AAAA-MM) no fuso horário de Brasília
   function getPeriodoBrasilia(dateInput: string | number | Date) {
@@ -330,16 +332,28 @@ export function Dashboard({
       {(vencidos > 0 || vencendoHoje > 0) && (
         <div className="mb-4 flex flex-wrap gap-2">
           {vencidos > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300">
-              <AlertTriangle className="h-4 w-4" />
-              <span><strong>{vencidos}</strong> acesso{vencidos > 1 ? "s" : ""} vencido{vencidos > 1 ? "s" : ""}</span>
-            </div>
+            <button
+              onClick={() => onFiltrarStatus?.("vencidos")}
+              className="group flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-sm text-red-700 transition hover:bg-red-100 active:scale-95 dark:border-red-800 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-950"
+            >
+              <span className="flex h-2 w-2 animate-pulse rounded-full bg-red-500" />
+              <strong>{vencidos}</strong>&nbsp;acesso{vencidos > 1 ? "s" : ""} vencido{vencidos > 1 ? "s" : ""}
+              <span className="text-[11px] underline underline-offset-2 opacity-70 group-hover:opacity-100">
+                Cobrar agora →
+              </span>
+            </button>
           )}
           {vencendoHoje > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-300">
-              <AlertTriangle className="h-4 w-4" />
-              <span><strong>{vencendoHoje}</strong> acesso{vencendoHoje > 1 ? "s" : ""} vence{vencendoHoje > 1 ? "m" : ""} em até 3 dias</span>
-            </div>
+            <button
+              onClick={() => onFiltrarStatus?.("vencendo")}
+              className="group flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-sm text-amber-700 transition hover:bg-amber-100 active:scale-95 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-950"
+            >
+              <span className="flex h-2 w-2 rounded-full bg-amber-500" />
+              <strong>{vencendoHoje}</strong>&nbsp;vencendo em até 3 dias
+              <span className="text-[11px] underline underline-offset-2 opacity-70 group-hover:opacity-100">
+                Ver clientes →
+              </span>
+            </button>
           )}
         </div>
       )}
@@ -374,45 +388,142 @@ export function Dashboard({
       </div>
 
       <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card className="border-none bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 shadow-sm dark:from-emerald-900/20 dark:to-emerald-900/5">
-          <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600/80 dark:text-emerald-400/80 text-ellipsis overflow-hidden whitespace-nowrap">Entrada no mês</div>
-            <div className="mt-2 text-2xl font-heading font-bold text-emerald-600 dark:text-emerald-400">R$ {totalEntrada.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-none bg-gradient-to-br from-rose-500/10 to-rose-500/5 shadow-sm dark:from-rose-900/20 dark:to-rose-900/5">
-          <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-rose-600/80 dark:text-rose-400/80 text-ellipsis overflow-hidden whitespace-nowrap">Saída no mês</div>
-            <div className="mt-2 text-2xl font-heading font-bold text-rose-600 dark:text-rose-400">R$ {totalSaida.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-        <Card className={cn("border-none shadow-sm", lucro >= 0 ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white" : "bg-gradient-to-br from-red-600 to-rose-600 text-white")}>
-          <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider opacity-80 text-ellipsis overflow-hidden whitespace-nowrap">Lucro no mês</div>
-            <div className="mt-2 text-2xl font-heading font-bold">
-              R$ {lucro.toFixed(2)}
+        {/* Entrada */}
+        <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/60 shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Entrada no mês</span>
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+              </div>
+            </div>
+            <div className="mt-2 text-xl font-heading font-bold text-emerald-600 dark:text-emerald-400">
+              R$ {totalEntrada.toFixed(2)}
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Recebimentos do período
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200/50 shadow-sm dark:border-slate-800/50 dark:bg-slate-900/50 backdrop-blur-sm">
-          <CardContent className="p-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap">Total Clientes</div>
-            <div className="mt-2 text-2xl font-heading font-bold text-slate-900 dark:text-slate-100">{acessos.length}</div>
+
+        {/* Saída */}
+        <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/60 shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Saída no mês</span>
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m19 12-7 7-7-7"/><path d="M12 5v14"/></svg>
+              </div>
+            </div>
+            <div className="mt-2 text-xl font-heading font-bold text-rose-600 dark:text-rose-400">
+              R$ {totalSaida.toFixed(2)}
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Custos operacionais
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lucro */}
+        <Card className={cn(
+          "overflow-hidden shadow-sm",
+          lucro >= 0
+            ? "border-blue-500/20 bg-gradient-to-br from-blue-600/10 via-indigo-600/5 to-transparent dark:from-blue-600/20 dark:to-transparent"
+            : "border-red-500/20 bg-gradient-to-br from-red-600/10 to-transparent dark:from-red-600/20"
+        )}>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">Lucro no mês</span>
+              <div className={cn(
+                "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-md",
+                lucro >= 0 ? "bg-blue-600 shadow-blue-500/30" : "bg-red-600 shadow-red-500/30"
+              )}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+              </div>
+            </div>
+            <div className={cn("mt-2 text-xl font-heading font-bold", lucro >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400")}>
+              R$ {lucro.toFixed(2)}
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Margem: {totalEntrada > 0 ? ((lucro / totalEntrada) * 100).toFixed(0) : 0}%
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Clientes */}
+        <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/60 shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Total Clientes</span>
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
+                <Users className="h-3.5 w-3.5" />
+              </div>
+            </div>
+            <div className="mt-2 text-xl font-heading font-bold text-slate-900 dark:text-slate-100">
+              {acessos.length}
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Acessos monitorados
+            </div>
           </CardContent>
         </Card>
       </section>
 
       {dadosMensais.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="mb-3 text-sm font-semibold">Lucro mensal</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={dadosMensais}>
-                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} />
-                <Line type="monotone" dataKey="lucro" stroke="#2563eb" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
+        <Card className="mb-6 overflow-hidden border-slate-200/80 dark:border-slate-800/80 dark:bg-slate-900/80">
+          <CardContent className="p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Evolução do Lucro</h3>
+                <p className="text-xs text-slate-400">Resultado líquido por mês</p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={230}>
+              <AreaChart data={dadosMensais} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.25} />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(m: string) => m.toUpperCase()}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `R$${v}`}
+                />
+                <Tooltip
+                  content={({ active, payload, label }: any) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div className="rounded-xl border border-slate-700/60 bg-slate-950/95 p-3 shadow-xl backdrop-blur-md">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+                        <p className="mt-1 text-sm font-bold text-blue-400">
+                          Lucro: R$ {Number(payload[0]?.value ?? 0).toFixed(2)}
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="lucro"
+                  stroke="#3b82f6"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#profitGradient)"
+                  dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "#3b82f6" }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

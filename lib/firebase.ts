@@ -1,6 +1,12 @@
 import { getApps, initializeApp } from "firebase/app";
 import { Auth, getAuth } from "firebase/auth";
-import { enableMultiTabIndexedDbPersistence, Firestore, getFirestore } from "firebase/firestore";
+import {
+  Firestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  getFirestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,20 +31,35 @@ const missing = requiredKeys.filter((key) => !firebaseConfig[key as keyof typeof
 export const firebaseConfigured = missing.length === 0;
 
 if (!firebaseConfigured) {
-  console.warn(`Firebase nao configurado. Variaveis faltando: ${missing.join(", ")}`);
+  console.warn(`Firebase não configurado. Variáveis faltando: ${missing.join(", ")}`);
 }
 
-const app = firebaseConfigured ? (getApps().length ? getApps()[0] : initializeApp(firebaseConfig)) : null;
+const app = firebaseConfigured
+  ? getApps().length
+    ? getApps()[0]
+    : initializeApp(firebaseConfig)
+  : null;
 
 export const auth: Auth | null = app ? getAuth(app) : null;
-export const db: Firestore | null = app ? getFirestore(app) : null;
 
-if (db && typeof window !== "undefined") {
-  enableMultiTabIndexedDbPersistence(db).catch((err) => {
-    if (err.code === "failed-precondition") {
-      console.warn("Múltiplas abas abertas. Persistência offline habilitada em apenas uma delas.");
-    } else if (err.code === "unimplemented") {
-      console.warn("O navegador atual não suporta persistência offline.");
+// Inicialização moderna do Firestore com persistência IndexedDB multi-abas
+let firestoreInstance: Firestore | null = null;
+
+if (app) {
+  if (typeof window !== "undefined") {
+    try {
+      firestoreInstance = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      });
+    } catch {
+      // Caso já tenha sido inicializado pelo runtime do Next.js / Fast Refresh
+      firestoreInstance = getFirestore(app);
     }
-  });
+  } else {
+    firestoreInstance = getFirestore(app);
+  }
 }
+
+export const db: Firestore | null = firestoreInstance;
