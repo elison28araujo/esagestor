@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
-export const dynamic = "force-dynamic";
-
 // Régua completa de notificações:
 //  3 = 3 dias antes (aviso preventivo - reduz inadimplência)
 //  1 = 1 dia antes (vence amanhã)

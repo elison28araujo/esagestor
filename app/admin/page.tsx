@@ -988,7 +988,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 transition-colors dark:bg-slate-950">
+    <div className="flex min-h-screen bg-slate-50/60 dark:bg-[#090d16] text-slate-900 dark:text-slate-100">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -1000,7 +1000,7 @@ export default function HomePage() {
         userEmail={user.email}
       />
 
-      <main className="flex-1 transition-all duration-300 md:pl-64">
+      <main className="flex-1 transition-all duration-200 md:pl-60">
         <div className="mx-auto max-w-6xl p-4 md:p-8">
           {/* Header (Desktop: Hidden or simplified, Mobile: Visible) */}
           <header className="mb-8 flex items-center justify-between md:hidden">

@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   UserPlus,
   ShieldCheck,
+  Tv,
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -61,134 +62,182 @@ export function Sidebar({
     };
   }, []);
 
-  // Close mobile sidebar on tab change
+  // Fecha sidebar mobile ao mudar de tab
   useEffect(() => {
     setMobileOpen(false);
   }, [activeTab, activeFilter]);
 
-  const baseMenuItems = [
-    { id: "dashboard", label: "Painel", icon: LayoutDashboard },
-    { id: "clientes", label: "Clientes", icon: Users },
-    { id: "cadastro", label: "Cadastrar", icon: UserPlus },
-    { id: "despesas", label: "Despesas", icon: TrendingDown },
-    { id: "pagamentos", label: "Histórico", icon: History },
-    { id: "configuracoes", label: "Configurações", icon: Settings },
+  const groups = [
+    {
+      title: "OPERAÇÃO",
+      items: [
+        { id: "dashboard", label: "Painel Geral", icon: LayoutDashboard },
+        { id: "clientes", label: "Clientes", icon: Users },
+        { id: "cadastro", label: "Cadastrar", icon: UserPlus },
+      ],
+    },
+    {
+      title: "FINANCEIRO",
+      items: [
+        { id: "despesas", label: "Despesas", icon: TrendingDown },
+        { id: "pagamentos", label: "Histórico", icon: History },
+      ],
+    },
+    {
+      title: "SISTEMA",
+      items: [
+        { id: "configuracoes", label: "Configurações", icon: Settings },
+        ...(userEmail === "elison28araujo@gmail.com"
+          ? [{ id: "licencas", label: "Licenças SaaS", icon: ShieldCheck }]
+          : []),
+      ],
+    },
   ];
 
-  const menuItems =
-    userEmail === "elison28araujo@gmail.com"
-      ? [...baseMenuItems, { id: "licencas", label: "Licenças", icon: ShieldCheck }]
-      : baseMenuItems;
-
   const filters = [
-    { id: "todos", label: "Todos", color: "bg-slate-500" },
+    { id: "todos", label: "Todos", color: "bg-slate-400" },
     { id: "ativos", label: "Ativos", color: "bg-emerald-500" },
-    { id: "vencendo", label: "Vencendo", color: "bg-amber-500" },
-    { id: "vencidos", label: "Vencidos", color: "bg-red-500" },
+    { id: "vencendo", label: "Vencendo (3d)", color: "bg-amber-500" },
+    { id: "vencidos", label: "Vencidos", color: "bg-rose-500" },
   ];
 
   return (
     <>
-      {/* Mobile Trigger */}
-      <div className="fixed top-4 left-4 z-50 md:hidden">
+      {/* Gatilho Mobile */}
+      <div className="fixed top-3 left-3 z-50 md:hidden">
         <Button
           variant="outline"
           size="icon"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="h-10 w-10 rounded-full border-slate-200 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900"
+          className="h-9 w-9 rounded-lg border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
         >
-          {mobileOpen ? <CloseIcon size={20} /> : <Menu size={20} />}
+          {mobileOpen ? <CloseIcon size={18} /> : <Menu size={18} />}
         </Button>
       </div>
 
-      {/* Backdrop */}
+      {/* Backdrop Mobile */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen border-r border-slate-200/50 bg-white/80 backdrop-blur-xl transition-all duration-300 dark:border-slate-800/50 dark:bg-slate-950/80 md:translate-x-0",
-          collapsed ? "w-20" : "w-64",
+          "fixed left-0 top-0 z-40 h-screen border-r border-slate-200/80 bg-white/95 transition-all duration-200 dark:border-slate-800/80 dark:bg-[#0c0f17]/95 md:translate-x-0 backdrop-blur-md",
+          collapsed ? "w-16" : "w-60",
           mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         )}
       >
-        <div className={cn("flex h-full flex-col justify-between", collapsed ? "p-2" : "p-4")}>
-          
-          {/* Cabeçalho Fixo (Logo e Status Offline) */}
+        <div className="flex h-full flex-col justify-between p-3">
+          {/* Header com Logo */}
           <div className="shrink-0">
-            {/* Logo */}
-            <div className="mb-6 flex items-center justify-between px-2 pt-2 md:pt-0">
+            <div className="flex h-12 items-center justify-between px-2">
               {(!collapsed || mobileOpen) && (
-                <span className="text-2xl font-heading font-black tracking-tighter text-blue-600 dark:text-blue-500">
-                  ESA<span className="text-slate-900 dark:text-slate-100">GESTOR</span>
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm">
+                    E
+                  </div>
+                  <div className="flex items-center">
+                    <span className="font-heading text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                      ESA
+                    </span>
+                    <span className="font-heading text-sm font-medium tracking-tight text-slate-500 dark:text-slate-400">
+                      GESTOR
+                    </span>
+                    <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </div>
+                </div>
               )}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setCollapsed(!collapsed)}
-                className="hidden md:flex ml-auto text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="hidden md:flex h-7 w-7 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                title={collapsed ? "Expandir menu" : "Recolher menu"}
               >
-                {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+                {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
               </Button>
             </div>
 
-            {/* Offline Indicator */}
+            {/* Alerta Offline */}
             {isOffline && (!collapsed || mobileOpen) && (
-              <div className="mb-4 rounded-2xl bg-amber-500/10 px-4 py-3 text-xs font-semibold text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                <span className="text-base mr-1">⚠️</span> Offline.
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Modo Offline</span>
               </div>
             )}
           </div>
 
-          {/* Conteúdo Central Rolável (Navegação e Filtros) */}
-          <div className="flex-1 overflow-y-auto space-y-6 my-2 pr-1 scrollbar-thin dark:scrollbar-thumb-slate-800 scrollbar-thumb-slate-200 scrollbar-track-transparent">
-            {/* Navigation */}
-            <nav className="space-y-1.5">
-              {menuItems.map((item) => (
-                <Button
-                  key={item.id}
-                  variant={activeTab === item.id ? "default" : "ghost"}
-                  className={cn(
-                    "w-full gap-3 py-5 rounded-2xl transition-all duration-300",
-                    collapsed && !mobileOpen ? "justify-center px-0" : "justify-start px-4",
-                    activeTab === item.id 
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 border-none" 
-                      : "text-slate-500 hover:bg-slate-100/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-100"
-                  )}
-                  onClick={() => setActiveTab(item.id as Tab)}
-                >
-                  <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} className={cn(activeTab === item.id ? "animate-pulse-once" : "")} />
-                  {(!collapsed || mobileOpen) && <span className="font-semibold text-base">{item.label}</span>}
-                </Button>
-              ))}
-            </nav>
+          {/* Navegação por Grupos */}
+          <div className="flex-1 overflow-y-auto space-y-5 py-3 pr-0.5">
+            {groups.map((group) => (
+              <div key={group.title} className="space-y-1">
+                {(!collapsed || mobileOpen) && (
+                  <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400/80 dark:text-slate-500">
+                    {group.title}
+                  </p>
+                )}
+                <nav className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveTab(item.id as Tab)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+                          collapsed && !mobileOpen ? "justify-center px-0" : "justify-start",
+                          isActive
+                            ? "bg-slate-100 text-slate-900 dark:bg-slate-800/90 dark:text-white font-semibold"
+                            : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
+                        )}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        <Icon
+                          size={16}
+                          className={cn(
+                            "shrink-0",
+                            isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"
+                          )}
+                        />
+                        {(!collapsed || mobileOpen) && (
+                          <span className="truncate">{item.label}</span>
+                        )}
+                        {isActive && (!collapsed || mobileOpen) && (
+                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            ))}
 
-            {/* Filters (only for Clientes tab) */}
+            {/* Filtros de Status (apenas quando na aba Clientes) */}
             {(!collapsed || mobileOpen) && activeTab === "clientes" && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400/80 dark:text-slate-500/80">
-                  <FilterIcon size={12} />
-                  <span>Filtros Rápidos</span>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 space-y-1">
+                <div className="flex items-center gap-1.5 px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  <FilterIcon size={11} />
+                  <span>Filtrar Status</span>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {filters.map((f) => (
                     <button
                       key={f.id}
                       onClick={() => setActiveFilter(f.id as Filter)}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-2xl px-4 py-2.5 text-sm transition-all duration-200 active:scale-95",
+                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors",
                         activeFilter === f.id
-                          ? "bg-slate-900 font-bold text-white shadow-md dark:bg-white dark:text-slate-900"
-                          : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/50"
+                          ? "bg-slate-900 text-white font-medium dark:bg-white dark:text-slate-900"
+                          : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/50"
                       )}
                     >
-                      <span className={cn("h-2.5 w-2.5 rounded-full ring-4 ring-white/10", f.color)} />
-                      {f.label}
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", f.color)} />
+                      <span className="truncate">{f.label}</span>
                     </button>
                   ))}
                 </div>
@@ -196,39 +245,52 @@ export function Sidebar({
             )}
           </div>
 
-          {/* Rodapé Fixo (Modo Claro/Escuro, Sair) */}
-          <div className="shrink-0 space-y-4 pt-2 border-t border-slate-100 dark:border-slate-900">
-            <div className={cn("rounded-2xl border border-slate-100 bg-slate-50/50 dark:border-slate-800/50 dark:bg-slate-950/50", collapsed ? "p-1 space-y-1" : "p-2")}>
-              <Button
-                variant="ghost"
-                className={cn("w-full gap-3 rounded-xl py-4", collapsed && !mobileOpen ? "justify-center px-0" : "justify-start px-3")}
-                onClick={toggleDark}
-              >
-                {darkMode ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} className="text-blue-500" />}
-                {(!collapsed || mobileOpen) && <span className="font-medium">{darkMode ? "Modo Claro" : "Modo Escuro"}</span>}
-              </Button>
-              <Button
-                variant="ghost"
-                className={cn("w-full gap-3 rounded-xl py-4 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50", collapsed && !mobileOpen ? "justify-center px-0" : "justify-start px-3")}
-                onClick={onLogout}
-              >
-                <LogOut size={20} />
-                {(!collapsed || mobileOpen) && <span className="font-medium">Sair da conta</span>}
-              </Button>
-            </div>
-
+          {/* Rodapé Fixo */}
+          <div className="shrink-0 space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Usuário logado */}
             {(!collapsed || mobileOpen) && userEmail && (
-              <div className="px-3 pb-2">
-                <p className="truncate text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Usuário
-                </p>
-                <p className="truncate text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  {userEmail}
-                </p>
+              <div className="flex items-center gap-2 px-2 py-1">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  {userEmail.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {userEmail}
+                  </p>
+                </div>
               </div>
             )}
-          </div>
 
+            {/* Ações: Tema e Logout */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8 rounded-lg text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200",
+                  collapsed && !mobileOpen ? "w-full justify-center px-0" : "flex-1 justify-start gap-2 px-2"
+                )}
+                onClick={toggleDark}
+                title={darkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+              >
+                {darkMode ? <Sun size={15} className="text-amber-500" /> : <Moon size={15} className="text-slate-400" />}
+                {(!collapsed || mobileOpen) && <span>{darkMode ? "Claro" : "Escuro"}</span>}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8 rounded-lg text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40",
+                  collapsed && !mobileOpen ? "w-full justify-center px-0" : "px-2"
+                )}
+                onClick={onLogout}
+                title="Sair da conta"
+              >
+                <LogOut size={15} />
+              </Button>
+            </div>
+          </div>
         </div>
       </aside>
     </>
