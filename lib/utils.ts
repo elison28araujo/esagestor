@@ -18,7 +18,10 @@ export function normalizePhone(value: string) {
 export function formatPhone(value: string) {
   const number = normalizePhone(value).slice(0, 11);
   if (number.length <= 2) return number;
-  if (number.length <= 7) return `(${number.slice(0, 2)}) ${number.slice(2)}`;
+  if (number.length <= 6) return `(${number.slice(0, 2)}) ${number.slice(2)}`;
+  if (number.length <= 10) {
+    return `(${number.slice(0, 2)}) ${number.slice(2, 6)}-${number.slice(6)}`;
+  }
   return `(${number.slice(0, 2)}) ${number.slice(2, 7)}-${number.slice(7)}`;
 }
 

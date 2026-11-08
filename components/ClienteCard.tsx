@@ -40,19 +40,19 @@ export function ClienteCard({
   const statusConfig =
     dias <= 0
       ? {
-          texto: "Vencido",
-          badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-          dot: "bg-rose-500",
-          cardBorder: "border-rose-300/80 dark:border-rose-900/60 bg-rose-500/[0.02]",
-        }
+        texto: "Vencido",
+        badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+        dot: "bg-rose-500",
+        cardBorder: "border-rose-300/80 dark:border-rose-900/60 bg-rose-500/[0.02]",
+      }
       : dias <= 3
-      ? {
+        ? {
           texto: `Vence em ${dias}d`,
           badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
           dot: "bg-amber-500",
           cardBorder: "border-amber-300/80 dark:border-amber-900/60 bg-amber-500/[0.02]",
         }
-      : {
+        : {
           texto: "Ativo",
           badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
           dot: "bg-emerald-500",
@@ -64,7 +64,7 @@ export function ClienteCard({
       onCobrar(item);
     } else {
       const phone = item.telefone.replace(/\D/g, "");
-      const linkPortal = `${window.location.origin}/consulta`;
+      const linkPortal = `${window.location.origin}/consulta?telefone=${phone}`;
       let mensagem = mensagemCobranca
         .replace("{cliente}", item.cliente)
         .replace("{app}", item.app)
@@ -89,9 +89,8 @@ export function ClienteCard({
   return (
     <>
       <div
-        className={`group relative flex flex-col justify-between rounded-xl border bg-white p-4 transition-colors shadow-sm dark:bg-[#111622] ${statusConfig.cardBorder} ${
-          selecionado ? "ring-2 ring-blue-600/60 dark:ring-blue-500/60" : ""
-        }`}
+        className={`group relative flex flex-col justify-between rounded-xl border bg-white p-4 transition-colors shadow-sm dark:bg-[#111622] ${statusConfig.cardBorder} ${selecionado ? "ring-2 ring-blue-600/60 dark:ring-blue-500/60" : ""
+          }`}
       >
         <div>
           {/* Header do Card */}

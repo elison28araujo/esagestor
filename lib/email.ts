@@ -1,4 +1,6 @@
 import { Acesso } from "./types";
+import { auth } from "./firebase";
+import { getApiUrl } from "./utils";
 
 export async function enviarResumoAlertasEmail(to: string, acessos: Acesso[]): Promise<boolean> {
   const hoje = Date.now();
@@ -120,11 +122,24 @@ export async function enviarResumoAlertasEmail(to: string, acessos: Acesso[]): P
   `;
 
   try {
-    const res = await fetch("/api/send-email", {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (auth?.currentUser) {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+      } catch (tokenErr) {
+        console.warn("Não foi possível obter o token de autenticação para send-email:", tokenErr);
+      }
+    }
+
+    const res = await fetch(getApiUrl("/api/send-email"), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         to,
         subject: `ESA Gestor Alertas: ${vencidos.length + vencendo.length} cliente(s) expirando ou vencidos`,

@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     if (!adminDb) {
       return NextResponse.json({ error: "Banco de dados não configurado." }, { status: 500 });
     }
+    const db = adminDb;
     let paymentId: string | null = null;
     let topic: string | null = null;
 
@@ -120,59 +121,79 @@ export async function POST(req: Request) {
     const status = paymentDetails.status; // ex: "approved", "pending", "rejected", "cancelled"
 
     if (status === "approved") {
-      // 6. Atualizar a data de vencimento do ACESSO específico (+30 dias)
-      const acessoDocRef = adminDb.collection("acessos").doc(acessoId);
-      const acessoDoc = await acessoDocRef.get();
       let formattedPhone = "";
       let formattedMsg = "";
+      const hojeStr = new Date().toISOString();
 
-      if (acessoDoc.exists) {
-        const acessoData = acessoDoc.data();
-        const hoje = new Date();
-        if (acessoData) {
-          const dataVencimentoAtual = new Date(acessoData.vencimento);
-          // Se o vencimento já passou, soma 30 dias a partir de hoje. Caso contrário, soma 30 dias ao vencimento atual.
-          const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-          novaData.setDate(novaData.getDate() + 30);
+      // Transação Atômica: garante que mesmo com webhooks concorrentes do Mercado Pago,
+      // a renovação de +30 dias e o registro financeiro só ocorram exatamente uma vez.
+      const transactionResult = await adminDb.runTransaction(async (transaction) => {
+        const pDoc = await transaction.get(pendenteDocRef);
+        if (!pDoc.exists) {
+          return { error: "Pagamento não encontrado" };
+        }
+        const pData = pDoc.data();
+        if (pData?.status !== "pending") {
+          return { alreadyProcessed: true };
+        }
 
-          await acessoDocRef.update({
-            vencimento: novaData.toISOString(),
-            data: hoje.toISOString(),
-          });
+        const acessoDocRef = db.collection("acessos").doc(acessoId);
+        const aDoc = await transaction.get(acessoDocRef);
 
-          // Preparar dados do WhatsApp
-          if (acessoData.telefone) {
-            formattedPhone = acessoData.telefone.replace(/\D/g, "");
-            const vencimentoFormatado = novaData.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-            const msgTemplate = configData?.mensagemRenovacao || "Olá {cliente}, seu acesso {app} foi renovado! Usuário: {usuario}. Novo vencimento: {vencimento}.";
-            formattedMsg = msgTemplate
-              .replace("{cliente}", cliente)
-              .replace("{app}", app)
-              .replace("{usuario}", usuario)
-              .replace("{vencimento}", vencimentoFormatado);
+        if (aDoc.exists) {
+          const aData = aDoc.data();
+          const hoje = new Date();
+          if (aData) {
+            const dataVencimentoAtual = new Date(aData.vencimento);
+            // Se o vencimento já passou, soma 30 dias a partir de hoje. Caso contrário, soma 30 dias ao vencimento atual.
+            const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
+            novaData.setDate(novaData.getDate() + 30);
+
+            transaction.update(acessoDocRef, {
+              vencimento: novaData.toISOString(),
+              data: hoje.toISOString(),
+            });
+
+            // Preparar dados do WhatsApp
+            if (aData.telefone) {
+              formattedPhone = aData.telefone.replace(/\D/g, "");
+              const vencimentoFormatado = novaData.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+              const msgTemplate = configData?.mensagemRenovacao || "Olá {cliente}, seu acesso {app} foi renovado! Usuário: {usuario}. Novo vencimento: {vencimento}.";
+              formattedMsg = msgTemplate
+                .replace("{cliente}", cliente)
+                .replace("{app}", app)
+                .replace("{usuario}", usuario)
+                .replace("{vencimento}", vencimentoFormatado);
+            }
           }
         }
+
+        // Criar histórico de pagamento na coleção 'pagamentos'
+        const novoPagamentoRef = db.collection("pagamentos").doc();
+        transaction.set(novoPagamentoRef, {
+          acessoId,
+          usuario,
+          cliente,
+          app,
+          valor: Number(valor),
+          data: hojeStr,
+          userId,
+        });
+
+        // Atualizar status na coleção de controle local
+        transaction.update(pendenteDocRef, {
+          status: "approved",
+          approvedAt: hojeStr,
+        });
+
+        return { success: true };
+      });
+
+      if (transactionResult.alreadyProcessed) {
+        return NextResponse.json({ success: true, alreadyProcessed: true });
       }
 
-      // 7. Criar histórico de pagamento na coleção 'pagamentos'
-      const hojeStr = new Date().toISOString();
-      await adminDb.collection("pagamentos").add({
-        acessoId,
-        usuario,
-        cliente,
-        app,
-        valor: Number(valor),
-        data: hojeStr,
-        userId,
-      });
-
-      // 8. Atualizar status na coleção de controle local
-      await pendenteDocRef.update({
-        status: "approved",
-        approvedAt: hojeStr,
-      });
-
-      // 9. Enviar mensagem via Z-API se configurado
+      // Enviar mensagem via Z-API se configurado (fora da transação para não repetir em caso de retry)
       if (configData?.zapiInstanceId && configData?.zapiToken && formattedPhone && formattedMsg) {
         try {
           const phoneFormatted = formattedPhone.startsWith("55") ? formattedPhone : `55${formattedPhone}`;

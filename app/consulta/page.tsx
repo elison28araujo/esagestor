@@ -493,7 +493,7 @@ export default function ConsultaPage() {
                         <div className="text-center">
                           <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Como pagar</span>
                           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[280px] mt-0.5">
-                            Abra o app do seu banco, escolha a opção "Pagar via Pix" e escaneie o código acima ou copie o código abaixo.
+                            Abra o app do seu banco, escolha a opção &quot;Pagar via Pix&quot; e escaneie o código acima ou copie o código abaixo.
                           </p>
                         </div>
                       </div>

@@ -1,8 +1,37 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
+// Rate limiting simples em memória por IP (máximo 20 requisições por minuto por IP)
+// Evita raspagem e brute-force de telefones no portal de autoatendimento
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const limitData = rateLimitMap.get(ip);
+
+  if (!limitData || now > limitData.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + 60 * 1000 });
+    return true;
+  }
+
+  if (limitData.count >= 20) {
+    return false;
+  }
+
+  limitData.count++;
+  return true;
+}
+
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "anonymous";
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "Muitas consultas consecutivas. Por favor, aguarde 1 minuto." },
+        { status: 429 }
+      );
+    }
+
     if (!adminDb) {
       return NextResponse.json(
         { error: "O servidor do banco de dados (Firebase Admin) não está configurado. Por favor, adicione a variável de ambiente FIREBASE_SERVICE_ACCOUNT nas configurações da Vercel." },
@@ -10,7 +39,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { telefone } = await req.json();
+    const { telefone, gestorId: paramGestorId } = await req.json();
 
     if (!telefone) {
       return NextResponse.json(
@@ -77,10 +106,20 @@ export async function POST(req: Request) {
     }
 
     const acessosEncontrados: any[] = [];
-    let gestorId = "";
+    let gestorId = paramGestorId || "";
+
+    // Se não veio gestorId específico, pega o do primeiro acesso compatível
+    if (!gestorId && !querySnapshot.empty) {
+      gestorId = querySnapshot.docs[0].data().userId || "";
+    }
 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      // Isolar por gestor (evita misturar clientes de revendedores diferentes com mesmo número)
+      if (gestorId && data.userId !== gestorId) {
+        return;
+      }
+
       acessosEncontrados.push({
         id: doc.id,
         cliente: data.cliente,
@@ -91,8 +130,14 @@ export async function POST(req: Request) {
         enderecoMac: data.enderecoMac || "",
         chaveKey: data.chaveKey || "",
       });
-      gestorId = data.userId;
     });
+
+    if (acessosEncontrados.length === 0) {
+      return NextResponse.json(
+        { error: "Nenhum cliente cadastrado foi encontrado com esse telefone para este gestor." },
+        { status: 404 }
+      );
+    }
 
     // Verificar se a licença do gestor está ativa
     if (gestorId) {

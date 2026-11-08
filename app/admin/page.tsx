@@ -1304,7 +1304,7 @@ export default function HomePage() {
                         return (
                           <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 py-20 dark:border-slate-800">
                             <Search className="mb-4 h-12 w-12 text-slate-300" />
-                            <p className="text-slate-500">Nenhum usuário encontrado para "{buscaSaaS}".</p>
+                            <p className="text-slate-500">Nenhum usuário encontrado para &quot;{buscaSaaS}&quot;.</p>
                           </div>
                         );
                       }

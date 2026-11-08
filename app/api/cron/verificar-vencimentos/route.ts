@@ -10,17 +10,22 @@ const DIAS_ALERTA = [-1, 0, 1, 3];
 
 export async function GET(req: any) {
   try {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      console.warn("CRON_SECRET não está configurado no ambiente.");
+      return NextResponse.json({ error: "CRON_SECRET não configurado." }, { status: 401 });
+    }
+
     const reqHeaders = req ? req["headers"] : null;
     const authHeader = reqHeaders ? reqHeaders.get("authorization") : null;
-    const isCronSecretValid = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const isCronSecretValid = authHeader === `Bearer ${cronSecret}`;
 
     const reqUrl = req ? req["url"] : "";
     const urlObj = new URL(reqUrl || "https://www.esaplay.site");
     const secret = urlObj.searchParams.get("secret");
-    const isQuerySecretValid = process.env.CRON_SECRET && secret === process.env.CRON_SECRET;
+    const isQuerySecretValid = secret === cronSecret;
 
-    // Se a variável CRON_SECRET estiver definida no ambiente, exige a autenticação
-    if (process.env.CRON_SECRET && !isCronSecretValid && !isQuerySecretValid) {
+    if (!isCronSecretValid && !isQuerySecretValid) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
@@ -28,14 +33,27 @@ export async function GET(req: any) {
       return NextResponse.json({ error: "Banco de dados não configurado" }, { status: 500 });
     }
 
-    // 1. Obter configurações de todos os gestores (Z-API e mensagens customizadas)
+    // 1. Obter status das licenças de todos os gestores
+    const usuariosSnap = await adminDb.collection("usuarios").get();
+    const usuariosStatus: Record<string, boolean> = {};
+    usuariosSnap.forEach((uDoc) => {
+      const uData = uDoc.data();
+      if (uData.email === "elison28araujo@gmail.com") {
+        usuariosStatus[uDoc.id] = true;
+      } else {
+        const isExpired = uData.vencimentoLicenca && new Date(uData.vencimentoLicenca) < new Date();
+        usuariosStatus[uDoc.id] = uData.status === "active" && !isExpired;
+      }
+    });
+
+    // 2. Obter configurações de todos os gestores (Z-API e mensagens customizadas)
     const configSnap = await adminDb.collection("configuracoes").get();
     const configs: Record<string, any> = {};
     configSnap.forEach((doc) => {
       configs[doc.id] = doc.data();
     });
 
-    // 2. Obter data de hoje no fuso horário de Brasília
+    // 3. Obter data de hoje no fuso horário de Brasília
     const hoje = new Date();
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Sao_Paulo",
@@ -49,7 +67,7 @@ export async function GET(req: any) {
     const hojeDateOnly = new Date(parseInt(hojeMap.year), parseInt(hojeMap.month) - 1, parseInt(hojeMap.day));
     const hojeStr = hojeDateOnly.toISOString().slice(0, 10);
 
-    // 3. Obter todos os acessos de clientes do banco
+    // 4. Obter todos os acessos de clientes do banco
     const acessosSnap = await adminDb.collection("acessos").get();
     let enviadosCount = 0;
     let puladosAntiSpam = 0;
@@ -58,6 +76,11 @@ export async function GET(req: any) {
     for (const docSnap of acessosSnap.docs) {
       const acesso = docSnap.data();
       const userId = acesso.userId;
+
+      // Se a licença do gestor deste cliente não estiver ativa, ignoramos
+      if (!usuariosStatus[userId]) {
+        continue;
+      }
 
       // Se o gestor deste cliente não configurou a Z-API, ignoramos
       const gestorConfig = configs[userId];
