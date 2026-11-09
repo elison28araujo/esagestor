@@ -50,6 +50,8 @@ import { enviarResumoAlertasEmail } from "@/lib/email";
 import { TelaLicencaBloqueada } from "@/components/TelaLicencaBloqueada";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { SnowEffect, SantaHat, ChristmasDashboardBanner } from "@/components/ChristmasTheme";
+import { SuporteChatWidget } from "@/components/SuporteChatWidget";
+import { AdminSuporteView } from "@/components/AdminSuporteView";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
@@ -123,6 +125,21 @@ export default function HomePage() {
   const [licencasLoading, setLicencasLoading] = useState(true);
   const [usuariosSaaS, setUsuariosSaaS] = useState<any[]>([]);
   const [buscaSaaS, setBuscaSaaS] = useState("");
+  const [naoLidasSuporteTotal, setNaoLidasSuporteTotal] = useState(0);
+
+  // Escutar contagem de chamados não lidos para o ADM Master
+  useEffect(() => {
+    if (!user || user.email !== "elison28araujo@gmail.com" || !db) return;
+    const colRef = collection(db, "suporte_conversas");
+    const unsub = onSnapshot(colRef, (snapshot) => {
+      const total = snapshot.docs.reduce((acc, docSnap) => {
+        const d = docSnap.data();
+        return acc + (d.naoLidasAdmin || 0);
+      }, 0);
+      setNaoLidasSuporteTotal(total);
+    });
+    return () => unsub();
+  }, [user]);
 
   // Reset pagination and selection on search or filter change
   useEffect(() => {
@@ -1021,6 +1038,7 @@ export default function HomePage() {
         userEmail={user.email}
         christmasMode={christmasMode}
         toggleChristmas={toggleChristmas}
+        naoLidasSuporte={naoLidasSuporteTotal}
       />
 
       <main className="flex-1 transition-all duration-200 md:pl-60">
@@ -1441,9 +1459,17 @@ export default function HomePage() {
                 </div>
               </div>
             )}
+
+            {/* Central de Atendimento / Chat ao Vivo (Exclusivo Master Admin) */}
+            {activeTab === "suporte" && user?.email === "elison28araujo@gmail.com" && (
+              <AdminSuporteView adminEmail={user.email} />
+            )}
           </div>
         </div>
       </main>
+
+      {/* Widget de Mini Chat Flutuante (Suporte ao Revendedor) */}
+      <SuporteChatWidget user={user} christmasMode={christmasMode} />
 
       {/* Dialogs */}
       <EditClienteDialog

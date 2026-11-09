@@ -23,5 +23,11 @@ service cloud.firestore {
     match /usuarios/{document} {
       allow read, write: if request.auth != null && (request.auth.uid == document || request.auth.token.email == 'elison28araujo@gmail.com');
     }
+    match /suporte_conversas/{conversaId} {
+      allow read, write: if request.auth != null && (request.auth.uid == conversaId || request.auth.token.email == 'elison28araujo@gmail.com');
+      match /mensagens/{mensagemId} {
+        allow read, write: if request.auth != null && (request.auth.uid == conversaId || request.auth.token.email == 'elison28araujo@gmail.com');
+      }
+    }
   }
 }

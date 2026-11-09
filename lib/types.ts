@@ -1,5 +1,27 @@
-export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "configuracoes" | "pagamentos" | "licencas";
+export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
 export type Filter = "todos" | "ativos" | "vencendo" | "vencidos";
+
+export interface MensagemSuporte {
+  id: string;
+  texto: string;
+  remetente: "user" | "admin";
+  remetenteEmail: string;
+  timestamp: string;
+  lida: boolean;
+}
+
+export interface ConversaSuporte {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userWhatsapp?: string;
+  ultimaMensagem: string;
+  ultimaMensagemTimestamp: string;
+  remetenteUltima: "user" | "admin";
+  naoLidasAdmin: number;
+  naoLidasUser: number;
+  updatedAt: string;
+}
 
 export type ServidorNome = "Warez" | "Genial" | "Five";
 

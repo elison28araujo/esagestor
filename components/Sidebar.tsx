@@ -19,6 +19,7 @@ import {
   UserPlus,
   ShieldCheck,
   Tv,
+  MessageSquare,
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -35,6 +36,7 @@ interface SidebarProps {
   userEmail?: string | null;
   christmasMode?: boolean;
   toggleChristmas?: () => void;
+  naoLidasSuporte?: number;
 }
 
 export function Sidebar({
@@ -48,6 +50,7 @@ export function Sidebar({
   userEmail,
   christmasMode = true,
   toggleChristmas,
+  naoLidasSuporte = 0,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -93,7 +96,10 @@ export function Sidebar({
       items: [
         { id: "configuracoes", label: "Configurações", icon: Settings },
         ...(userEmail === "elison28araujo@gmail.com"
-          ? [{ id: "licencas", label: "Licenças SaaS", icon: ShieldCheck }]
+          ? [
+              { id: "licencas", label: "Licenças SaaS", icon: ShieldCheck },
+              { id: "suporte", label: "Atendimento / Chat", icon: MessageSquare },
+            ]
           : []),
       ],
     },
@@ -233,7 +239,15 @@ export function Sidebar({
                         {(!collapsed || mobileOpen) && (
                           <span className="truncate">{item.label}</span>
                         )}
-                        {isActive && (!collapsed || mobileOpen) && (
+                        {item.id === "suporte" && naoLidasSuporte > 0 && (
+                          <span className={cn(
+                            "rounded-full bg-red-500 font-bold text-white flex items-center justify-center animate-pulse",
+                            collapsed && !mobileOpen ? "absolute top-1 right-1 h-2 w-2" : "ml-auto px-1.5 py-0.2 text-[10px]"
+                          )}>
+                            {(!collapsed || mobileOpen) ? naoLidasSuporte : ""}
+                          </span>
+                        )}
+                        {isActive && (!collapsed || mobileOpen) && !(item.id === "suporte" && naoLidasSuporte > 0) && (
                           <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
                         )}
                       </button>
