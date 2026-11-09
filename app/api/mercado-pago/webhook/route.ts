@@ -71,8 +71,45 @@ export async function POST(req: Request) {
     }
 
     // 3. Buscar transação na coleção 'pagamentos_pendentes'
-    const pendenteDocRef = adminDb.collection("pagamentos_pendentes").doc(paymentId);
-    const pendenteDoc = await pendenteDocRef.get();
+    let pendenteDocRef = adminDb.collection("pagamentos_pendentes").doc(paymentId);
+    let pendenteDoc = await pendenteDocRef.get();
+
+    // Fallback: se for pagamento de Cartão via Preference e não achar direto por paymentId
+    if (!pendenteDoc.exists) {
+      console.log(`Buscando dados na API do Mercado Pago para o pagamento ${paymentId}...`);
+      const configsSnap = await adminDb.collection("configuracoes").limit(1).get();
+      if (!configsSnap.empty) {
+        const tokenConfig = configsSnap.docs[0].data()?.mpAccessToken;
+        if (tokenConfig) {
+          const checkRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { "Authorization": `Bearer ${tokenConfig}` },
+          });
+          if (checkRes.ok) {
+            const pDetails = await checkRes.json();
+            const extRef = pDetails.external_reference;
+            if (extRef) {
+              const aDoc = await adminDb.collection("acessos").doc(extRef).get();
+              if (aDoc.exists) {
+                const aData = aDoc.data();
+                await pendenteDocRef.set({
+                  paymentId,
+                  acessoId: extRef,
+                  userId: aData?.userId || configsSnap.docs[0].id,
+                  usuario: aData?.usuario || "",
+                  cliente: aData?.cliente || "",
+                  valor: Number(pDetails.transaction_amount || aData?.valor || 0),
+                  app: aData?.app || "IPTV",
+                  tipo: pDetails.payment_type_id || "cartao_credito",
+                  status: "pending",
+                  createdAt: new Date().toISOString(),
+                });
+                pendenteDoc = await pendenteDocRef.get();
+              }
+            }
+          }
+        }
+      }
+    }
 
     if (!pendenteDoc.exists) {
       console.warn(`Webhook recebido para pagamento ${paymentId}, mas não foi encontrado localmente.`);
