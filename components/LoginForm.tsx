@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { Loader2, Mail, Lock, Phone } from "lucide-react";
 import { formatPhone } from "@/lib/utils";
+import { SantaHat, SnowEffect } from "@/components/ChristmasTheme";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -84,17 +85,24 @@ export function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0">
+    <main className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4 overflow-hidden">
+      <SnowEffect />
+      <Card className="relative z-10 w-full max-w-md shadow-2xl border-0">
         <CardContent className="space-y-4 p-8">
           <div className="text-center mb-2">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-3">
+            <div className="relative inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-3 shadow-md">
+              <div className="absolute -top-4 -left-3 pointer-events-none select-none">
+                <SantaHat className="w-8 h-8 -rotate-12 drop-shadow-md" />
+              </div>
               <span className="text-white font-bold text-xl">E</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight">ESA GESTOR</h1>
             <p className="mt-1 text-sm text-slate-500">
               {isRegistering ? "Cadastre-se para começar a gerenciar" : "Controle de acessos, cobranças e despesas"}
             </p>
+            <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
+              <span>🎄 Clima de Fim de Ano</span>
+            </div>
           </div>
 
           <div className="relative">

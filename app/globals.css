@@ -93,3 +93,38 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-outfit), sans-serif;
   letter-spacing: -0.025em;
 }
+
+/* ==========================================================================
+   TEMA NATALINO (EDIÇÃO DE FIM DE ANO)
+   ========================================================================== */
+
+@keyframes snowfall {
+  0% {
+    transform: translateY(-15px) translateX(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(105vh) translateX(45px);
+    opacity: 0.1;
+  }
+}
+
+/* Brilho e toques decorativos festivos */
+.christmas-glow-red {
+  box-shadow: 0 0 15px -3px rgba(220, 38, 38, 0.35);
+}
+
+.christmas-glow-gold {
+  box-shadow: 0 0 15px -3px rgba(245, 158, 11, 0.35);
+}
+
+.christmas-glow-emerald {
+  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.35);
+}
+

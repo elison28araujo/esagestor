@@ -49,6 +49,7 @@ import { BulkActionBar } from "@/components/BulkActionBar";
 import { enviarResumoAlertasEmail } from "@/lib/email";
 import { TelaLicencaBloqueada } from "@/components/TelaLicencaBloqueada";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { SnowEffect, SantaHat, ChristmasDashboardBanner } from "@/components/ChristmasTheme";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
@@ -99,6 +100,7 @@ export default function HomePage() {
   const [importando, setImportando] = useState(false);
   const [toast, setToast] = useState<ImportFeedback | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [christmasMode, setChristmasMode] = useState(true);
   const [configOpen, setConfigOpen] = useState(false);
   const [mensagemCobranca, setMensagemCobranca] = useState(DEFAULT_COBRANCA_MSG);
   const [mensagemRenovacao, setMensagemRenovacao] = useState(DEFAULT_RENOVACAO_MSG);
@@ -139,6 +141,22 @@ export default function HomePage() {
     setDarkMode(next);
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("esa_dark", next ? "1" : "0");
+  }
+
+  // Christmas mode toggle & persistent preference (default: true para o final de ano)
+  useEffect(() => {
+    const saved = localStorage.getItem("esa_christmas");
+    if (saved !== null) {
+      setChristmasMode(saved === "1");
+    } else {
+      setChristmasMode(true);
+    }
+  }, []);
+
+  function toggleChristmas() {
+    const next = !christmasMode;
+    setChristmasMode(next);
+    localStorage.setItem("esa_christmas", next ? "1" : "0");
   }
 
   // Load saved configuracoes in real-time from Firestore
@@ -988,7 +1006,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50/60 dark:bg-[#090d16] text-slate-900 dark:text-slate-100">
+    <div className="relative flex min-h-screen bg-slate-50/60 dark:bg-[#090d16] text-slate-900 dark:text-slate-100">
+      {/* Efeito de neve suave e leve de fim de ano */}
+      {christmasMode && <SnowEffect />}
+
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -998,13 +1019,27 @@ export default function HomePage() {
         toggleDark={toggleDark}
         onLogout={() => auth && signOut(auth)}
         userEmail={user.email}
+        christmasMode={christmasMode}
+        toggleChristmas={toggleChristmas}
       />
 
       <main className="flex-1 transition-all duration-200 md:pl-60">
         <div className="mx-auto max-w-6xl p-4 md:p-8">
           {/* Header (Desktop: Hidden or simplified, Mobile: Visible) */}
           <header className="mb-8 flex items-center justify-between md:hidden">
-            <h1 className="text-xl font-bold text-blue-600">ESA GESTOR</h1>
+            <div className="flex items-center gap-2">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm">
+                {christmasMode && (
+                  <div className="absolute -top-3 -left-2 pointer-events-none select-none">
+                    <SantaHat className="w-5 h-5 -rotate-12 drop-shadow-sm" />
+                  </div>
+                )}
+                E
+              </div>
+              <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                ESA GESTOR {christmasMode && <span className="text-sm">🎄</span>}
+              </h1>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}>
               <Settings className="h-4 w-4" />
             </Button>
@@ -1014,20 +1049,23 @@ export default function HomePage() {
           <div className="space-y-8">
             {/* Dashboard */}
             {activeTab === "dashboard" && (
-              <Dashboard
-                acessos={acessos}
-                despesas={despesas}
-                usuariosAgrupados={usuariosAgrupados}
-                pagamentos={pagamentos}
-                onFiltrarStatus={(filtro) => {
-                  setActiveFilter(filtro);
-                  setActiveTab("clientes");
-                }}
-                onCadastrarComUsuario={(usuario, servidor) => {
-                  setCadastroPredefinido({ usuario, servidor });
-                  setActiveTab("cadastro");
-                }}
-              />
+              <div className="space-y-6">
+                {christmasMode && <ChristmasDashboardBanner />}
+                <Dashboard
+                  acessos={acessos}
+                  despesas={despesas}
+                  usuariosAgrupados={usuariosAgrupados}
+                  pagamentos={pagamentos}
+                  onFiltrarStatus={(filtro) => {
+                    setActiveFilter(filtro);
+                    setActiveTab("clientes");
+                  }}
+                  onCadastrarComUsuario={(usuario, servidor) => {
+                    setCadastroPredefinido({ usuario, servidor });
+                    setActiveTab("cadastro");
+                  }}
+                />
+              </div>
             )}
 
             {/* Cadastro Form */}

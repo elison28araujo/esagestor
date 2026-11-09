@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
+import { SantaHat, ChristmasLights } from "@/components/ChristmasTheme";
 
 interface SidebarProps {
   activeTab: Tab;
@@ -32,6 +33,8 @@ interface SidebarProps {
   toggleDark: () => void;
   onLogout: () => void;
   userEmail?: string | null;
+  christmasMode?: boolean;
+  toggleChristmas?: () => void;
 }
 
 export function Sidebar({
@@ -43,6 +46,8 @@ export function Sidebar({
   toggleDark,
   onLogout,
   userEmail,
+  christmasMode = true,
+  toggleChristmas,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -130,13 +135,21 @@ export function Sidebar({
           mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         )}
       >
-        <div className="flex h-full flex-col justify-between p-3">
+        <div className="flex h-full flex-col justify-between p-3 relative">
+          {/* Luzinhas de Natal no topo do menu */}
+          {christmasMode && <ChristmasLights />}
+
           {/* Header com Logo */}
-          <div className="shrink-0">
+          <div className="shrink-0 pt-1">
             <div className="flex h-12 items-center justify-between px-2">
-              {(!collapsed || mobileOpen) && (
+              {(!collapsed || mobileOpen) ? (
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm">
+                  <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm">
+                    {christmasMode && (
+                      <div className="absolute -top-3 -left-2 pointer-events-none select-none">
+                        <SantaHat className="w-5 h-5 -rotate-12 drop-shadow-sm" />
+                      </div>
+                    )}
                     E
                   </div>
                   <div className="flex items-center">
@@ -146,8 +159,21 @@ export function Sidebar({
                     <span className="font-heading text-sm font-medium tracking-tight text-slate-500 dark:text-slate-400">
                       GESTOR
                     </span>
-                    <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    {christmasMode ? (
+                      <span className="ml-1 text-xs select-none" title="Tema Natalino Ativo">🎄</span>
+                    ) : (
+                      <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    )}
                   </div>
+                </div>
+              ) : (
+                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm mx-auto">
+                  {christmasMode && (
+                    <div className="absolute -top-3 -left-2 pointer-events-none select-none">
+                      <SantaHat className="w-5 h-5 -rotate-12 drop-shadow-sm" />
+                    </div>
+                  )}
+                  E
                 </div>
               )}
               <Button
@@ -261,7 +287,40 @@ export function Sidebar({
               </div>
             )}
 
-            {/* Ações: Tema e Logout */}
+            {/* Ações: Modo Natal, Tema e Logout */}
+            {toggleChristmas && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8 w-full rounded-lg text-xs transition-all",
+                  christmasMode
+                    ? "bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/50 font-medium"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
+                  collapsed && !mobileOpen ? "justify-center px-0" : "justify-between px-2.5"
+                )}
+                onClick={toggleChristmas}
+                title={christmasMode ? "Desativar Modo Natalino" : "Ativar Modo Natalino 🎄"}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm select-none">🎄</span>
+                  {(!collapsed || mobileOpen) && <span>Modo Natal</span>}
+                </div>
+                {(!collapsed || mobileOpen) && (
+                  <span
+                    className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider",
+                      christmasMode
+                        ? "bg-red-600 text-white shadow-sm"
+                        : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                    )}
+                  >
+                    {christmasMode ? "ON" : "OFF"}
+                  </span>
+                )}
+              </Button>
+            )}
+
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
