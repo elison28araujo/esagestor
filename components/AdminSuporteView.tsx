@@ -6,6 +6,7 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   updateDoc,
   onSnapshot,
   query,
@@ -154,36 +155,71 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
 
   async function handleEnviarResposta() {
     const textoFinal = textoResposta.trim();
-    if (!textoFinal || !db || !conversaAtiva || enviando) return;
+    if (!textoFinal || !conversaAtiva || enviando) return;
 
     setEnviando(true);
-    try {
-      const conversaRef = doc(db, "suporte_conversas", conversaAtiva.id);
-      const mensagensCol = collection(db, "suporte_conversas", conversaAtiva.id, "mensagens");
+    let enviadoComSucesso = false;
 
-      await addDoc(mensagensCol, {
-        texto: textoFinal,
-        remetente: "admin",
-        remetenteEmail: adminEmail,
-        timestamp: serverTimestamp(),
-        lida: false,
-      });
+    // Tentativa 1: Firebase Client SDK
+    if (db) {
+      try {
+        const conversaRef = doc(db, "suporte_conversas", conversaAtiva.id);
+        const mensagensCol = collection(db, "suporte_conversas", conversaAtiva.id, "mensagens");
 
-      await updateDoc(conversaRef, {
-        ultimaMensagem: textoFinal,
-        ultimaMensagemTimestamp: serverTimestamp(),
-        remetenteUltima: "admin",
-        naoLidasAdmin: 0,
-        naoLidasUser: increment(1),
-        updatedAt: new Date().toISOString(),
-      });
+        await setDoc(
+          conversaRef,
+          {
+            ultimaMensagem: textoFinal,
+            ultimaMensagemTimestamp: serverTimestamp(),
+            remetenteUltima: "admin",
+            naoLidasAdmin: 0,
+            naoLidasUser: increment(1),
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
 
-      setTextoResposta("");
-    } catch (err) {
-      console.error("Erro ao enviar resposta do suporte:", err);
-    } finally {
-      setEnviando(false);
+        await addDoc(mensagensCol, {
+          texto: textoFinal,
+          remetente: "admin",
+          remetenteEmail: adminEmail,
+          timestamp: serverTimestamp(),
+          lida: false,
+        });
+
+        enviadoComSucesso = true;
+      } catch (err) {
+        console.warn("Envio de resposta direto falhou, tentando fallback via API...", err);
+      }
     }
+
+    // Tentativa 2: Fallback via API Route
+    if (!enviadoComSucesso) {
+      try {
+        const res = await fetch("/api/suporte/mensagem", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: conversaAtiva.id,
+            userEmail: conversaAtiva.userEmail,
+            texto: textoFinal,
+            remetente: "admin",
+            remetenteEmail: adminEmail,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          enviadoComSucesso = true;
+        }
+      } catch (apiErr) {
+        console.error("Erro na API ao responder:", apiErr);
+      }
+    }
+
+    if (enviadoComSucesso) {
+      setTextoResposta("");
+    }
+    setEnviando(false);
   }
 
   function formatarDataHora(isoString: string) {

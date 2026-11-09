@@ -7,7 +7,6 @@ import {
   doc,
   addDoc,
   setDoc,
-  updateDoc,
   onSnapshot,
   query,
   orderBy,
@@ -20,11 +19,10 @@ import {
   X,
   Send,
   Headphones,
-  Check,
   CheckCheck,
-  Sparkles,
-  ExternalLink,
   Phone,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +41,7 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [temNaoLida, setTemNaoLida] = useState(0);
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Escutar metadados da conversa do usuário atual
@@ -50,24 +49,30 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
     if (!user || !db) return;
 
     const conversaRef = doc(db, "suporte_conversas", user.uid);
-    const unsubConversa = onSnapshot(conversaRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setConversa({
-          id: snapshot.id,
-          userId: data.userId || user.uid,
-          userEmail: data.userEmail || user.email || "",
-          userWhatsapp: data.userWhatsapp || "",
-          ultimaMensagem: data.ultimaMensagem || "",
-          ultimaMensagemTimestamp: data.ultimaMensagemTimestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
-          remetenteUltima: data.remetenteUltima || "user",
-          naoLidasAdmin: data.naoLidasAdmin || 0,
-          naoLidasUser: data.naoLidasUser || 0,
-          updatedAt: data.updatedAt || "",
-        });
-        setTemNaoLida(data.naoLidasUser || 0);
+    const unsubConversa = onSnapshot(
+      conversaRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setConversa({
+            id: snapshot.id,
+            userId: data.userId || user.uid,
+            userEmail: data.userEmail || user.email || "",
+            userWhatsapp: data.userWhatsapp || "",
+            ultimaMensagem: data.ultimaMensagem || "",
+            ultimaMensagemTimestamp: data.ultimaMensagemTimestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
+            remetenteUltima: data.remetenteUltima || "user",
+            naoLidasAdmin: data.naoLidasAdmin || 0,
+            naoLidasUser: data.naoLidasUser || 0,
+            updatedAt: data.updatedAt || "",
+          });
+          setTemNaoLida(data.naoLidasUser || 0);
+        }
+      },
+      (err) => {
+        console.warn("Aviso ao escutar conversa de suporte:", err);
       }
-    });
+    );
 
     return () => unsubConversa();
   }, [user]);
@@ -79,30 +84,36 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
     const mensagensRef = collection(db, "suporte_conversas", user.uid, "mensagens");
     const q = query(mensagensRef, orderBy("timestamp", "asc"));
 
-    const unsubMensagens = onSnapshot(q, (snapshot) => {
-      const msgs: MensagemSuporte[] = snapshot.docs.map((docSnap) => {
-        const d = docSnap.data();
-        let tsStr = new Date().toISOString();
-        if (d.timestamp instanceof Timestamp) {
-          tsStr = d.timestamp.toDate().toISOString();
-        } else if (d.timestamp?.toDate) {
-          tsStr = d.timestamp.toDate().toISOString();
-        } else if (typeof d.timestamp === "string") {
-          tsStr = d.timestamp;
-        }
+    const unsubMensagens = onSnapshot(
+      q,
+      (snapshot) => {
+        const msgs: MensagemSuporte[] = snapshot.docs.map((docSnap) => {
+          const d = docSnap.data();
+          let tsStr = new Date().toISOString();
+          if (d.timestamp instanceof Timestamp) {
+            tsStr = d.timestamp.toDate().toISOString();
+          } else if (d.timestamp?.toDate) {
+            tsStr = d.timestamp.toDate().toISOString();
+          } else if (typeof d.timestamp === "string") {
+            tsStr = d.timestamp;
+          }
 
-        return {
-          id: docSnap.id,
-          texto: d.texto || "",
-          remetente: d.remetente || "user",
-          remetenteEmail: d.remetenteEmail || "",
-          timestamp: tsStr,
-          lida: !!d.lida,
-        };
-      });
+          return {
+            id: docSnap.id,
+            texto: d.texto || "",
+            remetente: d.remetente || "user",
+            remetenteEmail: d.remetenteEmail || "",
+            timestamp: tsStr,
+            lida: !!d.lida,
+          };
+        });
 
-      setMensagens(msgs);
-    });
+        setMensagens(msgs);
+      },
+      (err) => {
+        console.warn("Aviso ao escutar mensagens de suporte:", err);
+      }
+    );
 
     return () => unsubMensagens();
   }, [user]);
@@ -119,11 +130,13 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
     if (!aberto || !user || !db || temNaoLida === 0) return;
 
     const conversaRef = doc(db, "suporte_conversas", user.uid);
-    updateDoc(conversaRef, {
-      naoLidasUser: 0,
-    }).catch(() => {
-      // silencioso se o documento ainda não existir
-    });
+    setDoc(
+      conversaRef,
+      {
+        naoLidasUser: 0,
+      },
+      { merge: true }
+    ).catch(() => {});
     setTemNaoLida(0);
   }, [aberto, user, temNaoLida]);
 
@@ -131,40 +144,83 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
 
   async function handleEnviar(msgTexto?: string) {
     const textoFinal = (msgTexto || texto).trim();
-    if (!textoFinal || !user || !db || enviando) return;
+    if (!textoFinal || !user || enviando) return;
 
     setEnviando(true);
-    try {
-      const conversaRef = doc(db, "suporte_conversas", user.uid);
-      const mensagensCol = collection(db, "suporte_conversas", user.uid, "mensagens");
+    setErroEnvio(null);
 
-      // Adicionar mensagem
-      await addDoc(mensagensCol, {
-        texto: textoFinal,
-        remetente: "user",
-        remetenteEmail: user.email || "",
-        timestamp: serverTimestamp(),
-        lida: false,
-      });
+    let enviadoComSucesso = false;
 
-      // Atualizar / Criar conversa master
-      const atualizacao: any = {
-        userId: user.uid,
-        userEmail: user.email || "",
-        ultimaMensagem: textoFinal,
-        ultimaMensagemTimestamp: serverTimestamp(),
-        remetenteUltima: "user",
-        updatedAt: new Date().toISOString(),
-        naoLidasAdmin: (conversa?.naoLidasAdmin || 0) + 1,
-      };
+    // Tentativa 1: Envio direto pelo Firebase Client SDK
+    if (db) {
+      try {
+        const conversaRef = doc(db, "suporte_conversas", user.uid);
+        const mensagensCol = collection(db, "suporte_conversas", user.uid, "mensagens");
 
-      await setDoc(conversaRef, atualizacao, { merge: true });
-      setTexto("");
-    } catch (err) {
-      console.error("Erro ao enviar mensagem:", err);
-    } finally {
-      setEnviando(false);
+        // Atualizar / Criar metadados da conversa
+        await setDoc(
+          conversaRef,
+          {
+            userId: user.uid,
+            userEmail: user.email || "",
+            ultimaMensagem: textoFinal,
+            ultimaMensagemTimestamp: serverTimestamp(),
+            remetenteUltima: "user",
+            updatedAt: new Date().toISOString(),
+            naoLidasAdmin: (conversa?.naoLidasAdmin || 0) + 1,
+          },
+          { merge: true }
+        );
+
+        // Adicionar mensagem na subcoleção
+        await addDoc(mensagensCol, {
+          texto: textoFinal,
+          remetente: "user",
+          remetenteEmail: user.email || "",
+          timestamp: serverTimestamp(),
+          lida: false,
+        });
+
+        enviadoComSucesso = true;
+      } catch (err: any) {
+        console.warn("Envio direto via Firestore falhou, tentando fallback via API...", err);
+      }
     }
+
+    // Tentativa 2: Fallback transparente via API Server Route
+    if (!enviadoComSucesso) {
+      try {
+        const res = await fetch("/api/suporte/mensagem", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.uid,
+            userEmail: user.email || "",
+            texto: textoFinal,
+            remetente: "user",
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          enviadoComSucesso = true;
+        } else {
+          throw new Error(data.error || "Falha ao enviar mensagem.");
+        }
+      } catch (apiErr: any) {
+        console.error("Erro no envio:", apiErr);
+        setErroEnvio(
+          "Não foi possível gravar a mensagem. É necessário publicar as novas regras do Firestore no Console do Firebase (Guia rápido disponível com o ADM)."
+        );
+      }
+    }
+
+    if (enviadoComSucesso) {
+      setTexto("");
+      setErroEnvio(null);
+    }
+
+    setEnviando(false);
   }
 
   function formatarHora(isoString: string) {
@@ -187,7 +243,7 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
       {/* Janela de Chat Aberta */}
       {aberto && (
-        <div className="mb-3 flex h-[490px] w-[92vw] max-w-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl backdrop-blur-xl dark:border-slate-800/90 dark:bg-[#0c101b] sm:w-[380px] animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="mb-3 flex h-[500px] w-[92vw] max-w-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl backdrop-blur-xl dark:border-slate-800/90 dark:bg-[#0c101b] sm:w-[380px] animate-in fade-in slide-in-from-bottom-5 duration-200">
           {/* Cabeçalho do Chat */}
           <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-4 py-3 text-white dark:border-slate-800">
             <div className="flex items-center gap-2.5">
@@ -286,6 +342,17 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Alerta de Erro se houver */}
+          {erroEnvio && (
+            <div className="flex items-start gap-1.5 bg-red-50 dark:bg-red-950/60 p-2 text-[11px] text-red-600 dark:text-red-300 border-t border-red-100 dark:border-red-900/50">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <div className="flex-1 leading-tight">{erroEnvio}</div>
+              <button onClick={() => setErroEnvio(null)} className="text-red-400 hover:text-red-600">
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
           {/* Sugestões Rápidas (quando poucas mensagens) */}
           {mensagens.length < 2 && (
             <div className="flex gap-1.5 overflow-x-auto px-3 py-1.5 bg-white dark:bg-[#0c101b] border-t border-slate-100 dark:border-slate-800/80">
@@ -294,7 +361,8 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
                   key={i}
                   type="button"
                   onClick={() => handleEnviar(sug)}
-                  className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
+                  disabled={enviando}
+                  className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition disabled:opacity-50"
                 >
                   {sug}
                 </button>
@@ -313,7 +381,7 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
             <Input
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              placeholder="Digite sua mensagem para o suporte..."
+              placeholder={enviando ? "Enviando mensagem..." : "Digite sua mensagem para o suporte..."}
               className="h-9 flex-1 text-xs rounded-xl border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/80 focus-visible:ring-1 focus-visible:ring-blue-500"
               disabled={enviando}
             />
@@ -324,7 +392,7 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
               className="h-9 w-9 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition active:scale-95"
               title="Enviar mensagem"
             >
-              <Send size={15} />
+              {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             </Button>
           </form>
         </div>
