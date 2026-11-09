@@ -61,6 +61,12 @@ export function Card3DTilt({
  * Mockup de Smart TV 3D em perspectiva isométrica com cena de transmissão
  */
 export function MockupTV3D() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <div className="relative w-full max-w-lg mx-auto perspective-2000 py-6 select-none">
       {/* Sombra 3D projetada no piso */}
@@ -77,19 +83,30 @@ export function MockupTV3D() {
 
           {/* Tela OLED */}
           <div className="relative rounded-2xl overflow-hidden bg-black aspect-video border border-slate-800 shadow-inner group">
-            {/* Imagem em exibição na TV */}
-            <img
-              src="/filmes.jpg"
-              alt="Transmissão ESA Play"
-              className="w-full h-full object-cover brightness-95 contrast-105 group-hover:scale-105 transition duration-700"
-            />
+            {/* Vídeo do YouTube em Transmissão Contínua (Sem Marca d'água / Sem Logo) */}
+            {mounted ? (
+              <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/ljcTMyK2pzE?autoplay=1&mute=1&loop=1&playlist=ljcTMyK2pzE&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0"
+                  title="Transmissão ESA Play TV"
+                  className="w-[136%] h-[136%] -ml-[18%] -mt-[18%] object-cover pointer-events-none border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              </div>
+            ) : (
+              <img
+                src="/filmes.jpg"
+                alt="Transmissão ESA Play"
+                className="w-full h-full object-cover brightness-95 contrast-105"
+              />
+            )}
 
             {/* Reflexo de vidro na tela */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/15 pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none z-10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none z-10" />
 
             {/* Interface Simulada de Smart TV */}
-            <div className="absolute top-3 left-3 flex items-center gap-2">
+            <div className="absolute top-3 left-3 flex items-center gap-2 z-20">
               <span className="flex items-center gap-1 rounded-md bg-red-600/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-lg">
                 <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                 AO VIVO
@@ -99,21 +116,21 @@ export function MockupTV3D() {
               </span>
             </div>
 
-            <div className="absolute top-3 right-3 flex items-center gap-1">
+            <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
               <span className="rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-black uppercase text-slate-950 shadow-md">
                 60 FPS
               </span>
             </div>
 
             {/* Barra de controle inferior */}
-            <div className="absolute bottom-3 inset-x-3 flex items-center justify-between text-white text-xs bg-black/60 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10">
+            <div className="absolute bottom-3 inset-x-3 flex items-center justify-between text-white text-xs bg-black/60 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 z-20">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center text-slate-950 font-bold">
                   <Play size={11} fill="currentColor" className="ml-0.5" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold leading-tight">ESA Play • Cinema & Futebol</p>
-                  <p className="text-[9px] text-slate-400">Servidor VIP Ultra Estável</p>
+                  <p className="text-[11px] font-bold leading-tight">ESA Play • Transmissão VIP</p>
+                  <p className="text-[9px] text-slate-400">Servidor Ultra Estável</p>
                 </div>
               </div>
               <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
