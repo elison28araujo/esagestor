@@ -39,6 +39,7 @@ import { Dashboard } from "@/components/Dashboard";
 import { NovoClienteForm } from "@/components/NovoClienteForm";
 import { ClienteCard } from "@/components/ClienteCard";
 import { EditClienteDialog } from "@/components/EditClienteDialog";
+import { AdicionarUsuarioDialog } from "@/components/AdicionarUsuarioDialog";
 import { RenovarAcessoDialog } from "@/components/RenovarAcessoDialog";
 import { CobrarDialog } from "@/components/CobrarDialog";
 import { DespesaList } from "@/components/DespesaList";
@@ -99,6 +100,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [activeFilter, setActiveFilter] = useState<Filter>("todos");
   const [editando, setEditando] = useState<Acesso | null>(null);
+  const [adicionandoUsuarioPara, setAdicionandoUsuarioPara] = useState<Acesso | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [importando, setImportando] = useState(false);
   const [toast, setToast] = useState<ImportFeedback | null>(null);
@@ -370,7 +372,7 @@ export default function HomePage() {
     }
   }, [user, acessos]);
 
-  async function addCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey, servidor }: {
+  async function addCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
     nomeUser: string;
     cliente: string;
     telefone: string;
@@ -379,8 +381,9 @@ export default function HomePage() {
     enderecoMac?: string;
     chaveKey?: string;
     servidor?: ServidorNome | string;
-  }) {
-    if (!user || !db) return;
+    lancarDespesaCredito?: boolean;
+  }): Promise<boolean> {
+    if (!user || !db) return false;
     const clientesMesmoUsuario = acessos.filter(
       (item) => item.usuario.trim().toLowerCase() === nomeUser.trim().toLowerCase()
     );
@@ -394,44 +397,45 @@ export default function HomePage() {
     if (servidorEscolhido === "Genial") {
       if (clientesMesmoUsuario.length >= 2) {
         setToast({ type: "error", message: "O servidor Genial suporta no máximo 2 clientes por usuário (2 IPTV ou 2 P2P)." });
-        return;
+        return false;
       }
       if (isNovoP2P && qtdIPTVAtual > 0) {
         setToast({ type: "error", message: "O servidor Genial aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui IPTV)." });
-        return;
+        return false;
       }
       if (!isNovoP2P && qtdP2PAtual > 0) {
         setToast({ type: "error", message: "O servidor Genial aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui P2P)." });
-        return;
+        return false;
       }
     } else if (servidorEscolhido === "Five") {
       if (clientesMesmoUsuario.length >= 2) {
         setToast({ type: "error", message: "O servidor Five suporta no máximo 2 clientes por usuário (apenas IPTV)." });
-        return;
+        return false;
       }
       if (isNovoP2P) {
         setToast({ type: "error", message: "O servidor Five aceita somente clientes IPTV (não aceita P2P)." });
-        return;
+        return false;
       }
     } else {
       // Warez (padrão)
       if (clientesMesmoUsuario.length >= 3) {
         setToast({ type: "error", message: "O servidor Warez suporta no máximo 3 clientes por usuário (1 P2P e 2 IPTV)." });
-        return;
+        return false;
       }
       if (isNovoP2P && qtdP2PAtual >= 1) {
         setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 1 cliente P2P neste usuário." });
-        return;
+        return false;
       }
       if (!isNovoP2P && qtdIPTVAtual >= 2) {
         setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 2 clientes IPTV neste usuário." });
-        return;
+        return false;
       }
     }
 
     const vencimento = new Date();
     vencimento.setDate(vencimento.getDate() + 30);
     const valNumerico = Number(valor) || 0;
+    const agoraIso = new Date().toISOString();
     const docRef = await addDoc(collection(db, "acessos"), {
       usuario: nomeUser.trim(),
       cliente: cliente.trim(),
@@ -440,7 +444,7 @@ export default function HomePage() {
       app,
       servidor: servidorEscolhido,
       vencimento: vencimento.toISOString(),
-      data: new Date().toISOString(),
+      data: agoraIso,
       createdAt: Timestamp.now(),
       userId: user.uid,
       enderecoMac: (enderecoMac || "").trim(),
@@ -453,10 +457,22 @@ export default function HomePage() {
       cliente: cliente.trim(),
       app,
       valor: valNumerico,
-      data: new Date().toISOString(),
+      data: agoraIso,
       userId: user.uid,
     });
+    if (lancarDespesaCredito) {
+      const custoCredito = SERVIDORES[servidorEscolhido]?.custoCredito ?? 0;
+      if (custoCredito > 0) {
+        await addDoc(collection(db, "despesas"), {
+          descricao: `Crédito ${servidorEscolhido} (${nomeUser.trim()} - ${cliente.trim()})`,
+          valor: custoCredito,
+          data: agoraIso,
+          userId: user.uid,
+        });
+      }
+    }
     setToast({ type: "success", message: `Cliente "${cliente}" adicionado no servidor ${servidorEscolhido}!` });
+    return true;
   }
 
   function handleRenovar(id: string) {
@@ -1074,7 +1090,7 @@ export default function HomePage() {
                   importando={importando}
                   usuarioPredefinido={cadastroPredefinido?.usuario}
                   servidorPredefinido={cadastroPredefinido?.servidor}
-                  onAddCliente={addCliente}
+                  onAddCliente={async (data) => { await addCliente(data); }}
                   onExportarCsv={exportarClientesCsv}
                   onImportarCsv={importarClientesCsv}
                   onImportarGoogleSheet={importarGoogleSheet}
@@ -1221,6 +1237,7 @@ export default function HomePage() {
                                 }
                               }}
                               onCobrar={handleCobrar}
+                              onAdicionarUsuario={setAdicionandoUsuarioPara}
                               selecionado={selecionados.includes(item.id)}
                               onToggleSelecao={toggleSelecao}
                             />
@@ -1489,6 +1506,13 @@ export default function HomePage() {
         appOptions={appOptions}
         onSalvar={salvarEdicao}
         onFechar={() => setEditando(null)}
+      />
+
+      <AdicionarUsuarioDialog
+        acesso={adicionandoUsuarioPara}
+        appOptions={appOptions}
+        onAdicionar={addCliente}
+        onFechar={() => setAdicionandoUsuarioPara(null)}
       />
 
       <RenovarAcessoDialog

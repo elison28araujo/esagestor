@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
-import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key } from "lucide-react";
+import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus } from "lucide-react";
 
 interface ClienteCardProps {
   item: Acesso;
@@ -16,6 +16,7 @@ interface ClienteCardProps {
   onRenovar: (id: string) => void;
   onRenovarRapido?: (id: string) => void;
   onCobrar?: (item: Acesso) => void;
+  onAdicionarUsuario?: (item: Acesso) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
 }
@@ -29,6 +30,7 @@ export function ClienteCard({
   onRenovar,
   onRenovarRapido,
   onCobrar,
+  onAdicionarUsuario,
   selecionado,
   onToggleSelecao,
 }: ClienteCardProps) {
@@ -167,7 +169,7 @@ export function ClienteCard({
         </div>
 
         {/* Barra de Ações Rápidas */}
-        <div className="mt-4 flex items-center gap-1.5 border-t border-slate-100 pt-3 dark:border-slate-800/80">
+        <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3 dark:border-slate-800/80">
           {onRenovarRapido && (
             <Button
               size="sm"
@@ -197,6 +199,19 @@ export function ClienteCard({
             <MessageCircle className="mr-1 h-3 w-3 text-emerald-500" />
             Cobrar
           </Button>
+
+          {onAdicionarUsuario && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] font-semibold border-blue-500/30 text-blue-600 hover:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20"
+              onClick={() => onAdicionarUsuario(item)}
+              title="Adicionar novo usuário/login para este cliente"
+            >
+              <UserPlus className="mr-1 h-3 w-3" />
+              + Usuário
+            </Button>
+          )}
 
           <Button
             size="sm"
