@@ -109,34 +109,63 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join("\n");
 
-    const geminiRes = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 300,
-          },
-        }),
-      }
-    );
+    const modelos = [
+      "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-flash-latest",
+    ];
 
-    if (!geminiRes.ok) {
-      const status = geminiRes.status;
-      console.error("Erro na API Gemini:", status);
+    let data: any = null;
+    let lastStatus = 502;
+
+    for (const modelo of modelos) {
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey,
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.8,
+                maxOutputTokens: 300,
+              },
+            }),
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+
+        if (geminiRes.ok) {
+          data = await geminiRes.json();
+          break;
+        }
+
+        lastStatus = geminiRes.status;
+        // Se for erro de modelo indisponível (404/503), tenta o próximo modelo da lista
+        if (lastStatus !== 404 && lastStatus !== 503) {
+          console.error(`Erro na API Gemini (${modelo}):`, lastStatus);
+          return NextResponse.json(
+            { error: `Falha ao gerar mensagem com Gemini (status ${lastStatus}).` },
+            { status: 502 }
+          );
+        }
+      } catch (err) {
+        console.warn(`Timeout/falha ao consultar modelo ${modelo}:`, err);
+        lastStatus = 504;
+      }
+    }
+
+    if (!data) {
+      console.error("Nenhum modelo Gemini disponível retornou sucesso. Último status:", lastStatus);
       return NextResponse.json(
-        { error: `Falha ao gerar mensagem com Gemini (status ${status}).` },
+        { error: `Falha ao gerar mensagem com Gemini (status ${lastStatus}).` },
         { status: 502 }
       );
     }
-
-    const data = await geminiRes.json();
     const textoGerado =
       data?.candidates?.[0]?.content?.parts
         ?.map((p: { text?: string }) => p.text || "")
