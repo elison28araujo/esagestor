@@ -108,3 +108,66 @@ export const REATIVACAO_TEMPLATES: ModeloReativacao[] = [
       "Olá, {cliente}! Estamos atualizando nossa lista de clientes do {app} e vi que seu acesso está inativo. Posso encerrar seu cadastro ou você pretende voltar? Para reativar agora: {link}",
   },
 ];
+
+export interface ModeloPromocao {
+  id: string;
+  titulo: string;
+  texto: string;
+}
+
+export const PROMOCOES_TEMPLATES: ModeloPromocao[] = [
+  {
+    id: "bf_completo",
+    titulo: "Black Friday Completo",
+    texto: `🔥🖤 *BLACK FRIDAY ESA PLAY – COMEÇOU!* 🖤🔥
+
+🚨 Chegou a oportunidade de aproveitar condições especiais!
+
+A ESA PLAY preparou uma promoção exclusiva para você que já é nosso cliente, para quem deseja renovar antecipadamente e também para quem quer voltar a aproveitar nossos serviços!
+
+📺 *PLANOS ESPECIAIS BLACK FRIDAY:*
+
+✅ 1 mês – R$ 27,00
+✅ 2 meses – R$ 49,00
+✅ 3 meses – R$ 63,00
+✅ 6 meses – R$ 109,00
+✅ 12 meses – R$ 199,00
+
+🎬 Filmes e séries
+⚽ Futebol e esportes
+📡 Canais ao vivo
+🌎 Conteúdos nacionais e internacionais
+
+❤️ *JÁ É NOSSO CLIENTE?*
+Aproveite para renovar ou antecipar sua mensalidade com os preços promocionais!
+
+🔄 *JÁ FOI NOSSO CLIENTE?*
+Essa é a oportunidade perfeita para voltar! Estamos esperando você de volta à ESA PLAY!
+
+🆕 *AINDA NÃO É CLIENTE?*
+Venha conhecer nossos planos e aproveite a Black Friday!
+
+📅 Promoção válida de *15/11 a 30/11/2026*.
+
+📲 Entre em contato pelo privado e consulte as condições!
+
+🖤 *ESA PLAY – Seu entretenimento em um só lugar!*`,
+  },
+  {
+    id: "bf_curto",
+    titulo: "Black Friday Reativação",
+    texto: `Olá! Tudo bem? 😊
+
+Estamos passando para avisar que começou a *BLACK FRIDAY ESA PLAY!* 🖤🔥
+
+Preparamos preços especiais e queremos dar a você a oportunidade de voltar a aproveitar nossos serviços!
+
+Temos planos a partir de *R$ 27,00*.
+
+Se tiver interesse em retornar, será um prazer receber você novamente!
+
+📲 Responda esta mensagem e conheça nossas ofertas especiais.
+
+*ESA PLAY – Estamos esperando você de volta!* ❤️`,
+  },
+];

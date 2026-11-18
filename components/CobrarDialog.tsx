@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Acesso } from "@/lib/types";
-import { REATIVACAO_TEMPLATES } from "@/lib/constants";
+import { REATIVACAO_TEMPLATES, PROMOCOES_TEMPLATES } from "@/lib/constants";
 import { Loader2, MessageCircle, Send, Sparkles, Wand2 } from "lucide-react";
 
 interface CobrarDialogProps {
@@ -338,6 +338,32 @@ export function CobrarDialog({
                   }`}
                 >
                   {tpl.titulo}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Seção Black Friday / Promoções */}
+          <div className="space-y-1.5 rounded-xl border border-amber-500/30 bg-slate-950/90 p-3 text-white">
+            <Label className="text-xs font-bold uppercase tracking-wider text-amber-400">
+              🔥🖤 Promoções — Black Friday
+            </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {PROMOCOES_TEMPLATES.map((promo) => (
+                <button
+                  key={promo.id}
+                  type="button"
+                  onClick={() => {
+                    setEstiloIA("variar");
+                    aplicarTemplate(promo.texto);
+                  }}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+                    templateAtual === promo.texto
+                      ? "border-amber-400 bg-amber-500 text-slate-950 shadow-sm"
+                      : "border-amber-500/40 bg-slate-900 text-amber-300 hover:bg-slate-800"
+                  }`}
+                >
+                  {promo.titulo}
                 </button>
               ))}
             </div>
