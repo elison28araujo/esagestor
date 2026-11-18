@@ -18,7 +18,7 @@ export function DialogContent({ className, children }: { className?: string; chi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => context.onOpenChange(false)}>
-      <div className={cn("w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl", className)} onClick={(e) => e.stopPropagation()}>
+      <div className={cn("w-full max-w-lg rounded-2xl bg-white p-5 text-slate-900 shadow-2xl dark:border dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100", className)} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -30,7 +30,7 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 }
 
 export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn("text-lg font-bold text-slate-900", className)} {...props} />;
+  return <h2 className={cn("text-lg font-bold text-slate-900 dark:text-slate-100", className)} {...props} />;
 }
 
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

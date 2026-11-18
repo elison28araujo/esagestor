@@ -411,7 +411,7 @@ export function CobrarDialog({
                 : "Prévia da mensagem (edite livremente antes de enviar):"}
             </Label>
             <textarea
-              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm min-h-[130px] resize-y focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
+              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 min-h-[130px] resize-y focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               value={mensagemTexto}
               onChange={(e) => setMensagemTexto(e.target.value)}
               disabled={enviando}
