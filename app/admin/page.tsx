@@ -40,6 +40,7 @@ import { NovoClienteForm } from "@/components/NovoClienteForm";
 import { ClienteCard } from "@/components/ClienteCard";
 import { EditClienteDialog } from "@/components/EditClienteDialog";
 import { RenovarAcessoDialog } from "@/components/RenovarAcessoDialog";
+import { CobrarDialog } from "@/components/CobrarDialog";
 import { DespesaList } from "@/components/DespesaList";
 import { ConfigDialog } from "@/components/ConfigDialog";
 import { Toast } from "@/components/Toast";
@@ -54,7 +55,7 @@ import { SuporteChatWidget } from "@/components/SuporteChatWidget";
 import { AdminSuporteView } from "@/components/AdminSuporteView";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
-import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
+import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
 import {
   escapeCsvValue,
   isValidPhone,
@@ -106,6 +107,8 @@ export default function HomePage() {
   const [configOpen, setConfigOpen] = useState(false);
   const [mensagemCobranca, setMensagemCobranca] = useState(DEFAULT_COBRANCA_MSG);
   const [mensagemRenovacao, setMensagemRenovacao] = useState(DEFAULT_RENOVACAO_MSG);
+  const [mensagemReativacao, setMensagemReativacao] = useState(DEFAULT_REATIVACAO_MSG);
+  const [cobrandoItens, setCobrandoItens] = useState<Acesso[]>([]);
   const [pixKey, setPixKey] = useState("");
   const [pixNome, setPixNome] = useState("");
   const [pixCidade, setPixCidade] = useState("");
@@ -185,6 +188,7 @@ export default function HomePage() {
         const data = docSnap.data();
         if (data.mensagemCobranca) setMensagemCobranca(data.mensagemCobranca);
         if (data.mensagemRenovacao) setMensagemRenovacao(data.mensagemRenovacao);
+        if (data.mensagemReativacao) setMensagemReativacao(data.mensagemReativacao);
         setPixKey(data.pixKey || "");
         setPixNome(data.pixNome || "");
         setPixCidade(data.pixCidade || "");
@@ -200,6 +204,7 @@ export default function HomePage() {
   async function handleSalvarConfiguracoes(data: {
     mensagemCobranca: string;
     mensagemRenovacao: string;
+    mensagemReativacao: string;
     pixKey: string;
     pixNome: string;
     pixCidade: string;
@@ -456,46 +461,14 @@ export default function HomePage() {
     }
   }
 
-  async function handleCobrar(item: Acesso) {
-    const phone = item.telefone.replace(/\D/g, "");
-    const linkPortal = `${window.location.origin}/consulta?telefone=${phone}`;
-    let mensagem = mensagemCobranca
-      .replace("{cliente}", item.cliente)
-      .replace("{app}", item.app)
-      .replace("{valor}", Number(item.valor).toFixed(2));
-      
-    if (mensagem.includes("{link}")) {
-      mensagem = mensagem.replace("{link}", linkPortal);
-    } else {
-      mensagem = `${mensagem}\n\nEfetue o pagamento pelo link: ${linkPortal}`;
-    }
+  function handleCobrar(item: Acesso) {
+    setCobrandoItens([item]);
+  }
 
-    if (zapiInstanceId && zapiToken && phone) {
-      setToast({ type: "info", message: "Enviando cobrança via WhatsApp..." });
-      try {
-        const phoneFormatted = phone.startsWith("55") ? phone : `55${phone}`;
-        const res = await fetch(`https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            phone: phoneFormatted,
-            message: mensagem,
-          }),
-        });
-        if (res.ok) {
-          setToast({ type: "success", message: "Cobrança enviada com sucesso pelo WhatsApp!" });
-        } else {
-          throw new Error("Erro na Z-API");
-        }
-      } catch (err) {
-        console.error("Erro Z-API ao cobrar:", err);
-        setToast({ type: "error", message: "Falha na Z-API. Abrindo WhatsApp Web..." });
-        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
-      }
-    } else {
-      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+  function handleCobrarEmLote() {
+    const itensSelecionados = acessos.filter((a) => selecionados.includes(a.id));
+    if (itensSelecionados.length > 0) {
+      setCobrandoItens(itensSelecionados);
     }
   }
 
@@ -926,6 +899,8 @@ export default function HomePage() {
         clientes: grupo.clientes.filter(c => {
           const dias = Math.ceil((new Date(c.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
           if (activeFilter === "vencidos") return dias <= 0;
+          if (activeFilter === "inativos15") return dias <= -15;
+          if (activeFilter === "inativos30") return dias <= -30;
           if (activeFilter === "vencendo") return dias > 0 && dias <= 3;
           if (activeFilter === "ativos") return dias > 3;
           return true;
@@ -1129,17 +1104,34 @@ export default function HomePage() {
                     )}
                   </div>
                   
-                  {activeFilter !== "todos" && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span>Filtro ativo:</span>
-                      <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                        {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
-                      </span>
-                      <Button variant="ghost" size="sm" onClick={() => setActiveFilter("todos")} className="h-8 px-2 text-xs">
-                        Limpar
-                      </Button>
-                    </div>
-                  )}
+                  {/* Filtros rápidos de status e inatividade */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(
+                      [
+                        { id: "todos", label: "Todos" },
+                        { id: "ativos", label: "Ativos" },
+                        { id: "vencendo", label: "Vencendo (≤3d)" },
+                        { id: "vencidos", label: "Vencidos" },
+                        { id: "inativos15", label: "Inativos +15d" },
+                        { id: "inativos30", label: "Inativos +30d" },
+                      ] as { id: Filter; label: string }[]
+                    ).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setActiveFilter(f.id)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                          activeFilter === f.id
+                            ? f.id.startsWith("inativos")
+                              ? "bg-purple-600 text-white shadow-sm"
+                              : "bg-blue-600 text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Client List */}
@@ -1487,6 +1479,7 @@ export default function HomePage() {
         }}
         mensagem={mensagemCobranca}
         mensagemRenovacao={mensagemRenovacao}
+        mensagemReativacao={mensagemReativacao}
         pixKey={pixKey}
         pixNome={pixNome}
         pixCidade={pixCidade}
@@ -1504,6 +1497,18 @@ export default function HomePage() {
         onConfirmar={handleConfirmarRenovacao}
       />
 
+      <CobrarDialog
+        open={cobrandoItens.length > 0}
+        itens={cobrandoItens}
+        user={user}
+        mensagemCobranca={mensagemCobranca}
+        mensagemReativacao={mensagemReativacao}
+        zapiInstanceId={zapiInstanceId}
+        zapiToken={zapiToken}
+        onFechar={() => setCobrandoItens([])}
+        onToast={setToast}
+      />
+
       <BulkActionBar
         selecionadosCount={selecionados.length}
         onLimparSelecao={() => setSelecionados([])}
@@ -1511,6 +1516,7 @@ export default function HomePage() {
         onExcluirEmLote={handleExcluirEmLote}
         onAlterarValorEmLote={handleAlterarValorEmLote}
         onAlterarAppEmLote={handleAlterarAppEmLote}
+        onCobrarEmLote={handleCobrarEmLote}
         appOptions={appOptions}
       />
 

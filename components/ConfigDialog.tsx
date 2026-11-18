@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG } from "@/lib/constants";
+import { DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, REATIVACAO_TEMPLATES } from "@/lib/constants";
 import { MessageSquare, Smartphone, CreditCard, Bell, Sparkles } from "lucide-react";
 
 interface ConfigDialogProps {
@@ -12,6 +12,7 @@ interface ConfigDialogProps {
   onFechar: () => void;
   mensagem: string;
   mensagemRenovacao: string;
+  mensagemReativacao?: string;
   pixKey: string;
   pixNome: string;
   pixCidade: string;
@@ -22,6 +23,7 @@ interface ConfigDialogProps {
   onSalvar: (data: {
     mensagemCobranca: string;
     mensagemRenovacao: string;
+    mensagemReativacao: string;
     pixKey: string;
     pixNome: string;
     pixCidade: string;
@@ -39,6 +41,7 @@ export function ConfigDialog({
   onFechar,
   mensagem,
   mensagemRenovacao,
+  mensagemReativacao = DEFAULT_REATIVACAO_MSG,
   pixKey,
   pixNome,
   pixCidade,
@@ -51,6 +54,7 @@ export function ConfigDialog({
   const [activeTab, setActiveTab] = useState<TabConfig>("mensagens");
   const [msgCobranca, setMsgCobranca] = useState(mensagem);
   const [msgRenovacaoState, setMsgRenovacaoState] = useState(mensagemRenovacao);
+  const [msgReativacaoState, setMsgReativacaoState] = useState(mensagemReativacao);
   const [pixKeyState, setPixKeyState] = useState(pixKey);
   const [pixNomeState, setPixNomeState] = useState(pixNome);
   const [pixCidadeState, setPixCidadeState] = useState(pixCidade);
@@ -66,6 +70,7 @@ export function ConfigDialog({
       setEmailAlerts(saved !== "0");
       setMsgCobranca(mensagem);
       setMsgRenovacaoState(mensagemRenovacao);
+      setMsgReativacaoState(mensagemReativacao || DEFAULT_REATIVACAO_MSG);
       setPixKeyState(pixKey);
       setPixNomeState(pixNome);
       setPixCidadeState(pixCidade);
@@ -74,12 +79,13 @@ export function ConfigDialog({
       setZapiInstanceIdState(zapiInstanceId);
       setZapiTokenState(zapiToken);
     }
-  }, [open, mensagem, mensagemRenovacao, pixKey, pixNome, pixCidade, mpAccessToken, whatsappGestor, zapiInstanceId, zapiToken]);
+  }, [open, mensagem, mensagemRenovacao, mensagemReativacao, pixKey, pixNome, pixCidade, mpAccessToken, whatsappGestor, zapiInstanceId, zapiToken]);
 
   function handleSalvar() {
     onSalvar({
       mensagemCobranca: msgCobranca.trim() || DEFAULT_COBRANCA_MSG,
       mensagemRenovacao: msgRenovacaoState.trim() || DEFAULT_RENOVACAO_MSG,
+      mensagemReativacao: msgReativacaoState.trim() || DEFAULT_REATIVACAO_MSG,
       pixKey: pixKeyState.trim(),
       pixNome: pixNomeState.trim(),
       pixCidade: pixCidadeState.trim(),
@@ -189,6 +195,35 @@ export function ConfigDialog({
                 onChange={(e) => setMsgRenovacaoState(e.target.value)}
               />
               <Button variant="ghost" size="sm" onClick={() => setMsgRenovacaoState(DEFAULT_RENOVACAO_MSG)} className="self-start text-xs text-slate-500">
+                Restaurar padrão
+              </Button>
+            </div>
+
+            <div className="grid gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <Label className="text-purple-600 dark:text-purple-400 font-bold text-sm">
+                Mensagem de Reativação (Clientes que não renovam)
+              </Label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Clique em um modelo pronto ou personalize abaixo:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {REATIVACAO_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => setMsgReativacaoState(tpl.texto)}
+                    className="rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 dark:border-purple-800/60 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40 transition"
+                  >
+                    {tpl.titulo}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[90px] transition-all"
+                value={msgReativacaoState}
+                onChange={(e) => setMsgReativacaoState(e.target.value)}
+              />
+              <Button variant="ghost" size="sm" onClick={() => setMsgReativacaoState(DEFAULT_REATIVACAO_MSG)} className="self-start text-xs text-slate-500">
                 Restaurar padrão
               </Button>
             </div>

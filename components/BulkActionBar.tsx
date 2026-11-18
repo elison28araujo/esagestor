@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   CheckSquare,
+  MessageCircle,
 } from "lucide-react";
 
 interface BulkActionBarProps {
@@ -22,6 +23,7 @@ interface BulkActionBarProps {
   onExcluirEmLote: () => Promise<void>;
   onAlterarValorEmLote: (valor: number) => Promise<void>;
   onAlterarAppEmLote: (app: string) => Promise<void>;
+  onCobrarEmLote?: () => void;
   appOptions: string[];
 }
 
@@ -32,6 +34,7 @@ export function BulkActionBar({
   onExcluirEmLote,
   onAlterarValorEmLote,
   onAlterarAppEmLote,
+  onCobrarEmLote,
   appOptions,
 }: BulkActionBarProps) {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -136,6 +139,19 @@ export function BulkActionBar({
                 <Smartphone className="h-3.5 w-3.5 text-indigo-500" />
                 Alterar App
               </Button>
+
+              {onCobrarEmLote && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  onClick={onCobrarEmLote}
+                  disabled={processando}
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Cobrar / Reativar
+                </Button>
+              )}
 
               <Button
                 size="sm"

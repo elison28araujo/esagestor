@@ -60,3 +60,51 @@ export const DEFAULT_COBRANCA_MSG =
 
 export const DEFAULT_RENOVACAO_MSG =
   "Olá {cliente}, sua assinatura do {app} foi renovada com sucesso! 🚀 Seu usuário é: {usuario}. O novo vencimento é: {vencimento}.";
+
+export const DEFAULT_REATIVACAO_MSG =
+  "Olá {cliente}, tudo bem? 😊 Notei que seu acesso do {app} venceu há um tempinho. Se quiser voltar a usar (Pix ou Cartão na hora), é só acessar: {link}";
+
+export interface ModeloReativacao {
+  id: string;
+  titulo: string;
+  estilo: "amigavel" | "praticidade" | "oferta" | "novidades" | "ultimo_aviso";
+  texto: string;
+}
+
+export const REATIVACAO_TEMPLATES: ModeloReativacao[] = [
+  {
+    id: "amigavel",
+    titulo: "Check-in Amigável",
+    estilo: "amigavel",
+    texto:
+      "Olá, {cliente}! Tudo bem? 😊 Notei que seu acesso do {app} venceu há um tempinho. Aconteceu algum problema com o sinal ou aplicativo? Se quiser voltar a usar, deixei seu link rápido aqui (Pix ou Cartão na hora): {link}",
+  },
+  {
+    id: "praticidade",
+    titulo: "Pix & Cartão na Hora",
+    estilo: "praticidade",
+    texto:
+      "E aí, {cliente}! Facilitamos tudo por aqui 🚀 Agora você mesmo reativa seu {app} em segundos pelo painel, no Pix ou Cartão de Crédito (R$ {valor}), sem precisar esperar atendimento: {link}",
+  },
+  {
+    id: "oferta",
+    titulo: "Condição de Retorno",
+    estilo: "oferta",
+    texto:
+      "Oi, {cliente}! Tudo certo? Estamos com uma condição especial esta semana para ex-clientes voltarem para o {app}: reativando pelo valor normal (R$ {valor}), você ganha dias extras de bônus! 🎁 Acesse aqui: {link}",
+  },
+  {
+    id: "novidades",
+    titulo: "Novidades e Estabilidade",
+    estilo: "novidades",
+    texto:
+      "Olá, {cliente}! Passando para avisar que fizemos várias atualizações no servidor e nos conteúdos do {app} — está muito mais rápido e estável. Querendo reativar (R$ {valor}), é só clicar aqui: {link}",
+  },
+  {
+    id: "ultimo_aviso",
+    titulo: "Limpeza de Cadastro",
+    estilo: "ultimo_aviso",
+    texto:
+      "Olá, {cliente}! Estamos atualizando nossa lista de clientes do {app} e vi que seu acesso está inativo. Posso encerrar seu cadastro ou você pretende voltar? Para reativar agora: {link}",
+  },
+];

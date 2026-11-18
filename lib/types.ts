@@ -1,5 +1,5 @@
 export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
-export type Filter = "todos" | "ativos" | "vencendo" | "vencidos";
+export type Filter = "todos" | "ativos" | "vencendo" | "vencidos" | "inativos15" | "inativos30";
 
 export interface MensagemSuporte {
   id: string;
@@ -87,6 +87,7 @@ export interface Configuracoes {
   userId: string;
   mensagemCobranca: string;
   mensagemRenovacao: string;
+  mensagemReativacao?: string;
   pixKey: string;
   pixNome: string;
   pixCidade: string;
