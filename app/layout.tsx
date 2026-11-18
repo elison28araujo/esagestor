@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   title: "ESA Gestor",
   description: "Controle de acessos, despesas e cobranças via WhatsApp.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo-esa-play.png",
+    apple: "/logo-esa-play.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -193,7 +193,12 @@ export default function LandingPage() {
       <header className="sticky top-0 left-0 w-full z-40 bg-[#050711]/85 backdrop-blur-xl border-b border-slate-900/60 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <img
+              src="/logo-esa-play.png"
+              alt="ESA Play"
+              className="h-9 w-9 rounded-xl object-contain shadow-md group-hover:scale-105 transition"
+            />
             <div className="relative flex items-center">
               <span className="text-2xl font-heading font-black tracking-tighter text-white">
                 ESA

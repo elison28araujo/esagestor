@@ -150,13 +150,17 @@ export function Sidebar({
             <div className="flex h-12 items-center justify-between px-2">
               {(!collapsed || mobileOpen) ? (
                 <div className="flex items-center gap-2.5">
-                  <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm">
+                  <div className="relative flex h-8 w-8 items-center justify-center rounded-lg shadow-sm">
                     {christmasMode && (
-                      <div className="absolute -top-3 -left-2 pointer-events-none select-none">
+                      <div className="absolute -top-3 -left-2 pointer-events-none select-none z-10">
                         <SantaHat className="w-5 h-5 -rotate-12 drop-shadow-sm" />
                       </div>
                     )}
-                    E
+                    <img
+                      src="/logo-esa-play.png"
+                      alt="ESA Gestor"
+                      className="h-8 w-8 rounded-lg object-contain"
+                    />
                   </div>
                   <div className="flex items-center">
                     <span className="font-heading text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -173,13 +177,17 @@ export function Sidebar({
                   </div>
                 </div>
               ) : (
-                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm mx-auto">
+                <div className="relative flex h-8 w-8 items-center justify-center rounded-lg shadow-sm mx-auto">
                   {christmasMode && (
-                    <div className="absolute -top-3 -left-2 pointer-events-none select-none">
+                    <div className="absolute -top-3 -left-2 pointer-events-none select-none z-10">
                       <SantaHat className="w-5 h-5 -rotate-12 drop-shadow-sm" />
                     </div>
                   )}
-                  E
+                  <img
+                    src="/logo-esa-play.png"
+                    alt="ESA Gestor"
+                    className="h-8 w-8 rounded-lg object-contain"
+                  />
                 </div>
               )}
               <Button

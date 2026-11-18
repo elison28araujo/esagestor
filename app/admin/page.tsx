@@ -1016,13 +1016,17 @@ export default function HomePage() {
           {/* Header (Desktop: Hidden or simplified, Mobile: Visible) */}
           <header className="mb-8 flex items-center justify-between md:hidden">
             <div className="flex items-center gap-2">
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-sm">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg shadow-sm">
                 {christmasMode && (
-                  <div className="absolute -top-3 -left-2 pointer-events-none select-none">
+                  <div className="absolute -top-3 -left-2 pointer-events-none select-none z-10">
                     <SantaHat className="w-5 h-5 -rotate-12 drop-shadow-sm" />
                   </div>
                 )}
-                E
+                <img
+                  src="/logo-esa-play.png"
+                  alt="ESA Gestor"
+                  className="h-8 w-8 rounded-lg object-contain"
+                />
               </div>
               <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
                 ESA GESTOR {christmasMode && <span className="text-sm">🎄</span>}
