@@ -98,6 +98,7 @@ export async function POST(req: Request) {
                   usuario: aData?.usuario || "",
                   cliente: aData?.cliente || "",
                   valor: Number(pDetails.transaction_amount || aData?.valor || 0),
+                  meses: Number(pDetails.metadata?.meses || 1),
                   app: aData?.app || "IPTV",
                   tipo: pDetails.payment_type_id || "cartao_credito",
                   status: "pending",
@@ -182,9 +183,10 @@ export async function POST(req: Request) {
           const hoje = new Date();
           if (aData) {
             const dataVencimentoAtual = new Date(aData.vencimento);
-            // Se o vencimento já passou, soma 30 dias a partir de hoje. Caso contrário, soma 30 dias ao vencimento atual.
+            const mesesRenovacao = Number(pData?.meses || pendenteData.meses || 1);
+            // Se o vencimento já passou, soma os meses a partir de hoje. Caso contrário, soma ao vencimento atual.
             const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-            novaData.setDate(novaData.getDate() + 30);
+            novaData.setMonth(novaData.getMonth() + mesesRenovacao);
 
             transaction.update(acessoDocRef, {
               vencimento: novaData.toISOString(),

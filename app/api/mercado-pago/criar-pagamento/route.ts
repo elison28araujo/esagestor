@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { calcularValorPlano } from "@/lib/constants";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-    const { acessoId } = await req.json();
+    const { acessoId, meses: mesesInput } = await req.json();
 
     if (!acessoId) {
       return NextResponse.json(
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     }
 
     const { usuario, cliente, valor, userId } = acessoData;
+    const { meses, valor: valorFinal } = calcularValorPlano(Number(mesesInput || 1), Number(valor || 0));
 
     let finalUserId = userId;
     if (!finalUserId) {
@@ -89,8 +91,8 @@ export async function POST(req: Request) {
         "X-Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
-        transaction_amount: Number(valor),
-        description: `Mensalidade IPTV - ${usuario} (${cliente})`,
+        transaction_amount: valorFinal,
+        description: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${usuario} (${cliente})`,
         payment_method_id: "pix",
         payer: {
           email: "pagamento-cliente@esagestor.com",
@@ -99,6 +101,11 @@ export async function POST(req: Request) {
         },
         notification_url: notificationUrl,
         external_reference: acessoId,
+        metadata: {
+          acesso_id: acessoId,
+          user_id: finalUserId,
+          meses,
+        },
       }),
     });
 
@@ -130,7 +137,8 @@ export async function POST(req: Request) {
       userId: finalUserId,
       usuario,
       cliente,
-      valor: Number(valor),
+      valor: valorFinal,
+      meses,
       app: acessoData.app,
       status: "pending",
       createdAt: new Date().toISOString(),

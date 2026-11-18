@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { gerarPixEstatico } from "@/lib/pix";
 import { getApiUrl } from "@/lib/utils";
+import { isPeriodoBlackFriday, obterPlanosDisponiveis, PlanoRenovacao } from "@/lib/constants";
 
 export default function ConsultaPage() {
   const [telefone, setTelefone] = useState("");
@@ -43,6 +44,7 @@ export default function ConsultaPage() {
   const [whatsappGestor, setWhatsappGestor] = useState("");
 
   const [acessoSelecionado, setAcessoSelecionado] = useState<any | null>(null);
+  const [planoSelecionado, setPlanoSelecionado] = useState<PlanoRenovacao | null>(null);
   const [formaPagamento, setFormaPagamento] = useState<"pix" | "cartao">("pix");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [cardLoading, setCardLoading] = useState(false);
@@ -186,26 +188,40 @@ export default function ConsultaPage() {
     metodo: "pix" | "cartao" = "pix"
   ) {
     setAcessoSelecionado(acesso);
+    setPlanoSelecionado(null);
     setFormaPagamento(metodo);
     setPixCopiaCola("");
     setQrCodeBase64("");
     setPaymentId("");
     setPaymentStatus("pending");
     setErro(null);
+  }
 
-    if (metodo === "pix") {
-      gerarPix(acesso, mpActive, pixManualData);
+  function selecionarPlano(plano: PlanoRenovacao) {
+    if (!acessoSelecionado) return;
+    setPlanoSelecionado(plano);
+    setPixCopiaCola("");
+    setQrCodeBase64("");
+    setPaymentId("");
+    setPaymentStatus("pending");
+    setErro(null);
+
+    if (formaPagamento === "pix") {
+      gerarPix(acessoSelecionado, useMp, pixManual, plano);
     }
   }
 
-  async function gerarPix(acesso: any, mpActive: boolean, pixManualData: any) {
+  async function gerarPix(acesso: any, mpActive: boolean, pixManualData: any, plano?: PlanoRenovacao | null) {
+    const meses = plano?.meses || 1;
+    const valorCobrar = plano?.valor ?? Number(acesso.valor);
+
     if (mpActive) {
       setCheckoutLoading(true);
       try {
         const res = await fetch(getApiUrl("/api/mercado-pago/criar-pagamento"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ acessoId: acesso.id }),
+          body: JSON.stringify({ acessoId: acesso.id, meses }),
         });
 
         const data = await res.json();
@@ -233,7 +249,7 @@ export default function ConsultaPage() {
           chave: pixManualData.pixKey,
           nome: pixManualData.pixNome || "ESA GESTOR",
           cidade: pixManualData.pixCidade || "SAO PAULO",
-          valor: Number(acesso.valor),
+          valor: Number(valorCobrar),
         });
         setPixCopiaCola(payload);
       } catch (err) {
@@ -245,7 +261,7 @@ export default function ConsultaPage() {
 
   // Iniciar Pagamento com Cartão de Crédito (Mercado Pago Checkout Pro)
   async function handlePagarCartao() {
-    if (!acessoSelecionado) return;
+    if (!acessoSelecionado || !planoSelecionado) return;
     setCardLoading(true);
     setErro(null);
 
@@ -253,7 +269,7 @@ export default function ConsultaPage() {
       const res = await fetch(getApiUrl("/api/mercado-pago/criar-preferencia"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acessoId: acessoSelecionado.id }),
+        body: JSON.stringify({ acessoId: acessoSelecionado.id, meses: planoSelecionado.meses }),
       });
 
       const data = await res.json();
@@ -289,8 +305,8 @@ export default function ConsultaPage() {
               if (a.id === acessoSelecionado?.id) {
                 const hoje = new Date();
                 const venc = new Date(a.vencimento);
-                const novaData = venc > hoje ? venc : hoje;
-                novaData.setDate(novaData.getDate() + 30);
+                const novaData = venc > hoje ? new Date(venc) : new Date(hoje);
+                novaData.setMonth(novaData.getMonth() + (planoSelecionado?.meses || 1));
                 return { ...a, vencimento: novaData.toISOString() };
               }
               return a;
@@ -713,7 +729,9 @@ export default function ConsultaPage() {
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-3 mb-6">
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-                      Renovação de Acesso (+30 Dias)
+                      {planoSelecionado
+                        ? `Renovação de Acesso (${planoSelecionado.label})`
+                        : "Selecione o Plano de Renovação"}
                     </span>
                     <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">
                       {acessoSelecionado.cliente} <span className="font-normal text-xs text-slate-400">({acessoSelecionado.usuario})</span>
@@ -724,15 +742,88 @@ export default function ConsultaPage() {
                   </div>
 
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Total a pagar</span>
-                    <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                      R$ {Number(acessoSelecionado.valor || 0).toFixed(2)}
-                    </span>
+                    {planoSelecionado ? (
+                      <>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Total a pagar</span>
+                        <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                          R$ {planoSelecionado.valor.toFixed(2)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlanoSelecionado(null);
+                            setPixCopiaCola("");
+                            setQrCodeBase64("");
+                            setPaymentId("");
+                            setErro(null);
+                          }}
+                          className="block ml-auto mt-0.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          Alterar plano
+                        </button>
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                        {isPeriodoBlackFriday() ? "🔥 Black Friday" : "Escolha abaixo"}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Status: Pagamento Aprovado com Sucesso */}
-                {useMp && paymentStatus === "approved" ? (
+                {/* Passo 1: Escolha do Plano antes de gerar o QR Code */}
+                {!planoSelecionado ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Qual plano você deseja renovar?
+                      </Label>
+                      {isPeriodoBlackFriday() && (
+                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                          🖤🔥 Válido 15/11 a 30/11/2026
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {obterPlanosDisponiveis(Number(acessoSelecionado.valor || 0)).map((plano) => (
+                        <button
+                          key={plano.meses}
+                          type="button"
+                          onClick={() => selecionarPlano(plano)}
+                          className={`group relative flex items-center justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+                            plano.destaque
+                              ? "border-amber-500/70 bg-amber-50/70 hover:bg-amber-100/70 dark:border-amber-500/50 dark:bg-amber-950/20 dark:hover:bg-amber-950/40"
+                              : "border-slate-200 bg-white hover:border-blue-500 hover:bg-blue-50/40 dark:border-slate-800 dark:bg-slate-950/60 dark:hover:border-blue-500 dark:hover:bg-slate-800/70"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-extrabold text-slate-900 dark:text-white">
+                                ✅ {plano.label}
+                              </span>
+                              {plano.destaque && (
+                                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-black text-slate-950">
+                                  MAIS ESCOLHIDO
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              +{plano.meses * 30} dias de acesso
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                              R$ {plano.valor.toFixed(2).replace(".", ",")}
+                            </span>
+                            <span className="block text-[10px] font-semibold text-slate-400 group-hover:text-blue-500">
+                              Selecionar →
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : useMp && paymentStatus === "approved" ? (
                   <div className="text-center py-8 space-y-5 animate-in zoom-in-95 duration-300">
                     <div className="h-20 w-20 bg-gradient-to-tr from-emerald-500 to-teal-400 text-white rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/30">
                       <Check className="h-10 w-10 stroke-[3]" />
@@ -742,7 +833,7 @@ export default function ConsultaPage() {
                         Pagamento Aprovado com Sucesso!
                       </h3>
                       <p className="text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                        Seu acesso foi renovado por <strong>mais 30 dias</strong> de forma automática no servidor. Aproveite todos os canais, filmes e séries!
+                        Seu acesso foi renovado por <strong>{planoSelecionado?.label || "mais 30 dias"}</strong> de forma automática no servidor. Aproveite todos os canais, filmes e séries!
                       </p>
                     </div>
 
@@ -781,7 +872,7 @@ export default function ConsultaPage() {
                           onClick={() => {
                             setFormaPagamento("pix");
                             if (!pixCopiaCola && !checkoutLoading) {
-                              gerarPix(acessoSelecionado, useMp, pixManual);
+                              gerarPix(acessoSelecionado, useMp, pixManual, planoSelecionado);
                             }
                           }}
                           className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${

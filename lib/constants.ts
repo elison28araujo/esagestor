@@ -171,3 +171,51 @@ Se tiver interesse em retornar, será um prazer receber você novamente!
 *ESA PLAY – Estamos esperando você de volta!* ❤️`,
   },
 ];
+
+export interface PlanoRenovacao {
+  meses: number;
+  label: string;
+  valor: number;
+  destaque?: boolean;
+}
+
+export const BLACK_FRIDAY_INICIO = "2026-11-15T00:00:00-03:00";
+export const BLACK_FRIDAY_FIM = "2026-11-30T23:59:59-03:00";
+
+export const PLANOS_BLACK_FRIDAY: PlanoRenovacao[] = [
+  { meses: 1, label: "1 mês", valor: 27.0 },
+  { meses: 2, label: "2 meses", valor: 49.0 },
+  { meses: 3, label: "3 meses", valor: 63.0, destaque: true },
+  { meses: 6, label: "6 meses", valor: 109.0 },
+  { meses: 12, label: "12 meses", valor: 199.0 },
+];
+
+export function isPeriodoBlackFriday(agora = new Date()): boolean {
+  return agora >= new Date(BLACK_FRIDAY_INICIO) && agora <= new Date(BLACK_FRIDAY_FIM);
+}
+
+export function obterPlanosDisponiveis(valorBaseAcesso: number, agora = new Date()): PlanoRenovacao[] {
+  if (isPeriodoBlackFriday(agora)) {
+    return PLANOS_BLACK_FRIDAY;
+  }
+  const base = Number(valorBaseAcesso) > 0 ? Number(valorBaseAcesso) : 35.0;
+  return [
+    { meses: 1, label: "1 mês", valor: base },
+    { meses: 2, label: "2 meses", valor: Number((base * 2).toFixed(2)) },
+    { meses: 3, label: "3 meses", valor: Number((base * 3).toFixed(2)) },
+    { meses: 6, label: "6 meses", valor: Number((base * 6).toFixed(2)) },
+    { meses: 12, label: "12 meses", valor: Number((base * 12).toFixed(2)) },
+  ];
+}
+
+export function calcularValorPlano(
+  mesesInput: number,
+  valorBaseAcesso: number,
+  agora = new Date()
+): { meses: number; valor: number } {
+  const mesesValidos = [1, 2, 3, 6, 12];
+  const meses = mesesValidos.includes(mesesInput) ? mesesInput : 1;
+  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora);
+  const encontrado = planos.find((p) => p.meses === meses) || planos[0];
+  return { meses: encontrado.meses, valor: encontrado.valor };
+}

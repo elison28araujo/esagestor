@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { calcularValorPlano } from "@/lib/constants";
 
 export async function POST(req: Request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { acessoId } = await req.json();
+    const { acessoId, meses: mesesInput } = await req.json();
 
     if (!acessoId) {
       return NextResponse.json(
@@ -78,15 +79,15 @@ export async function POST(req: Request) {
     const origin = `${protocol}://${host}`;
     const notificationUrl = `${origin}/api/mercado-pago/webhook`;
 
-    const valorNumerico = Number(valor) > 0 ? Number(valor) : 35.0;
+    const { meses, valor: valorNumerico } = calcularValorPlano(Number(mesesInput || 1), Number(valor || 0));
 
     // 4. Criar Preferência de Pagamento no Mercado Pago (Checkout Pro com Cartão de Crédito)
     const preferencePayload = {
       items: [
         {
           id: acessoId,
-          title: `Mensalidade IPTV - ${usuario} (${cliente})`,
-          description: "Renovação de acesso IPTV/P2P por 30 dias",
+          title: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${usuario} (${cliente})`,
+          description: `Renovação de acesso IPTV/P2P por ${meses} ${meses === 1 ? "mês" : "meses"}`,
           quantity: 1,
           currency_id: "BRL",
           unit_price: valorNumerico,
@@ -117,6 +118,7 @@ export async function POST(req: Request) {
         usuario,
         cliente,
         valor: valorNumerico,
+        meses,
       },
     };
 
@@ -151,6 +153,7 @@ export async function POST(req: Request) {
       usuario,
       cliente,
       valor: valorNumerico,
+      meses,
       app: acessoData.app || "IPTV",
       tipo: "cartao_credito",
       status: "pending",

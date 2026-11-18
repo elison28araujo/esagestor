@@ -57,8 +57,9 @@ export async function GET(req: Request) {
                 source: "mp_api_fallback",
               });
 
-              // Atualiza vencimento do acesso (+30 dias)
-              const { acessoId, usuario, cliente, app, valor } = data;
+              // Atualiza vencimento do acesso conforme meses do plano
+              const { acessoId, usuario, cliente, app, valor, meses } = data;
+              const mesesRenovacao = Number(meses || 1);
               if (acessoId) {
                 const acessoRef = adminDb.collection("acessos").doc(acessoId);
                 const acessoDoc = await acessoRef.get();
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
                   if (acessoData) {
                     const vencAtual = new Date(acessoData.vencimento);
                     const novaData = vencAtual > hoje ? new Date(vencAtual) : new Date(hoje);
-                    novaData.setDate(novaData.getDate() + 30);
+                    novaData.setMonth(novaData.getMonth() + mesesRenovacao);
 
                     await acessoRef.update({
                       vencimento: novaData.toISOString(),
