@@ -132,7 +132,10 @@ export async function POST(req: Request) {
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: {
                 temperature: 0.8,
-                maxOutputTokens: 300,
+                maxOutputTokens: 1024,
+                thinkingConfig: {
+                  thinkingBudget: 0,
+                },
               },
             }),
             signal: AbortSignal.timeout(10000),
@@ -168,6 +171,7 @@ export async function POST(req: Request) {
     }
     const textoGerado =
       data?.candidates?.[0]?.content?.parts
+        ?.filter((p: { thought?: boolean }) => !p.thought)
         ?.map((p: { text?: string }) => p.text || "")
         .join("")
         .trim() || "";
