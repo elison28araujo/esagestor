@@ -350,7 +350,9 @@ export default function ConsultaPage() {
 
   function getWhatsAppLink() {
     if (!whatsappGestor || !acessoSelecionado) return "#";
-    const msg = `Olá! Realizei o pagamento da renovação de R$ ${Number(acessoSelecionado.valor).toFixed(2)} referente ao acesso ${acessoSelecionado.cliente} (Usuário: ${acessoSelecionado.usuario}). Segue o comprovante:`;
+    const valorFinal = planoSelecionado?.valor ?? Number(acessoSelecionado.valor);
+    const planoLabel = planoSelecionado?.label ? ` (${planoSelecionado.label})` : "";
+    const msg = `Olá! Realizei o pagamento da renovação${planoLabel} de R$ ${Number(valorFinal).toFixed(2)} referente ao acesso ${acessoSelecionado.cliente} (Usuário: ${acessoSelecionado.usuario}). Segue o comprovante:`;
     return `https://api.whatsapp.com/send?phone=${whatsappGestor.replace(/\D/g, "")}&text=${encodeURIComponent(msg)}`;
   }
 
@@ -1064,7 +1066,10 @@ export default function ConsultaPage() {
                             <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
                               <div className="flex items-center gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                                <span>Aprovação rápida e renovação automática de 30 dias</span>
+                                <span>
+                                  Aprovação rápida e renovação automática de{" "}
+                                  {planoSelecionado ? `${planoSelecionado.meses * 30} dias (${planoSelecionado.label})` : "30 dias"}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
@@ -1090,7 +1095,7 @@ export default function ConsultaPage() {
                               ) : (
                                 <>
                                   <ShieldCheck className="h-5 w-5" />
-                                  <span>Pagar R$ {Number(acessoSelecionado.valor || 0).toFixed(2)} com Cartão</span>
+                                  <span>Pagar R$ {(planoSelecionado?.valor ?? Number(acessoSelecionado.valor || 0)).toFixed(2)} com Cartão</span>
                                   <ArrowRight className="h-4 w-4 ml-1" />
                                 </>
                               )}
