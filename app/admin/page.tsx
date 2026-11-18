@@ -42,7 +42,7 @@ import { EditClienteDialog } from "@/components/EditClienteDialog";
 import { RenovarAcessoDialog } from "@/components/RenovarAcessoDialog";
 import { CobrarDialog } from "@/components/CobrarDialog";
 import { DespesaList } from "@/components/DespesaList";
-import { ConfigDialog } from "@/components/ConfigDialog";
+import { ConfigView } from "@/components/ConfigView";
 import { Toast } from "@/components/Toast";
 import { Sidebar } from "@/components/Sidebar";
 import { PagamentosList } from "@/components/PagamentosList";
@@ -104,7 +104,6 @@ export default function HomePage() {
   const [toast, setToast] = useState<ImportFeedback | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [christmasMode, setChristmasMode] = useState(true);
-  const [configOpen, setConfigOpen] = useState(false);
   const [mensagemCobranca, setMensagemCobranca] = useState(DEFAULT_COBRANCA_MSG);
   const [mensagemRenovacao, setMensagemRenovacao] = useState(DEFAULT_RENOVACAO_MSG);
   const [mensagemReativacao, setMensagemReativacao] = useState(DEFAULT_REATIVACAO_MSG);
@@ -116,6 +115,7 @@ export default function HomePage() {
   const [whatsappGestor, setWhatsappGestor] = useState("");
   const [zapiInstanceId, setZapiInstanceId] = useState("");
   const [zapiToken, setZapiToken] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
@@ -196,6 +196,7 @@ export default function HomePage() {
         setWhatsappGestor(data.whatsappGestor || "");
         setZapiInstanceId(data.zapiInstanceId || "");
         setZapiToken(data.zapiToken || "");
+        setGeminiApiKey(data.geminiApiKey || "");
       }
     });
     return () => unsubConfig();
@@ -212,6 +213,7 @@ export default function HomePage() {
     whatsappGestor: string;
     zapiInstanceId: string;
     zapiToken: string;
+    geminiApiKey: string;
   }) {
     if (!user || !db) return;
     try {
@@ -939,13 +941,6 @@ export default function HomePage() {
     [acessos]
   );
 
-  useEffect(() => {
-    if (activeTab === "configuracoes") {
-      setConfigOpen(true);
-      setActiveTab("clientes");
-    }
-  }, [activeTab]);
-
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6 dark:bg-slate-900">
@@ -1033,7 +1028,7 @@ export default function HomePage() {
                 ESA GESTOR {christmasMode && <span className="text-sm">🎄</span>}
               </h1>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setActiveTab("configuracoes")}>
               <Settings className="h-4 w-4" />
             </Button>
           </header>
@@ -1078,6 +1073,23 @@ export default function HomePage() {
                   onImportarGoogleSheet={importarGoogleSheet}
                 />
               </div>
+            )}
+
+            {activeTab === "configuracoes" && (
+              <ConfigView
+                mensagem={mensagemCobranca}
+                mensagemRenovacao={mensagemRenovacao}
+                mensagemReativacao={mensagemReativacao}
+                pixKey={pixKey}
+                pixNome={pixNome}
+                pixCidade={pixCidade}
+                mpAccessToken={mpAccessToken}
+                whatsappGestor={whatsappGestor}
+                zapiInstanceId={zapiInstanceId}
+                zapiToken={zapiToken}
+                geminiApiKey={geminiApiKey}
+                onSalvar={handleSalvarConfiguracoes}
+              />
             )}
 
             {/* Content Area */}
@@ -1469,25 +1481,6 @@ export default function HomePage() {
         appOptions={appOptions}
         onSalvar={salvarEdicao}
         onFechar={() => setEditando(null)}
-      />
-
-      <ConfigDialog
-        open={configOpen}
-        onFechar={() => {
-          setConfigOpen(false);
-          setActiveTab("clientes");
-        }}
-        mensagem={mensagemCobranca}
-        mensagemRenovacao={mensagemRenovacao}
-        mensagemReativacao={mensagemReativacao}
-        pixKey={pixKey}
-        pixNome={pixNome}
-        pixCidade={pixCidade}
-        mpAccessToken={mpAccessToken}
-        whatsappGestor={whatsappGestor}
-        zapiInstanceId={zapiInstanceId}
-        zapiToken={zapiToken}
-        onSalvar={handleSalvarConfiguracoes}
       />
 
       <RenovarAcessoDialog

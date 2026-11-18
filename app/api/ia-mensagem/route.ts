@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { admin } from "@/lib/firebase-admin";
+import { admin, adminDb } from "@/lib/firebase-admin";
 
 type EstiloMensagem =
   | "amigavel"
@@ -39,8 +39,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Token de autenticação inválido." }, { status: 401 });
     }
 
+    let uid = "";
     try {
-      await admin.auth().verifyIdToken(token);
+      const decoded = await admin.auth().verifyIdToken(token);
+      uid = decoded.uid;
     } catch {
       return NextResponse.json(
         { error: "Token de autenticação expirado ou inválido." },
@@ -48,10 +50,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    let apiKey = process.env.GEMINI_API_KEY?.trim() || "";
+    if (!apiKey && uid && adminDb) {
+      try {
+        const configSnap = await adminDb.collection("configuracoes").doc(uid).get();
+        if (configSnap.exists) {
+          apiKey = String(configSnap.data()?.geminiApiKey || "").trim();
+        }
+      } catch (err) {
+        console.error("Erro ao buscar geminiApiKey no Firestore:", err);
+      }
+    }
+
     if (!apiKey) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY não configurada no servidor." },
+        { error: "Chave do Gemini não configurada. Adicione em Configurações → IA (Gemini) ou na Vercel (GEMINI_API_KEY)." },
         { status: 500 }
       );
     }
