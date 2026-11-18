@@ -24,6 +24,7 @@ interface ConfigViewProps {
   zapiInstanceId: string;
   zapiToken: string;
   geminiApiKey?: string;
+  tmdbApiKey?: string;
   onSalvar: (data: {
     mensagemCobranca: string;
     mensagemRenovacao: string;
@@ -36,6 +37,7 @@ interface ConfigViewProps {
     zapiInstanceId: string;
     zapiToken: string;
     geminiApiKey: string;
+    tmdbApiKey: string;
   }) => void;
 }
 
@@ -53,6 +55,7 @@ export function ConfigView({
   zapiInstanceId,
   zapiToken,
   geminiApiKey = "",
+  tmdbApiKey = "",
   onSalvar,
 }: ConfigViewProps) {
   const [activeTab, setActiveTab] = useState<TabConfig>("mensagens");
@@ -67,6 +70,7 @@ export function ConfigView({
   const [zapiInstanceIdState, setZapiInstanceIdState] = useState(zapiInstanceId);
   const [zapiTokenState, setZapiTokenState] = useState(zapiToken);
   const [geminiApiKeyState, setGeminiApiKeyState] = useState(geminiApiKey);
+  const [tmdbApiKeyState, setTmdbApiKeyState] = useState(tmdbApiKey);
   const [emailAlerts, setEmailAlerts] = useState(true);
 
   useEffect(() => {
@@ -86,6 +90,7 @@ export function ConfigView({
     setZapiInstanceIdState(zapiInstanceId);
     setZapiTokenState(zapiToken);
     setGeminiApiKeyState(geminiApiKey || "");
+    setTmdbApiKeyState(tmdbApiKey || "");
   }, [
     mensagem,
     mensagemRenovacao,
@@ -98,6 +103,7 @@ export function ConfigView({
     zapiInstanceId,
     zapiToken,
     geminiApiKey,
+    tmdbApiKey,
   ]);
 
   function handleSalvar() {
@@ -113,6 +119,7 @@ export function ConfigView({
       zapiInstanceId: zapiInstanceIdState.trim(),
       zapiToken: zapiTokenState.trim(),
       geminiApiKey: geminiApiKeyState.trim(),
+      tmdbApiKey: tmdbApiKeyState.trim(),
     });
     localStorage.setItem("esa_email_alerts", emailAlerts ? "1" : "0");
   }
@@ -187,7 +194,7 @@ export function ConfigView({
           }`}
         >
           <Sparkles className="h-4 w-4" />
-          IA (Gemini)
+          IA & TMDB
         </button>
         <button
           type="button"
@@ -440,6 +447,22 @@ export function ConfigView({
               <p className="text-[11px] text-slate-400">
                 Opcional: você também pode configurar a variável <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">GEMINI_API_KEY</code> diretamente nas Environment Variables da Vercel.
               </p>
+            </div>
+
+            <div className="grid gap-2 max-w-xl border-t border-slate-100 pt-4 dark:border-slate-800">
+              <Label className="text-blue-600 dark:text-blue-400 font-bold text-sm">
+                Chave de API do TMDB (Fundos em Alta no Checkout)
+              </Label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Cole sua Chave da API do TMDB (<code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">themoviedb.org/settings/api</code>) para exibir filmes e séries em alta rotativos no fundo do checkout.
+              </p>
+              <input
+                type="password"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-all font-mono"
+                placeholder="Cole sua Chave da API do TMDB aqui..."
+                value={tmdbApiKeyState}
+                onChange={(e) => setTmdbApiKeyState(e.target.value)}
+              />
             </div>
           </CardContent>
         </Card>

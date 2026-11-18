@@ -116,6 +116,7 @@ export default function HomePage() {
   const [zapiInstanceId, setZapiInstanceId] = useState("");
   const [zapiToken, setZapiToken] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [tmdbApiKey, setTmdbApiKey] = useState("");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
@@ -197,6 +198,7 @@ export default function HomePage() {
         setZapiInstanceId(data.zapiInstanceId || "");
         setZapiToken(data.zapiToken || "");
         setGeminiApiKey(data.geminiApiKey || "");
+        setTmdbApiKey(data.tmdbApiKey || "");
       }
     });
     return () => unsubConfig();
@@ -214,6 +216,7 @@ export default function HomePage() {
     zapiInstanceId: string;
     zapiToken: string;
     geminiApiKey: string;
+    tmdbApiKey: string;
   }) {
     if (!user || !db) return;
     try {
@@ -1092,6 +1095,7 @@ export default function HomePage() {
                 zapiInstanceId={zapiInstanceId}
                 zapiToken={zapiToken}
                 geminiApiKey={geminiApiKey}
+                tmdbApiKey={tmdbApiKey}
                 onSalvar={handleSalvarConfiguracoes}
               />
             )}

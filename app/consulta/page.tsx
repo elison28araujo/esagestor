@@ -56,6 +56,7 @@ export default function ConsultaPage() {
   const [copied, setCopied] = useState(false);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [bannerAtual, setBannerAtual] = useState<{ titulo: string; imagem: string } | null>(null);
 
   // Notificação de retorno de pagamento (ex: Mercado Pago Checkout Pro redirect)
   const [returnFeedback, setReturnFeedback] = useState<{
@@ -74,6 +75,30 @@ export default function ConsultaPage() {
       setDarkMode(false);
       document.documentElement.classList.remove("dark");
     }
+  }, []);
+
+  // Carregar banner rotativo em alta (TMDB) a cada F5
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      try {
+        const res = await fetch(getApiUrl("/api/banners"));
+        if (!res.ok) return;
+        const data = await res.json();
+        const lista = Array.isArray(data?.banners) ? data.banners : [];
+        if (!ativo || lista.length === 0) return;
+
+        const savedIdx = Number(localStorage.getItem("esa_tmdb_banner_idx") || "0");
+        const idx = Number.isFinite(savedIdx) && savedIdx >= 0 ? savedIdx % lista.length : 0;
+        setBannerAtual(lista[idx]);
+        localStorage.setItem("esa_tmdb_banner_idx", String((idx + 1) % lista.length));
+      } catch {
+        // Silencioso se offline
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   // Verificar parâmetros na URL (status de pagamento e telefone)
@@ -363,8 +388,24 @@ export default function ConsultaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
-      
+    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
+      {bannerAtual && (
+        <>
+          <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+            <img
+              src={bannerAtual.imagem}
+              alt={bannerAtual.titulo}
+              className="h-full w-full object-cover object-center opacity-25 dark:opacity-35 scale-105 transition-opacity duration-700"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-50/75 via-slate-100/70 to-slate-200/90 dark:from-slate-950/75 dark:via-slate-950/70 dark:to-slate-950/90" />
+          </div>
+          <div className="pointer-events-none fixed bottom-4 left-4 z-30 hidden sm:flex items-center gap-1.5 rounded-full border border-slate-300/60 bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700 backdrop-blur-md shadow-sm dark:border-slate-700/70 dark:bg-slate-900/80 dark:text-slate-200">
+            <Sparkles className="h-3 w-3 text-amber-500" />
+            <span>Em alta: {bannerAtual.titulo}</span>
+          </div>
+        </>
+      )}
+
       {/* Header do Portal com Efeito Vidro */}
       <header className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl sticky top-0 z-40 transition-colors shadow-sm">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -412,7 +453,7 @@ export default function ConsultaPage() {
       </header>
 
       {/* Conteúdo Principal */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-4 py-8 flex flex-col items-center justify-start">
+      <main className="relative z-10 flex-grow max-w-4xl w-full mx-auto px-4 py-8 flex flex-col items-center justify-start">
         
         {/* Banner de Feedback de Retorno (Mercado Pago Redirect) */}
         {returnFeedback && (
