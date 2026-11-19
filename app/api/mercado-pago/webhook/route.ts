@@ -87,17 +87,39 @@ export async function POST(req: Request) {
           if (checkRes.ok) {
             const pDetails = await checkRes.json();
             const extRef = pDetails.external_reference;
-            if (extRef) {
-              const aDoc = await adminDb.collection("acessos").doc(extRef).get();
-              if (aDoc.exists) {
-                const aData = aDoc.data();
+            const metaIdsRaw = typeof pDetails.metadata?.acesso_ids === "string" ? pDetails.metadata.acesso_ids : "";
+            const metaIds = metaIdsRaw
+              ? metaIdsRaw.split(",").map((s: string) => s.trim()).filter(Boolean)
+              : extRef
+                ? [String(extRef)]
+                : [];
+            if (metaIds.length > 0) {
+              const aDocs = await Promise.all(
+                metaIds.map((id: string) => adminDb!.collection("acessos").doc(id).get())
+              );
+              const validDocs = aDocs.filter((d) => d.exists && d.data());
+              if (validDocs.length > 0) {
+                const aData = validDocs[0].data()!;
+                const totalPago = Number(pDetails.transaction_amount || aData?.valor || 0);
+                const itensCombo = validDocs.map((d) => {
+                  const itemData = d.data()!;
+                  return {
+                    acessoId: d.id,
+                    usuario: String(itemData.usuario || ""),
+                    cliente: String(itemData.cliente || ""),
+                    app: String(itemData.app || "IPTV"),
+                    valor: Number((totalPago / validDocs.length).toFixed(2)),
+                  };
+                });
                 await pendenteDocRef.set({
                   paymentId,
-                  acessoId: extRef,
+                  acessoId: validDocs[0].id,
+                  acessoIds: validDocs.map((d) => d.id),
+                  itensCombo,
                   userId: aData?.userId || configsSnap.docs[0].id,
-                  usuario: aData?.usuario || "",
+                  usuario: validDocs.map((d) => d.data()?.usuario || "").join(", "),
                   cliente: aData?.cliente || "",
-                  valor: Number(pDetails.transaction_amount || aData?.valor || 0),
+                  valor: totalPago,
                   meses: Number(pDetails.metadata?.meses || 1),
                   app: aData?.app || "IPTV",
                   tipo: pDetails.payment_type_id || "cartao_credito",
@@ -175,48 +197,69 @@ export async function POST(req: Request) {
           return { alreadyProcessed: true };
         }
 
-        const acessoDocRef = db.collection("acessos").doc(acessoId);
-        const aDoc = await transaction.get(acessoDocRef);
+        const itensParaRenovar: Array<{
+          acessoId: string;
+          usuario: string;
+          cliente: string;
+          app: string;
+          valor: number;
+        }> = Array.isArray(pData?.itensCombo) && pData.itensCombo.length > 0
+          ? pData.itensCombo
+          : Array.isArray(pData?.acessoIds) && pData.acessoIds.length > 0
+            ? pData.acessoIds.map((id: string) => ({
+                acessoId: id,
+                usuario,
+                cliente,
+                app,
+                valor: Number(valor || 0) / pData.acessoIds.length,
+              }))
+            : acessoId
+              ? [{ acessoId, usuario, cliente, app, valor: Number(valor || 0) }]
+              : [];
 
-        if (aDoc.exists) {
-          const aData = aDoc.data();
-          const hoje = new Date();
-          if (aData) {
-            const dataVencimentoAtual = new Date(aData.vencimento);
-            const mesesRenovacao = Number(pData?.meses || pendenteData.meses || 1);
-            // Se o vencimento já passou, soma os meses a partir de hoje. Caso contrário, soma ao vencimento atual.
-            const novaData = dataVencimentoAtual > hoje ? dataVencimentoAtual : hoje;
-            novaData.setMonth(novaData.getMonth() + mesesRenovacao);
+        const acessoRefs = itensParaRenovar.map((item) => db.collection("acessos").doc(item.acessoId));
+        const acessoDocs = await Promise.all(acessoRefs.map((ref) => transaction.get(ref)));
+        const hoje = new Date();
+        const mesesRenovacao = Number(pData?.meses || pendenteData.meses || 1);
 
-            transaction.update(acessoDocRef, {
-              vencimento: novaData.toISOString(),
-              data: hoje.toISOString(),
-            });
+        acessoDocs.forEach((aDoc, idx) => {
+          const item = itensParaRenovar[idx];
+          if (aDoc.exists) {
+            const aData = aDoc.data();
+            if (aData) {
+              const dataVencimentoAtual = new Date(aData.vencimento);
+              const novaData = dataVencimentoAtual > hoje ? new Date(dataVencimentoAtual) : new Date(hoje);
+              novaData.setMonth(novaData.getMonth() + mesesRenovacao);
 
-            // Preparar dados do WhatsApp
-            if (aData.telefone) {
-              formattedPhone = aData.telefone.replace(/\D/g, "");
-              const vencimentoFormatado = novaData.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-              const msgTemplate = configData?.mensagemRenovacao || "Olá {cliente}, seu acesso {app} foi renovado! Usuário: {usuario}. Novo vencimento: {vencimento}.";
-              formattedMsg = msgTemplate
-                .replace("{cliente}", cliente)
-                .replace("{app}", app)
-                .replace("{usuario}", usuario)
-                .replace("{vencimento}", vencimentoFormatado);
+              transaction.update(acessoRefs[idx], {
+                vencimento: novaData.toISOString(),
+                data: hoje.toISOString(),
+              });
+
+              if (!formattedPhone && aData.telefone) {
+                formattedPhone = aData.telefone.replace(/\D/g, "");
+                const vencimentoFormatado = novaData.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+                const msgTemplate = configData?.mensagemRenovacao || "Olá {cliente}, seu acesso {app} foi renovado! Usuário: {usuario}. Novo vencimento: {vencimento}.";
+                formattedMsg = msgTemplate
+                  .replace("{cliente}", item.cliente || cliente)
+                  .replace("{app}", item.app || app)
+                  .replace("{usuario}", itensParaRenovar.map((i) => i.usuario || usuario).join(", "))
+                  .replace("{vencimento}", vencimentoFormatado);
+              }
             }
           }
-        }
 
-        // Criar histórico de pagamento na coleção 'pagamentos'
-        const novoPagamentoRef = db.collection("pagamentos").doc();
-        transaction.set(novoPagamentoRef, {
-          acessoId,
-          usuario,
-          cliente,
-          app,
-          valor: Number(valor),
-          data: hojeStr,
-          userId,
+          // Criar histórico de pagamento na coleção 'pagamentos'
+          const novoPagamentoRef = db.collection("pagamentos").doc();
+          transaction.set(novoPagamentoRef, {
+            acessoId: item.acessoId,
+            usuario: item.usuario || usuario,
+            cliente: item.cliente || cliente,
+            app: item.app || app,
+            valor: Number(item.valor || 0),
+            data: hojeStr,
+            userId,
+          });
         });
 
         // Atualizar status na coleção de controle local

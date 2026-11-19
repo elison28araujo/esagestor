@@ -18,6 +18,7 @@ interface AdicionarUsuarioDialogProps {
     cliente: string;
     telefone: string;
     valor: string;
+    valorCombo?: string;
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
@@ -37,6 +38,7 @@ export function AdicionarUsuarioDialog({
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
   const [valor, setValor] = useState("");
+  const [valorCombo, setValorCombo] = useState("");
   const [app, setApp] = useState("P2P");
   const [servidor, setServidor] = useState<ServidorNome>("Warez");
   const [enderecoMac, setEnderecoMac] = useState("");
@@ -52,6 +54,7 @@ export function AdicionarUsuarioDialog({
       setCliente(acesso.cliente);
       setTelefone(formatPhone(acesso.telefone));
       setValor(String(acesso.valor ?? ""));
+      setValorCombo(acesso.valorCombo && acesso.valorCombo > 0 ? String(acesso.valorCombo) : "");
       setApp(acesso.app || "P2P");
       setServidor((SERVIDOR_OPTIONS as string[]).includes(servidorInicial) ? servidorInicial : "Warez");
       setEnderecoMac("");
@@ -87,6 +90,7 @@ export function AdicionarUsuarioDialog({
       cliente: cliente.trim(),
       telefone,
       valor,
+      valorCombo,
       app: app.trim().toUpperCase() || "P2P",
       enderecoMac,
       chaveKey,
@@ -166,7 +170,7 @@ export function AdicionarUsuarioDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="novo-usuario-valor">Valor (R$)</Label>
               <Input
@@ -175,6 +179,17 @@ export function AdicionarUsuarioDialog({
                 step="0.01"
                 value={valor}
                 onChange={(e) => setValor(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="novo-usuario-valor-combo">Combo (opc.)</Label>
+              <Input
+                id="novo-usuario-valor-combo"
+                type="number"
+                step="0.01"
+                placeholder="Ex: 22.50"
+                value={valorCombo}
+                onChange={(e) => setValorCombo(e.target.value)}
               />
             </div>
             <div className="grid gap-1.5">

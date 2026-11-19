@@ -11,6 +11,7 @@ import {
   parseCsv,
 } from "./utils";
 import { gerarPixEstatico } from "./pix";
+import { calcularResumoCombo } from "./constants";
 
 describe("Normalização e Formatação de Dados", () => {
   it("normaliza headers removendo acentos e caracteres especiais", () => {
@@ -140,6 +141,36 @@ describe("Geração de Pix Estático BRCode (EMV)", () => {
     expect(payload).toContain("ESA GESTOR");
     expect(payload).toContain("6304"); // ID do CRC
     expect(payload.length).toBeGreaterThan(50);
+  });
+});
+
+describe("Cálculo de Combo de Acessos", () => {
+  it("cobra valor unitário real quando renova apenas 1 acesso mesmo tendo valorCombo", () => {
+    const res = calcularResumoCombo([{ valor: 35, valorCombo: 22.5 }]);
+    expect(res.valorComboTotal).toBe(35);
+    expect(res.economia).toBe(0);
+    expect(res.valoresPorAcesso).toEqual([35]);
+  });
+
+  it("aplica valorCombo e calcula economia quando renova 2 ou mais acessos juntos", () => {
+    const res = calcularResumoCombo([
+      { valor: 35, valorCombo: 22.5 },
+      { valor: 35, valorCombo: 22.5 },
+    ]);
+    expect(res.valorUnitarioTotal).toBe(70);
+    expect(res.valorComboTotal).toBe(45);
+    expect(res.economia).toBe(25);
+    expect(res.valoresPorAcesso).toEqual([22.5, 22.5]);
+  });
+
+  it("usa o valor normal quando valorCombo não está preenchido no combo", () => {
+    const res = calcularResumoCombo([
+      { valor: 30 },
+      { valor: 40, valorCombo: 0 },
+    ]);
+    expect(res.valorUnitarioTotal).toBe(70);
+    expect(res.valorComboTotal).toBe(70);
+    expect(res.economia).toBe(0);
   });
 });
 

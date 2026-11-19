@@ -57,11 +57,31 @@ export async function GET(req: Request) {
                 source: "mp_api_fallback",
               });
 
-              // Atualiza vencimento do acesso conforme meses do plano
-              const { acessoId, usuario, cliente, app, valor, meses } = data;
+              // Atualiza vencimento do(s) acesso(s) conforme meses do plano
+              const { acessoId, acessoIds, itensCombo, usuario, cliente, app, valor, meses } = data;
               const mesesRenovacao = Number(meses || 1);
-              if (acessoId) {
-                const acessoRef = adminDb.collection("acessos").doc(acessoId);
+              const itensParaRenovar: Array<{
+                acessoId: string;
+                usuario: string;
+                cliente: string;
+                app: string;
+                valor: number;
+              }> = Array.isArray(itensCombo) && itensCombo.length > 0
+                ? itensCombo
+                : Array.isArray(acessoIds) && acessoIds.length > 0
+                  ? acessoIds.map((id: string) => ({
+                      acessoId: id,
+                      usuario,
+                      cliente,
+                      app,
+                      valor: Number(valor || 0) / acessoIds.length,
+                    }))
+                  : acessoId
+                    ? [{ acessoId, usuario, cliente, app, valor: Number(valor || 0) }]
+                    : [];
+
+              for (const item of itensParaRenovar) {
+                const acessoRef = adminDb.collection("acessos").doc(item.acessoId);
                 const acessoDoc = await acessoRef.get();
                 if (acessoDoc.exists) {
                   const acessoData = acessoDoc.data();
@@ -77,11 +97,11 @@ export async function GET(req: Request) {
 
                     // Registra pagamento
                     await adminDb.collection("pagamentos").add({
-                      acessoId,
-                      usuario,
-                      cliente,
-                      app,
-                      valor: Number(valor || 0),
+                      acessoId: item.acessoId,
+                      usuario: item.usuario || acessoData.usuario,
+                      cliente: item.cliente || acessoData.cliente,
+                      app: item.app || acessoData.app,
+                      valor: Number(item.valor || 0),
                       data: hojeStr,
                       userId: data.userId,
                     });

@@ -23,6 +23,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
     cliente: "",
     telefone: "",
     valor: "",
+    valorCombo: "",
     app: "P2P",
     servidor: "Warez" as ServidorNome,
     vencimento: "",
@@ -40,6 +41,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
         cliente: acesso.cliente,
         telefone: formatPhone(acesso.telefone),
         valor: String(acesso.valor ?? ""),
+        valorCombo: acesso.valorCombo && acesso.valorCombo > 0 ? String(acesso.valorCombo) : "",
         app: acesso.app,
         servidor: servidorInicial,
         vencimento: toDateInput(acesso.vencimento),
@@ -61,6 +63,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
       cliente: form.cliente.trim(),
       telefone: normalizePhone(form.telefone),
       valor: Number(form.valor) || 0,
+      valorCombo: form.valorCombo.trim() !== "" ? Number(form.valorCombo) || 0 : 0,
       app: form.app,
       servidor: form.servidor,
       vencimento: fromDateInput(form.vencimento),
@@ -116,9 +119,15 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
             <Label>Telefone / WhatsApp</Label>
             <Input value={form.telefone} onChange={(e) => setForm((p) => ({ ...p, telefone: formatPhone(e.target.value) }))} />
           </div>
-          <div className="grid gap-1">
-            <Label>Valor (R$)</Label>
-            <Input type="number" value={form.valor} onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <Label>Valor (R$)</Label>
+              <Input type="number" step="0.01" value={form.valor} onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))} />
+            </div>
+            <div className="grid gap-1">
+              <Label>Valor no Combo (opcional)</Label>
+              <Input type="number" step="0.01" placeholder="Ex: 22.50" value={form.valorCombo} onChange={(e) => setForm((p) => ({ ...p, valorCombo: e.target.value }))} />
+            </div>
           </div>
           <div className="grid gap-1">
             <Label>App</Label>

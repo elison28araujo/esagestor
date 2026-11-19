@@ -372,11 +372,12 @@ export default function HomePage() {
     }
   }, [user, acessos]);
 
-  async function addCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
+  async function addCliente({ nomeUser, cliente, telefone, valor, valorCombo, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
     nomeUser: string;
     cliente: string;
     telefone: string;
     valor: string;
+    valorCombo?: string;
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
@@ -435,12 +436,14 @@ export default function HomePage() {
     const vencimento = new Date();
     vencimento.setDate(vencimento.getDate() + 30);
     const valNumerico = Number(valor) || 0;
+    const valComboNumerico = valorCombo && valorCombo.trim() !== "" ? Number(valorCombo) || 0 : 0;
     const agoraIso = new Date().toISOString();
     const docRef = await addDoc(collection(db, "acessos"), {
       usuario: nomeUser.trim(),
       cliente: cliente.trim(),
       telefone: normalizePhone(telefone),
       valor: valNumerico,
+      ...(valComboNumerico > 0 ? { valorCombo: valComboNumerico } : {}),
       app,
       servidor: servidorEscolhido,
       vencimento: vencimento.toISOString(),

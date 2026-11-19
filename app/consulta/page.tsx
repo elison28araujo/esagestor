@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { gerarPixEstatico } from "@/lib/pix";
 import { getApiUrl } from "@/lib/utils";
-import { isPeriodoBlackFriday, obterPlanosDisponiveis, PlanoRenovacao } from "@/lib/constants";
+import { isPeriodoBlackFriday, obterPlanosDisponiveis, calcularResumoCombo, PlanoRenovacao } from "@/lib/constants";
 
 export default function ConsultaPage() {
   const [telefone, setTelefone] = useState("");
@@ -222,6 +222,23 @@ export default function ConsultaPage() {
     setErro(null);
   }
 
+  function iniciarFluxoRenovarTodos() {
+    if (acessos.length < 2) return;
+    const resumo = calcularResumoCombo(acessos);
+    const primeiro = acessos[0];
+    const comboAcesso = {
+      ...primeiro,
+      id: acessos.map((a) => a.id).join(","),
+      acessoIds: acessos.map((a) => a.id),
+      isCombo: true,
+      usuario: acessos.map((a) => a.usuario).join(", "),
+      valor: resumo.valorComboTotal,
+      valorUnitarioTotal: resumo.valorUnitarioTotal,
+      economia: resumo.economia,
+    };
+    iniciarFluxoPagamento(comboAcesso, useMp, pixManual, "pix");
+  }
+
   function selecionarPlano(plano: PlanoRenovacao) {
     if (!acessoSelecionado) return;
     setPlanoSelecionado(plano);
@@ -239,6 +256,9 @@ export default function ConsultaPage() {
   async function gerarPix(acesso: any, mpActive: boolean, pixManualData: any, plano?: PlanoRenovacao | null) {
     const meses = plano?.meses || 1;
     const valorCobrar = plano?.valor ?? Number(acesso.valor);
+    const acessoIds = Array.isArray(acesso.acessoIds) && acesso.acessoIds.length > 0
+      ? acesso.acessoIds
+      : [acesso.id];
 
     if (mpActive) {
       setCheckoutLoading(true);
@@ -246,7 +266,7 @@ export default function ConsultaPage() {
         const res = await fetch(getApiUrl("/api/mercado-pago/criar-pagamento"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ acessoId: acesso.id, meses }),
+          body: JSON.stringify({ acessoId: acessoIds[0], acessoIds, meses }),
         });
 
         const data = await res.json();
@@ -291,10 +311,13 @@ export default function ConsultaPage() {
     setErro(null);
 
     try {
+      const acessoIds = Array.isArray(acessoSelecionado.acessoIds) && acessoSelecionado.acessoIds.length > 0
+        ? acessoSelecionado.acessoIds
+        : [acessoSelecionado.id];
       const res = await fetch(getApiUrl("/api/mercado-pago/criar-preferencia"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acessoId: acessoSelecionado.id, meses: planoSelecionado.meses }),
+        body: JSON.stringify({ acessoId: acessoIds[0], acessoIds, meses: planoSelecionado.meses }),
       });
 
       const data = await res.json();
@@ -629,6 +652,53 @@ export default function ConsultaPage() {
               </span>
             </div>
 
+            {/* Banner Renovar Todos os Acessos (Combo) */}
+            {acessos.length >= 2 && (() => {
+              const resumoCombo = calcularResumoCombo(acessos);
+              return (
+                <Card className="rounded-3xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-indigo-500/10 dark:bg-slate-900/90 backdrop-blur-xl shadow-lg overflow-hidden">
+                  <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                          Renovar Todos Juntos ({acessos.length} acessos)
+                        </span>
+                        {resumoCombo.economia > 0 && (
+                          <span className="rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-black uppercase text-white shadow-sm">
+                            Economize R$ {resumoCombo.economia.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        Pague tudo em um único PIX ou Cartão: <strong className="font-mono">{acessos.map((a) => a.usuario).join(", ")}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
+                      <div className="text-left sm:text-right">
+                        {resumoCombo.economia > 0 && (
+                          <span className="block text-xs font-semibold text-slate-400 line-through">
+                            R$ {resumoCombo.valorUnitarioTotal.toFixed(2)}
+                          </span>
+                        )}
+                        <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                          R$ {resumoCombo.valorComboTotal.toFixed(2)}
+                        </span>
+                      </div>
+
+                      <Button
+                        onClick={iniciarFluxoRenovarTodos}
+                        className="h-11 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Renovar Todos</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {/* Cards dos Acessos */}
             {acessos.map((acesso) => {
               const dias = getDiasRestantes(acesso.vencimento);
@@ -761,7 +831,9 @@ export default function ConsultaPage() {
                 <ChevronLeft className="h-4 w-4" /> Voltar aos acessos
               </Button>
               <span className="text-xs font-semibold text-slate-400">
-                Acesso ID: #{acessoSelecionado.id.slice(0, 6)}
+                {acessoSelecionado.isCombo
+                  ? `Combo (${acessoSelecionado.acessoIds?.length || 2} acessos)`
+                  : `Acesso ID: #${acessoSelecionado.id.slice(0, 6)}`}
               </span>
             </div>
 

@@ -38,6 +38,7 @@ export interface Acesso {
   cliente: string;
   telefone: string;
   valor: number;
+  valorCombo?: number;
   app: string;
   vencimento: string;
   data: string;

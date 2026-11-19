@@ -219,3 +219,27 @@ export function calcularValorPlano(
   const encontrado = planos.find((p) => p.meses === meses) || planos[0];
   return { meses: encontrado.meses, valor: encontrado.valor };
 }
+
+export function calcularResumoCombo<
+  T extends { valor: number; valorCombo?: number }
+>(acessos: T[]): {
+  valorUnitarioTotal: number;
+  valorComboTotal: number;
+  economia: number;
+  valoresPorAcesso: number[];
+} {
+  const ehCombo = acessos.length >= 2;
+  const valoresPorAcesso = acessos.map((a) => {
+    const unitario = Number(a.valor) || 0;
+    const combo = Number(a.valorCombo) || 0;
+    return ehCombo && combo > 0 ? combo : unitario;
+  });
+  const valorUnitarioTotal = Number(
+    acessos.reduce((acc, a) => acc + (Number(a.valor) || 0), 0).toFixed(2)
+  );
+  const valorComboTotal = Number(
+    valoresPorAcesso.reduce((acc, v) => acc + v, 0).toFixed(2)
+  );
+  const economia = Number(Math.max(0, valorUnitarioTotal - valorComboTotal).toFixed(2));
+  return { valorUnitarioTotal, valorComboTotal, economia, valoresPorAcesso };
+}

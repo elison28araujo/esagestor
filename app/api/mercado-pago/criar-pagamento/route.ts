@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { calcularValorPlano } from "@/lib/constants";
+import { calcularValorPlano, calcularResumoCombo } from "@/lib/constants";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -11,34 +11,61 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-    const { acessoId, meses: mesesInput } = await req.json();
+    const { acessoId, acessoIds: acessoIdsInput, meses: mesesInput } = await req.json();
 
-    if (!acessoId) {
+    const listaIds: string[] = Array.isArray(acessoIdsInput) && acessoIdsInput.length > 0
+      ? Array.from(new Set(acessoIdsInput.map((id: unknown) => String(id).trim()).filter(Boolean)))
+      : acessoId
+        ? [String(acessoId).trim()]
+        : [];
+
+    if (listaIds.length === 0) {
       return NextResponse.json(
-        { error: "acessoId é obrigatório." },
+        { error: "acessoId ou acessoIds é obrigatório." },
         { status: 400 }
       );
     }
 
-    // Buscar acesso individual
-    const acessoDoc = await adminDb.collection("acessos").doc(acessoId).get();
-    if (!acessoDoc.exists) {
+    const acessosDocs = await Promise.all(
+      listaIds.map((id) => adminDb!.collection("acessos").doc(id).get())
+    );
+
+    const acessosEncontrados = acessosDocs
+      .filter((d) => d.exists && d.data())
+      .map((d) => {
+        const data = d.data()!;
+        return {
+          id: d.id,
+          usuario: String(data.usuario || ""),
+          cliente: String(data.cliente || ""),
+          app: String(data.app || ""),
+          valor: Number(data.valor) || 0,
+          valorCombo: Number(data.valorCombo) || 0,
+          userId: data.userId as string | undefined,
+        };
+      });
+
+    if (acessosEncontrados.length !== listaIds.length) {
       return NextResponse.json(
-        { error: "Acesso não encontrado." },
+        { error: "Um ou mais acessos não foram encontrados." },
         { status: 404 }
       );
     }
 
-    const acessoData = acessoDoc.data();
-    if (!acessoData) {
-      return NextResponse.json(
-        { error: "Dados do acesso corrompidos." },
-        { status: 500 }
-      );
-    }
-
-    const { usuario, cliente, valor, userId } = acessoData;
-    const { meses, valor: valorFinal } = calcularValorPlano(Number(mesesInput || 1), Number(valor || 0));
+    const primeiroAcesso = acessosEncontrados[0];
+    const { usuario, cliente, userId } = primeiroAcesso;
+    const resumoCombo = calcularResumoCombo(acessosEncontrados);
+    const { meses, valor: valorFinal } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal);
+    const fator = resumoCombo.valorComboTotal > 0 ? valorFinal / resumoCombo.valorComboTotal : meses;
+    const itensCombo = acessosEncontrados.map((a, idx) => ({
+      acessoId: a.id,
+      usuario: a.usuario,
+      cliente: a.cliente,
+      app: a.app,
+      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator).toFixed(2)),
+    }));
+    const acessoIdPrincipal = primeiroAcesso.id;
+    const descricaoUsuarios = acessosEncontrados.map((a) => a.usuario).join(", ");
 
     let finalUserId = userId;
     if (!finalUserId) {
@@ -92,7 +119,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         transaction_amount: valorFinal,
-        description: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${usuario} (${cliente})`,
+        description: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${descricaoUsuarios} (${cliente})`,
         payment_method_id: "pix",
         payer: {
           email: "pagamento-cliente@esagestor.com",
@@ -100,9 +127,10 @@ export async function POST(req: Request) {
           last_name: "IPTV",
         },
         notification_url: notificationUrl,
-        external_reference: acessoId,
+        external_reference: acessoIdPrincipal,
         metadata: {
-          acesso_id: acessoId,
+          acesso_id: acessoIdPrincipal,
+          acesso_ids: listaIds.join(","),
           user_id: finalUserId,
           meses,
         },
@@ -133,13 +161,15 @@ export async function POST(req: Request) {
     // Registrar o pagamento pendente na coleção 'pagamentos_pendentes'
     await adminDb.collection("pagamentos_pendentes").doc(String(paymentId)).set({
       paymentId: String(paymentId),
-      acessoId,
+      acessoId: acessoIdPrincipal,
+      acessoIds: listaIds,
+      itensCombo,
       userId: finalUserId,
-      usuario,
+      usuario: descricaoUsuarios,
       cliente,
       valor: valorFinal,
       meses,
-      app: acessoData.app,
+      app: primeiroAcesso.app,
       status: "pending",
       createdAt: new Date().toISOString(),
     });

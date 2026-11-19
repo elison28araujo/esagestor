@@ -21,6 +21,7 @@ interface NovoClienteFormProps {
     cliente: string;
     telefone: string;
     valor: string;
+    valorCombo?: string;
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
@@ -46,6 +47,7 @@ export function NovoClienteForm({
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
   const [valor, setValor] = useState("");
+  const [valorCombo, setValorCombo] = useState("");
   const [app, setApp] = useState("P2P");
   const [servidor, setServidor] = useState<ServidorNome>("Warez");
   const [enderecoMac, setEnderecoMac] = useState("");
@@ -69,8 +71,8 @@ export function NovoClienteForm({
     if (!isValidPhone(telefone)) { setErro("Digite um telefone válido com DDD"); return; }
     setErro("");
     setAdicionando(true);
-    await onAddCliente({ nomeUser, cliente, telefone, valor, app, enderecoMac, chaveKey, servidor });
-    setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setApp("P2P"); setEnderecoMac(""); setChaveKey("");
+    await onAddCliente({ nomeUser, cliente, telefone, valor, valorCombo, app, enderecoMac, chaveKey, servidor });
+    setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setValorCombo(""); setApp("P2P"); setEnderecoMac(""); setChaveKey("");
     setAdicionando(false);
   }
 
@@ -168,7 +170,11 @@ export function NovoClienteForm({
           </div>
           <div className="relative">
             <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input className="pl-10" placeholder="Valor (R$)" type="number" value={valor} onChange={(e) => setValor(e.target.value)} />
+            <Input className="pl-10" placeholder="Valor (R$)" type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} />
+          </div>
+          <div className="relative">
+            <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
+            <Input className="pl-10" placeholder="Valor no Combo (opcional)" type="number" step="0.01" value={valorCombo} onChange={(e) => setValorCombo(e.target.value)} title="Valor deste acesso quando o cliente renovar 2 ou mais acessos juntos" />
           </div>
           <div className="relative">
             <Cpu className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

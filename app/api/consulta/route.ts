@@ -126,6 +126,7 @@ export async function POST(req: Request) {
         usuario: data.usuario,
         vencimento: data.vencimento,
         valor: Number(data.valor) || 0,
+        valorCombo: Number(data.valorCombo) || 0,
         app: data.app,
         enderecoMac: data.enderecoMac || "",
         chaveKey: data.chaveKey || "",

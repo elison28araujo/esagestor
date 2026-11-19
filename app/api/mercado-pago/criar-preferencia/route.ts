@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { calcularValorPlano } from "@/lib/constants";
+import { calcularValorPlano, calcularResumoCombo } from "@/lib/constants";
 
 export async function POST(req: Request) {
   try {
@@ -11,33 +11,52 @@ export async function POST(req: Request) {
       );
     }
 
-    const { acessoId, meses: mesesInput } = await req.json();
+    const { acessoId, acessoIds: acessoIdsInput, meses: mesesInput } = await req.json();
 
-    if (!acessoId) {
+    const listaIds: string[] = Array.isArray(acessoIdsInput) && acessoIdsInput.length > 0
+      ? Array.from(new Set(acessoIdsInput.map((id: unknown) => String(id).trim()).filter(Boolean)))
+      : acessoId
+        ? [String(acessoId).trim()]
+        : [];
+
+    if (listaIds.length === 0) {
       return NextResponse.json(
-        { error: "acessoId é obrigatório." },
+        { error: "acessoId ou acessoIds é obrigatório." },
         { status: 400 }
       );
     }
 
-    // 1. Buscar acesso individual
-    const acessoDoc = await adminDb.collection("acessos").doc(acessoId).get();
-    if (!acessoDoc.exists) {
+    // 1. Buscar acessos
+    const acessosDocs = await Promise.all(
+      listaIds.map((id) => adminDb!.collection("acessos").doc(id).get())
+    );
+
+    const acessosEncontrados = acessosDocs
+      .filter((d) => d.exists && d.data())
+      .map((d) => {
+        const data = d.data()!;
+        return {
+          id: d.id,
+          usuario: String(data.usuario || ""),
+          cliente: String(data.cliente || ""),
+          app: String(data.app || "IPTV"),
+          valor: Number(data.valor) || 0,
+          valorCombo: Number(data.valorCombo) || 0,
+          userId: data.userId as string | undefined,
+        };
+      });
+
+    if (acessosEncontrados.length !== listaIds.length) {
       return NextResponse.json(
-        { error: "Acesso não encontrado." },
+        { error: "Um ou mais acessos não foram encontrados." },
         { status: 404 }
       );
     }
 
-    const acessoData = acessoDoc.data();
-    if (!acessoData) {
-      return NextResponse.json(
-        { error: "Dados do acesso corrompidos." },
-        { status: 500 }
-      );
-    }
-
-    const { usuario, cliente, valor, userId } = acessoData;
+    const primeiroAcesso = acessosEncontrados[0];
+    const { cliente, userId } = primeiroAcesso;
+    const acessoIdPrincipal = primeiroAcesso.id;
+    const descricaoUsuarios = acessosEncontrados.map((a) => a.usuario).join(", ");
 
     let finalUserId = userId;
     if (!finalUserId) {
@@ -79,15 +98,24 @@ export async function POST(req: Request) {
     const origin = `${protocol}://${host}`;
     const notificationUrl = `${origin}/api/mercado-pago/webhook`;
 
-    const { meses, valor: valorNumerico } = calcularValorPlano(Number(mesesInput || 1), Number(valor || 0));
+    const resumoCombo = calcularResumoCombo(acessosEncontrados);
+    const { meses, valor: valorNumerico } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal);
+    const fator = resumoCombo.valorComboTotal > 0 ? valorNumerico / resumoCombo.valorComboTotal : meses;
+    const itensCombo = acessosEncontrados.map((a, idx) => ({
+      acessoId: a.id,
+      usuario: a.usuario,
+      cliente: a.cliente,
+      app: a.app,
+      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator).toFixed(2)),
+    }));
 
     // 4. Criar Preferência de Pagamento no Mercado Pago (Checkout Pro com Cartão de Crédito)
     const preferencePayload = {
       items: [
         {
-          id: acessoId,
-          title: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${usuario} (${cliente})`,
-          description: `Renovação de acesso IPTV/P2P por ${meses} ${meses === 1 ? "mês" : "meses"}`,
+          id: acessoIdPrincipal,
+          title: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${descricaoUsuarios} (${cliente})`,
+          description: `Renovação de ${listaIds.length} acesso(s) IPTV/P2P por ${meses} ${meses === 1 ? "mês" : "meses"}`,
           quantity: 1,
           currency_id: "BRL",
           unit_price: valorNumerico,
@@ -104,18 +132,19 @@ export async function POST(req: Request) {
         installments: 12, // Permite parcelamento no cartão de crédito em até 12x
       },
       back_urls: {
-        success: `${origin}/consulta?status=approved&acessoId=${acessoId}`,
-        failure: `${origin}/consulta?status=failure&acessoId=${acessoId}`,
-        pending: `${origin}/consulta?status=pending&acessoId=${acessoId}`,
+        success: `${origin}/consulta?status=approved&acessoId=${acessoIdPrincipal}`,
+        failure: `${origin}/consulta?status=failure&acessoId=${acessoIdPrincipal}`,
+        pending: `${origin}/consulta?status=pending&acessoId=${acessoIdPrincipal}`,
       },
       auto_return: "approved",
-      external_reference: acessoId,
+      external_reference: acessoIdPrincipal,
       notification_url: notificationUrl,
       statement_descriptor: "ESA GESTOR",
       metadata: {
-        acesso_id: acessoId,
+        acesso_id: acessoIdPrincipal,
+        acesso_ids: listaIds.join(","),
         user_id: finalUserId,
-        usuario,
+        usuario: descricaoUsuarios,
         cliente,
         valor: valorNumerico,
         meses,
@@ -148,13 +177,15 @@ export async function POST(req: Request) {
     // 5. Registrar intenção de pagamento na coleção 'pagamentos_pendentes'
     await adminDb.collection("pagamentos_pendentes").doc(String(preferenceId)).set({
       preferenceId: String(preferenceId),
-      acessoId,
+      acessoId: acessoIdPrincipal,
+      acessoIds: listaIds,
+      itensCombo,
       userId: finalUserId,
-      usuario,
+      usuario: descricaoUsuarios,
       cliente,
       valor: valorNumerico,
       meses,
-      app: acessoData.app || "IPTV",
+      app: primeiroAcesso.app || "IPTV",
       tipo: "cartao_credito",
       status: "pending",
       createdAt: new Date().toISOString(),
