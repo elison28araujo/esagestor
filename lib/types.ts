@@ -39,6 +39,7 @@ export interface Acesso {
   telefone: string;
   valor: number;
   valorCombo?: number;
+  dispositivos?: number;
   app: string;
   vencimento: string;
   data: string;

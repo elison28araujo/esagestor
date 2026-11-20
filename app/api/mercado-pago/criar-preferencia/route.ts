@@ -42,6 +42,7 @@ export async function POST(req: Request) {
           app: String(data.app || "IPTV"),
           valor: Number(data.valor) || 0,
           valorCombo: Number(data.valorCombo) || 0,
+          dispositivos: Number(data.dispositivos) >= 3 ? 3 : Number(data.dispositivos) === 2 ? 2 : 1,
           userId: data.userId as string | undefined,
         };
       });
@@ -99,7 +100,13 @@ export async function POST(req: Request) {
     const notificationUrl = `${origin}/api/mercado-pago/webhook`;
 
     const resumoCombo = calcularResumoCombo(acessosEncontrados);
-    const { meses, valor: valorNumerico } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal, new Date(), listaIds.length);
+    const { meses, valor: valorNumerico } = calcularValorPlano(
+      Number(mesesInput || 1),
+      resumoCombo.valorComboTotal,
+      new Date(),
+      listaIds.length,
+      primeiroAcesso.dispositivos
+    );
     const fator = resumoCombo.valorComboTotal > 0 ? valorNumerico / resumoCombo.valorComboTotal : meses;
     const itensCombo = acessosEncontrados.map((a, idx) => ({
       acessoId: a.id,

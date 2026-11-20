@@ -184,5 +184,23 @@ describe("Cálculo de Combo de Acessos", () => {
     const plano = calcularValorPlano(1, 25.0, dataBlackFriday, 1);
     expect(plano.valor).toBe(25.0);
   });
+
+  it("aplica tabela Black Friday de 2 dispositivos (37, 65, 85, 145, 259)", () => {
+    const dataBlackFriday = new Date("2026-11-19T21:00:00-03:00");
+    expect(calcularValorPlano(1, 40.0, dataBlackFriday, 1, 2).valor).toBe(37.0);
+    expect(calcularValorPlano(2, 40.0, dataBlackFriday, 1, 2).valor).toBe(65.0);
+    expect(calcularValorPlano(3, 40.0, dataBlackFriday, 1, 2).valor).toBe(85.0);
+    expect(calcularValorPlano(6, 40.0, dataBlackFriday, 1, 2).valor).toBe(145.0);
+    expect(calcularValorPlano(12, 40.0, dataBlackFriday, 1, 2).valor).toBe(259.0);
+  });
+
+  it("aplica tabela Black Friday de 3 dispositivos (42, 75, 99, 179, 319)", () => {
+    const dataBlackFriday = new Date("2026-11-19T21:00:00-03:00");
+    expect(calcularValorPlano(1, 40.0, dataBlackFriday, 1, 3).valor).toBe(42.0);
+    expect(calcularValorPlano(2, 40.0, dataBlackFriday, 1, 3).valor).toBe(75.0);
+    expect(calcularValorPlano(3, 40.0, dataBlackFriday, 1, 3).valor).toBe(99.0);
+    expect(calcularValorPlano(6, 40.0, dataBlackFriday, 1, 3).valor).toBe(179.0);
+    expect(calcularValorPlano(12, 40.0, dataBlackFriday, 1, 3).valor).toBe(319.0);
+  });
 });
 

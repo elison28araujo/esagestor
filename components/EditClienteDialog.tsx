@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Acesso, ServidorNome } from "@/lib/types";
-import { SERVIDOR_OPTIONS, SERVIDORES } from "@/lib/constants";
+import { SERVIDOR_OPTIONS, SERVIDORES, normalizarDispositivos } from "@/lib/constants";
 import { formatPhone, toDateInput, isValidPhone, normalizePhone, fromDateInput, detectarServidor } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
@@ -24,6 +24,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
     telefone: "",
     valor: "",
     valorCombo: "",
+    dispositivos: 1,
     app: "P2P",
     servidor: "Warez" as ServidorNome,
     vencimento: "",
@@ -42,6 +43,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
         telefone: formatPhone(acesso.telefone),
         valor: String(acesso.valor ?? ""),
         valorCombo: acesso.valorCombo && acesso.valorCombo > 0 ? String(acesso.valorCombo) : "",
+        dispositivos: normalizarDispositivos(acesso.dispositivos),
         app: acesso.app,
         servidor: servidorInicial,
         vencimento: toDateInput(acesso.vencimento),
@@ -64,6 +66,7 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
       telefone: normalizePhone(form.telefone),
       valor: Number(form.valor) || 0,
       valorCombo: form.valorCombo.trim() !== "" ? Number(form.valorCombo) || 0 : 0,
+      dispositivos: normalizarDispositivos(form.dispositivos),
       app: form.app,
       servidor: form.servidor,
       vencimento: fromDateInput(form.vencimento),
@@ -127,6 +130,25 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
             <div className="grid gap-1">
               <Label>Valor no Combo (opcional)</Label>
               <Input type="number" step="0.01" placeholder="Ex: 22.50" value={form.valorCombo} onChange={(e) => setForm((p) => ({ ...p, valorCombo: e.target.value }))} />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Dispositivos / Telas neste acesso</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {([1, 2, 3] as const).map((qtd) => (
+                <button
+                  key={qtd}
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, dispositivos: qtd }))}
+                  className={`rounded-lg border px-2 py-2 text-xs font-bold transition-all ${
+                    form.dispositivos === qtd
+                      ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-300 ring-1 ring-blue-500/30"
+                      : "border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                  }`}
+                >
+                  {qtd} {qtd === 1 ? "Dispositivo" : "Dispositivos"}
+                </button>
+              ))}
             </div>
           </div>
           <div className="grid gap-1">

@@ -190,6 +190,31 @@ export const PLANOS_BLACK_FRIDAY: PlanoRenovacao[] = [
   { meses: 12, label: "12 meses", valor: 199.0 },
 ];
 
+export const PLANOS_BLACK_FRIDAY_POR_DISPOSITIVOS: Record<1 | 2 | 3, PlanoRenovacao[]> = {
+  1: PLANOS_BLACK_FRIDAY,
+  2: [
+    { meses: 1, label: "1 mês", valor: 37.0 },
+    { meses: 2, label: "2 meses", valor: 65.0 },
+    { meses: 3, label: "3 meses", valor: 85.0, destaque: true },
+    { meses: 6, label: "6 meses", valor: 145.0 },
+    { meses: 12, label: "12 meses", valor: 259.0 },
+  ],
+  3: [
+    { meses: 1, label: "1 mês", valor: 42.0 },
+    { meses: 2, label: "2 meses", valor: 75.0 },
+    { meses: 3, label: "3 meses", valor: 99.0, destaque: true },
+    { meses: 6, label: "6 meses", valor: 179.0 },
+    { meses: 12, label: "12 meses", valor: 319.0 },
+  ],
+};
+
+export function normalizarDispositivos(dispositivos?: number): 1 | 2 | 3 {
+  const n = Number(dispositivos) || 1;
+  if (n >= 3) return 3;
+  if (n === 2) return 2;
+  return 1;
+}
+
 export function isPeriodoBlackFriday(agora = new Date()): boolean {
   return agora >= new Date(BLACK_FRIDAY_INICIO) && agora <= new Date(BLACK_FRIDAY_FIM);
 }
@@ -197,13 +222,19 @@ export function isPeriodoBlackFriday(agora = new Date()): boolean {
 export function obterPlanosDisponiveis(
   valorBaseAcesso: number,
   agora = new Date(),
-  quantidadeAcessos = 1
+  quantidadeAcessos = 1,
+  dispositivos = 1
 ): PlanoRenovacao[] {
   const base = Number(valorBaseAcesso) > 0 ? Number(valorBaseAcesso) : 35.0;
+  const qtdDispositivos = normalizarDispositivos(dispositivos);
   if (isPeriodoBlackFriday(agora) && quantidadeAcessos === 1) {
-    return PLANOS_BLACK_FRIDAY.map((p) => ({
+    const tabela = PLANOS_BLACK_FRIDAY_POR_DISPOSITIVOS[qtdDispositivos];
+    return tabela.map((p) => ({
       ...p,
-      valor: Math.min(p.valor, Number((base * p.meses).toFixed(2))),
+      valor:
+        qtdDispositivos === 1 && base < 27
+          ? Math.min(p.valor, Number((base * p.meses).toFixed(2)))
+          : p.valor,
     }));
   }
   return [
@@ -219,11 +250,12 @@ export function calcularValorPlano(
   mesesInput: number,
   valorBaseAcesso: number,
   agora = new Date(),
-  quantidadeAcessos = 1
+  quantidadeAcessos = 1,
+  dispositivos = 1
 ): { meses: number; valor: number } {
   const mesesValidos = [1, 2, 3, 6, 12];
   const meses = mesesValidos.includes(mesesInput) ? mesesInput : 1;
-  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora, quantidadeAcessos);
+  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora, quantidadeAcessos, dispositivos);
   const encontrado = planos.find((p) => p.meses === meses) || planos[0];
   return { meses: encontrado.meses, valor: encontrado.valor };
 }

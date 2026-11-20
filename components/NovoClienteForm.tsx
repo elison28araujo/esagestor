@@ -22,6 +22,7 @@ interface NovoClienteFormProps {
     telefone: string;
     valor: string;
     valorCombo?: string;
+    dispositivos?: number;
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
@@ -48,6 +49,7 @@ export function NovoClienteForm({
   const [telefone, setTelefone] = useState("");
   const [valor, setValor] = useState("");
   const [valorCombo, setValorCombo] = useState("");
+  const [dispositivos, setDispositivos] = useState<1 | 2 | 3>(1);
   const [app, setApp] = useState("P2P");
   const [servidor, setServidor] = useState<ServidorNome>("Warez");
   const [enderecoMac, setEnderecoMac] = useState("");
@@ -71,8 +73,8 @@ export function NovoClienteForm({
     if (!isValidPhone(telefone)) { setErro("Digite um telefone válido com DDD"); return; }
     setErro("");
     setAdicionando(true);
-    await onAddCliente({ nomeUser, cliente, telefone, valor, valorCombo, app, enderecoMac, chaveKey, servidor });
-    setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setValorCombo(""); setApp("P2P"); setEnderecoMac(""); setChaveKey("");
+    await onAddCliente({ nomeUser, cliente, telefone, valor, valorCombo, dispositivos, app, enderecoMac, chaveKey, servidor });
+    setNomeUser(""); setCliente(""); setTelefone(""); setValor(""); setValorCombo(""); setDispositivos(1); setApp("P2P"); setEnderecoMac(""); setChaveKey("");
     setAdicionando(false);
   }
 
@@ -190,6 +192,28 @@ export function NovoClienteForm({
         <datalist id="app-options-new">
           {appOptions.map((o) => <option key={o} value={o} />)}
         </datalist>
+
+        <div className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Dispositivos / Telas neste acesso
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            {([1, 2, 3] as const).map((qtd) => (
+              <button
+                key={qtd}
+                type="button"
+                onClick={() => setDispositivos(qtd)}
+                className={`rounded-xl border px-3 py-2 text-xs font-bold transition-all ${
+                  dispositivos === qtd
+                    ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-300 ring-2 ring-blue-500/20"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                }`}
+              >
+                {qtd} {qtd === 1 ? "Dispositivo" : "Dispositivos"}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {erro && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 dark:bg-red-950 dark:text-red-300">{erro}</p>}
 

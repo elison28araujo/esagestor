@@ -853,7 +853,7 @@ export default function ConsultaPage() {
                       {acessoSelecionado.cliente} <span className="font-normal text-xs text-slate-400">({acessoSelecionado.usuario})</span>
                     </h3>
                     <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                      <Tv className="h-3 w-3 text-blue-500" /> {acessoSelecionado.app || "IPTV"} • Vencimento atual: {formatarData(acessoSelecionado.vencimento)}
+                      <Tv className="h-3 w-3 text-blue-500" /> {acessoSelecionado.app || "IPTV"} • {Number(acessoSelecionado.dispositivos || 1)} {Number(acessoSelecionado.dispositivos || 1) === 1 ? "Dispositivo" : "Dispositivos"} • Vencimento atual: {formatarData(acessoSelecionado.vencimento)}
                     </span>
                   </div>
 
@@ -908,7 +908,8 @@ export default function ConsultaPage() {
                       {obterPlanosDisponiveis(
                         Number(acessoSelecionado.valor || 0),
                         new Date(),
-                        acessoSelecionado.isCombo ? (acessoSelecionado.acessoIds?.length || 2) : 1
+                        acessoSelecionado.isCombo ? (acessoSelecionado.acessoIds?.length || 2) : 1,
+                        Number(acessoSelecionado.dispositivos || 1)
                       ).map((plano) => (
                         <button
                           key={plano.meses}

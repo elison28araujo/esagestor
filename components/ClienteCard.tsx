@@ -120,6 +120,11 @@ export function ClienteCard({
                       {item.servidor}
                     </span>
                   )}
+                  {item.dispositivos && item.dispositivos > 1 && (
+                    <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                      {item.dispositivos} disp.
+                    </span>
+                  )}
                   <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 tabular-nums ml-0.5">
                     R$ {Number(item.valor).toFixed(2)}
                   </span>

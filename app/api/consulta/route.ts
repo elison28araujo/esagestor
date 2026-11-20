@@ -127,6 +127,7 @@ export async function POST(req: Request) {
         vencimento: data.vencimento,
         valor: Number(data.valor) || 0,
         valorCombo: Number(data.valorCombo) || 0,
+        dispositivos: Number(data.dispositivos) >= 3 ? 3 : Number(data.dispositivos) === 2 ? 2 : 1,
         app: data.app,
         enderecoMac: data.enderecoMac || "",
         chaveKey: data.chaveKey || "",

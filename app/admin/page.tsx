@@ -372,12 +372,13 @@ export default function HomePage() {
     }
   }, [user, acessos]);
 
-  async function addCliente({ nomeUser, cliente, telefone, valor, valorCombo, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
+  async function addCliente({ nomeUser, cliente, telefone, valor, valorCombo, dispositivos, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
     nomeUser: string;
     cliente: string;
     telefone: string;
     valor: string;
     valorCombo?: string;
+    dispositivos?: number;
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
@@ -444,6 +445,7 @@ export default function HomePage() {
       telefone: normalizePhone(telefone),
       valor: valNumerico,
       ...(valComboNumerico > 0 ? { valorCombo: valComboNumerico } : {}),
+      dispositivos: dispositivos && dispositivos >= 3 ? 3 : dispositivos === 2 ? 2 : 1,
       app,
       servidor: servidorEscolhido,
       vencimento: vencimento.toISOString(),
