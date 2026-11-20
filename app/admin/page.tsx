@@ -56,7 +56,7 @@ import { SuporteChatWidget } from "@/components/SuporteChatWidget";
 import { AdminSuporteView } from "@/components/AdminSuporteView";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
-import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES } from "@/lib/constants";
+import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos } from "@/lib/constants";
 import {
   escapeCsvValue,
   isValidPhone,
@@ -119,6 +119,9 @@ export default function HomePage() {
   const [zapiToken, setZapiToken] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [tmdbApiKey, setTmdbApiKey] = useState("");
+  const [blackFridayPrecos, setBlackFridayPrecos] = useState<BlackFridayPrecosPorDispositivos>(
+    DEFAULT_BLACK_FRIDAY_PRECOS
+  );
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina] = useState(12);
@@ -201,6 +204,7 @@ export default function HomePage() {
         setZapiToken(data.zapiToken || "");
         setGeminiApiKey(data.geminiApiKey || "");
         setTmdbApiKey(data.tmdbApiKey || "");
+        setBlackFridayPrecos(normalizarBlackFridayPrecos(data.blackFridayPrecos));
       }
     });
     return () => unsubConfig();
@@ -219,6 +223,7 @@ export default function HomePage() {
     zapiToken: string;
     geminiApiKey: string;
     tmdbApiKey: string;
+    blackFridayPrecos: BlackFridayPrecosPorDispositivos;
   }) {
     if (!user || !db) return;
     try {
@@ -1117,6 +1122,7 @@ export default function HomePage() {
                 zapiToken={zapiToken}
                 geminiApiKey={geminiApiKey}
                 tmdbApiKey={tmdbApiKey}
+                blackFridayPrecos={blackFridayPrecos}
                 onSalvar={handleSalvarConfiguracoes}
               />
             )}

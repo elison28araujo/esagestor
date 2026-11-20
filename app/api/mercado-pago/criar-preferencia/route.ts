@@ -105,7 +105,8 @@ export async function POST(req: Request) {
       resumoCombo.valorComboTotal,
       new Date(),
       listaIds.length,
-      primeiroAcesso.dispositivos
+      primeiroAcesso.dispositivos,
+      configData?.blackFridayPrecos || null
     );
     const fator = resumoCombo.valorComboTotal > 0 ? valorNumerico / resumoCombo.valorComboTotal : meses;
     const itensCombo = acessosEncontrados.map((a, idx) => ({

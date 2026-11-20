@@ -55,22 +55,6 @@ export async function POST(req: Request) {
 
     const primeiroAcesso = acessosEncontrados[0];
     const { usuario, cliente, userId } = primeiroAcesso;
-    const resumoCombo = calcularResumoCombo(acessosEncontrados);
-    const { meses, valor: valorFinal } = calcularValorPlano(
-      Number(mesesInput || 1),
-      resumoCombo.valorComboTotal,
-      new Date(),
-      listaIds.length,
-      primeiroAcesso.dispositivos
-    );
-    const fator = resumoCombo.valorComboTotal > 0 ? valorFinal / resumoCombo.valorComboTotal : meses;
-    const itensCombo = acessosEncontrados.map((a, idx) => ({
-      acessoId: a.id,
-      usuario: a.usuario,
-      cliente: a.cliente,
-      app: a.app,
-      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator).toFixed(2)),
-    }));
     const acessoIdPrincipal = primeiroAcesso.id;
     const descricaoUsuarios = acessosEncontrados.map((a) => a.usuario).join(", ");
 
@@ -107,6 +91,24 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const resumoCombo = calcularResumoCombo(acessosEncontrados);
+    const { meses, valor: valorFinal } = calcularValorPlano(
+      Number(mesesInput || 1),
+      resumoCombo.valorComboTotal,
+      new Date(),
+      listaIds.length,
+      primeiroAcesso.dispositivos,
+      configData?.blackFridayPrecos || null
+    );
+    const fator = resumoCombo.valorComboTotal > 0 ? valorFinal / resumoCombo.valorComboTotal : meses;
+    const itensCombo = acessosEncontrados.map((a, idx) => ({
+      acessoId: a.id,
+      usuario: a.usuario,
+      cliente: a.cliente,
+      app: a.app,
+      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator).toFixed(2)),
+    }));
 
     // Identificar host para montar notification_url dinamicamente
     const host = req.headers.get("host") || "esagestor.vercel.app";

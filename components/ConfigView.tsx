@@ -9,8 +9,11 @@ import {
   DEFAULT_RENOVACAO_MSG,
   DEFAULT_REATIVACAO_MSG,
   REATIVACAO_TEMPLATES,
+  DEFAULT_BLACK_FRIDAY_PRECOS,
+  BlackFridayPrecosPorDispositivos,
+  normalizarBlackFridayPrecos,
 } from "@/lib/constants";
-import { MessageSquare, Smartphone, CreditCard, Bell, Sparkles, Save } from "lucide-react";
+import { MessageSquare, Smartphone, CreditCard, Bell, Sparkles, Save, Flame, RotateCcw } from "lucide-react";
 
 interface ConfigViewProps {
   mensagem: string;
@@ -25,6 +28,7 @@ interface ConfigViewProps {
   zapiToken: string;
   geminiApiKey?: string;
   tmdbApiKey?: string;
+  blackFridayPrecos?: BlackFridayPrecosPorDispositivos;
   onSalvar: (data: {
     mensagemCobranca: string;
     mensagemRenovacao: string;
@@ -38,10 +42,11 @@ interface ConfigViewProps {
     zapiToken: string;
     geminiApiKey: string;
     tmdbApiKey: string;
+    blackFridayPrecos: BlackFridayPrecosPorDispositivos;
   }) => void;
 }
 
-type TabConfig = "mensagens" | "whatsapp" | "pagamentos" | "ia" | "alertas";
+type TabConfig = "mensagens" | "whatsapp" | "pagamentos" | "ia" | "alertas" | "promocoes";
 
 export function ConfigView({
   mensagem,
@@ -56,6 +61,7 @@ export function ConfigView({
   zapiToken,
   geminiApiKey = "",
   tmdbApiKey = "",
+  blackFridayPrecos,
   onSalvar,
 }: ConfigViewProps) {
   const [activeTab, setActiveTab] = useState<TabConfig>("mensagens");
@@ -71,6 +77,9 @@ export function ConfigView({
   const [zapiTokenState, setZapiTokenState] = useState(zapiToken);
   const [geminiApiKeyState, setGeminiApiKeyState] = useState(geminiApiKey);
   const [tmdbApiKeyState, setTmdbApiKeyState] = useState(tmdbApiKey);
+  const [bfPrecosState, setBfPrecosState] = useState<BlackFridayPrecosPorDispositivos>(() =>
+    normalizarBlackFridayPrecos(blackFridayPrecos)
+  );
   const [emailAlerts, setEmailAlerts] = useState(true);
 
   useEffect(() => {
@@ -91,6 +100,7 @@ export function ConfigView({
     setZapiTokenState(zapiToken);
     setGeminiApiKeyState(geminiApiKey || "");
     setTmdbApiKeyState(tmdbApiKey || "");
+    setBfPrecosState(normalizarBlackFridayPrecos(blackFridayPrecos));
   }, [
     mensagem,
     mensagemRenovacao,
@@ -104,6 +114,7 @@ export function ConfigView({
     zapiToken,
     geminiApiKey,
     tmdbApiKey,
+    blackFridayPrecos,
   ]);
 
   function handleSalvar() {
@@ -120,6 +131,7 @@ export function ConfigView({
       zapiToken: zapiTokenState.trim(),
       geminiApiKey: geminiApiKeyState.trim(),
       tmdbApiKey: tmdbApiKeyState.trim(),
+      blackFridayPrecos: normalizarBlackFridayPrecos(bfPrecosState),
     });
     localStorage.setItem("esa_email_alerts", emailAlerts ? "1" : "0");
   }
@@ -207,6 +219,18 @@ export function ConfigView({
         >
           <Bell className="h-4 w-4" />
           Alertas
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("promocoes")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            activeTab === "promocoes"
+              ? "bg-amber-500 text-white shadow-sm"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-800"
+          }`}
+        >
+          <Flame className="h-4 w-4" />
+          Black Friday
         </button>
       </div>
 
@@ -494,6 +518,76 @@ export function ConfigView({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ABA: BLACK FRIDAY / PROMOCOES */}
+      {activeTab === "promocoes" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-bold text-amber-600 dark:text-amber-400">
+                <Flame className="h-4 w-4" /> Tabela de Preços — Black Friday (15/11 a 30/11)
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                Edite os valores promocionais por quantidade de dispositivos. Após ajustar, clique em <strong>Salvar Alterações</strong> no topo.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setBfPrecosState(normalizarBlackFridayPrecos(DEFAULT_BLACK_FRIDAY_PRECOS))}
+              className="gap-1.5 text-xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Restaurar padrão
+            </Button>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            {(["1", "2", "3"] as const).map((disp) => (
+              <Card key={disp} className="border-slate-200/80 dark:border-slate-800 dark:bg-slate-900/70">
+                <CardContent className="space-y-3 p-5">
+                  <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100">
+                    {disp} {disp === "1" ? "Dispositivo" : "Dispositivos"}
+                  </h4>
+                  <div className="grid gap-2.5">
+                    {([
+                      { key: "1", label: "1 mês (30 dias)" },
+                      { key: "2", label: "2 meses (60 dias)" },
+                      { key: "3", label: "3 meses (Mais Escolhido)" },
+                      { key: "6", label: "6 meses (180 dias)" },
+                      { key: "12", label: "12 meses (360 dias)" },
+                    ] as const).map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between gap-2">
+                        <Label className="text-xs text-slate-600 dark:text-slate-400">{label}</Label>
+                        <div className="relative w-28">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="1"
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 pl-8 pr-2 py-1.5 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-amber-500"
+                            value={bfPrecosState[disp][key]}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setBfPrecosState((prev) => ({
+                                ...prev,
+                                [disp]: {
+                                  ...prev[disp],
+                                  [key]: Number.isFinite(val) ? val : 0,
+                                },
+                              }));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

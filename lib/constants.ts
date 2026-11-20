@@ -208,6 +208,39 @@ export const PLANOS_BLACK_FRIDAY_POR_DISPOSITIVOS: Record<1 | 2 | 3, PlanoRenova
   ],
 };
 
+export type BlackFridayPrecosPorDispositivos = Record<
+  "1" | "2" | "3",
+  Record<"1" | "2" | "3" | "6" | "12", number>
+>;
+
+export const DEFAULT_BLACK_FRIDAY_PRECOS: BlackFridayPrecosPorDispositivos = {
+  "1": { "1": 27, "2": 49, "3": 63, "6": 109, "12": 199 },
+  "2": { "1": 37, "2": 65, "3": 85, "6": 145, "12": 259 },
+  "3": { "1": 42, "2": 75, "3": 99, "6": 179, "12": 319 },
+};
+
+export function normalizarBlackFridayPrecos(
+  custom?: Partial<Record<string, Partial<Record<string, number>>>> | null
+): BlackFridayPrecosPorDispositivos {
+  const result: BlackFridayPrecosPorDispositivos = {
+    "1": { ...DEFAULT_BLACK_FRIDAY_PRECOS["1"] },
+    "2": { ...DEFAULT_BLACK_FRIDAY_PRECOS["2"] },
+    "3": { ...DEFAULT_BLACK_FRIDAY_PRECOS["3"] },
+  };
+  if (!custom) return result;
+  (["1", "2", "3"] as const).forEach((disp) => {
+    const grupo = custom[disp];
+    if (!grupo) return;
+    (["1", "2", "3", "6", "12"] as const).forEach((mes) => {
+      const val = Number(grupo[mes]);
+      if (Number.isFinite(val) && val > 0) {
+        result[disp][mes] = Number(val.toFixed(2));
+      }
+    });
+  });
+  return result;
+}
+
 export function normalizarDispositivos(dispositivos?: number): 1 | 2 | 3 {
   const n = Number(dispositivos) || 1;
   if (n >= 3) return 3;
@@ -223,19 +256,25 @@ export function obterPlanosDisponiveis(
   valorBaseAcesso: number,
   agora = new Date(),
   quantidadeAcessos = 1,
-  dispositivos = 1
+  dispositivos = 1,
+  tabelaCustomizada?: Partial<Record<string, Partial<Record<string, number>>>> | null
 ): PlanoRenovacao[] {
   const base = Number(valorBaseAcesso) > 0 ? Number(valorBaseAcesso) : 35.0;
   const qtdDispositivos = normalizarDispositivos(dispositivos);
   if (isPeriodoBlackFriday(agora) && quantidadeAcessos === 1) {
     const tabela = PLANOS_BLACK_FRIDAY_POR_DISPOSITIVOS[qtdDispositivos];
-    return tabela.map((p) => ({
-      ...p,
-      valor:
-        qtdDispositivos === 1 && base < 27
-          ? Math.min(p.valor, Number((base * p.meses).toFixed(2)))
-          : p.valor,
-    }));
+    const customGrupo = tabelaCustomizada?.[String(qtdDispositivos)];
+    return tabela.map((p) => {
+      const customVal = customGrupo ? Number(customGrupo[String(p.meses)]) : 0;
+      const precoTabela = Number.isFinite(customVal) && customVal > 0 ? Number(customVal.toFixed(2)) : p.valor;
+      return {
+        ...p,
+        valor:
+          qtdDispositivos === 1 && base < 27 && !(Number.isFinite(customVal) && customVal > 0)
+            ? Math.min(precoTabela, Number((base * p.meses).toFixed(2)))
+            : precoTabela,
+      };
+    });
   }
   return [
     { meses: 1, label: "1 mês", valor: base },
@@ -251,11 +290,12 @@ export function calcularValorPlano(
   valorBaseAcesso: number,
   agora = new Date(),
   quantidadeAcessos = 1,
-  dispositivos = 1
+  dispositivos = 1,
+  tabelaCustomizada?: Partial<Record<string, Partial<Record<string, number>>>> | null
 ): { meses: number; valor: number } {
   const mesesValidos = [1, 2, 3, 6, 12];
   const meses = mesesValidos.includes(mesesInput) ? mesesInput : 1;
-  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora, quantidadeAcessos, dispositivos);
+  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora, quantidadeAcessos, dispositivos, tabelaCustomizada);
   const encontrado = planos.find((p) => p.meses === meses) || planos[0];
   return { meses: encontrado.meses, valor: encontrado.valor };
 }

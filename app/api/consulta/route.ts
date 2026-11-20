@@ -162,6 +162,7 @@ export async function POST(req: Request) {
     let useMp = false;
     let pixManual = null;
     let whatsappGestor = "";
+    let blackFridayPrecos = null;
 
     if (gestorId) {
       const configDoc = await adminDb.collection("configuracoes").doc(gestorId).get();
@@ -170,6 +171,7 @@ export async function POST(req: Request) {
         if (configData) {
           useMp = !!configData.mpAccessToken;
           whatsappGestor = configData.whatsappGestor || "";
+          blackFridayPrecos = configData.blackFridayPrecos || null;
           pixManual = {
             pixKey: configData.pixKey || "",
             pixNome: configData.pixNome || "",
@@ -184,6 +186,7 @@ export async function POST(req: Request) {
       useMp,
       pixManual,
       whatsappGestor,
+      blackFridayPrecos,
     });
   } catch (error: any) {
     console.error("Erro na consulta do cliente por telefone:", error);

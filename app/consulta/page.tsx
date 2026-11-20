@@ -42,6 +42,7 @@ export default function ConsultaPage() {
   const [useMp, setUseMp] = useState(false);
   const [pixManual, setPixManual] = useState<any>(null);
   const [whatsappGestor, setWhatsappGestor] = useState("");
+  const [blackFridayPrecos, setBlackFridayPrecos] = useState<any>(null);
 
   const [acessoSelecionado, setAcessoSelecionado] = useState<any | null>(null);
   const [planoSelecionado, setPlanoSelecionado] = useState<PlanoRenovacao | null>(null);
@@ -184,6 +185,7 @@ export default function ConsultaPage() {
       setUseMp(Boolean(data.useMp));
       setPixManual(data.pixManual);
       setWhatsappGestor(data.whatsappGestor || "");
+      setBlackFridayPrecos(data.blackFridayPrecos || null);
 
       // Se houver somente 1 acesso, já abre a tela de pagamento diretamente
       if (data.acessos && data.acessos.length === 1) {
@@ -909,7 +911,8 @@ export default function ConsultaPage() {
                         Number(acessoSelecionado.valor || 0),
                         new Date(),
                         acessoSelecionado.isCombo ? (acessoSelecionado.acessoIds?.length || 2) : 1,
-                        Number(acessoSelecionado.dispositivos || 1)
+                        Number(acessoSelecionado.dispositivos || 1),
+                        blackFridayPrecos
                       ).map((plano) => (
                         <button
                           key={plano.meses}
