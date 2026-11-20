@@ -194,11 +194,18 @@ export function isPeriodoBlackFriday(agora = new Date()): boolean {
   return agora >= new Date(BLACK_FRIDAY_INICIO) && agora <= new Date(BLACK_FRIDAY_FIM);
 }
 
-export function obterPlanosDisponiveis(valorBaseAcesso: number, agora = new Date()): PlanoRenovacao[] {
-  if (isPeriodoBlackFriday(agora)) {
-    return PLANOS_BLACK_FRIDAY;
-  }
+export function obterPlanosDisponiveis(
+  valorBaseAcesso: number,
+  agora = new Date(),
+  quantidadeAcessos = 1
+): PlanoRenovacao[] {
   const base = Number(valorBaseAcesso) > 0 ? Number(valorBaseAcesso) : 35.0;
+  if (isPeriodoBlackFriday(agora) && quantidadeAcessos === 1) {
+    return PLANOS_BLACK_FRIDAY.map((p) => ({
+      ...p,
+      valor: Math.min(p.valor, Number((base * p.meses).toFixed(2))),
+    }));
+  }
   return [
     { meses: 1, label: "1 mês", valor: base },
     { meses: 2, label: "2 meses", valor: Number((base * 2).toFixed(2)) },
@@ -211,11 +218,12 @@ export function obterPlanosDisponiveis(valorBaseAcesso: number, agora = new Date
 export function calcularValorPlano(
   mesesInput: number,
   valorBaseAcesso: number,
-  agora = new Date()
+  agora = new Date(),
+  quantidadeAcessos = 1
 ): { meses: number; valor: number } {
   const mesesValidos = [1, 2, 3, 6, 12];
   const meses = mesesValidos.includes(mesesInput) ? mesesInput : 1;
-  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora);
+  const planos = obterPlanosDisponiveis(valorBaseAcesso, agora, quantidadeAcessos);
   const encontrado = planos.find((p) => p.meses === meses) || planos[0];
   return { meses: encontrado.meses, valor: encontrado.valor };
 }

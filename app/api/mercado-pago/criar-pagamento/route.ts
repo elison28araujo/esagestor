@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const primeiroAcesso = acessosEncontrados[0];
     const { usuario, cliente, userId } = primeiroAcesso;
     const resumoCombo = calcularResumoCombo(acessosEncontrados);
-    const { meses, valor: valorFinal } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal);
+    const { meses, valor: valorFinal } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal, new Date(), listaIds.length);
     const fator = resumoCombo.valorComboTotal > 0 ? valorFinal / resumoCombo.valorComboTotal : meses;
     const itensCombo = acessosEncontrados.map((a, idx) => ({
       acessoId: a.id,

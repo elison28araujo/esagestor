@@ -881,7 +881,11 @@ export default function ConsultaPage() {
                       </>
                     ) : (
                       <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                        {isPeriodoBlackFriday() ? "🔥 Black Friday" : "Escolha abaixo"}
+                        {acessoSelecionado.isCombo
+                          ? "💎 Combo Especial"
+                          : isPeriodoBlackFriday()
+                            ? "🔥 Black Friday"
+                            : "Escolha abaixo"}
                       </span>
                     )}
                   </div>
@@ -894,7 +898,7 @@ export default function ConsultaPage() {
                       <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Qual plano você deseja renovar?
                       </Label>
-                      {isPeriodoBlackFriday() && (
+                      {!acessoSelecionado.isCombo && isPeriodoBlackFriday() && (
                         <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
                           🖤🔥 Válido 15/11 a 30/11/2026
                         </span>
@@ -902,7 +906,11 @@ export default function ConsultaPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {obterPlanosDisponiveis(Number(acessoSelecionado.valor || 0)).map((plano) => (
+                      {obterPlanosDisponiveis(
+                        Number(acessoSelecionado.valor || 0),
+                        new Date(),
+                        acessoSelecionado.isCombo ? (acessoSelecionado.acessoIds?.length || 2) : 1
+                      ).map((plano) => (
                         <button
                           key={plano.meses}
                           type="button"

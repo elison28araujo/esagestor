@@ -11,7 +11,7 @@ import {
   parseCsv,
 } from "./utils";
 import { gerarPixEstatico } from "./pix";
-import { calcularResumoCombo } from "./constants";
+import { calcularResumoCombo, calcularValorPlano } from "./constants";
 
 describe("Normalização e Formatação de Dados", () => {
   it("normaliza headers removendo acentos e caracteres especiais", () => {
@@ -171,6 +171,18 @@ describe("Cálculo de Combo de Acessos", () => {
     expect(res.valorUnitarioTotal).toBe(70);
     expect(res.valorComboTotal).toBe(70);
     expect(res.economia).toBe(0);
+  });
+
+  it("não sobrescreve valor do combo com preço único da Black Friday", () => {
+    const dataBlackFriday = new Date("2026-11-19T21:00:00-03:00");
+    const plano = calcularValorPlano(1, 45.0, dataBlackFriday, 2);
+    expect(plano.valor).toBe(45.0);
+  });
+
+  it("não cobra mais caro que o valor do cliente (ex: R$ 25) durante a Black Friday", () => {
+    const dataBlackFriday = new Date("2026-11-19T21:00:00-03:00");
+    const plano = calcularValorPlano(1, 25.0, dataBlackFriday, 1);
+    expect(plano.valor).toBe(25.0);
   });
 });
 

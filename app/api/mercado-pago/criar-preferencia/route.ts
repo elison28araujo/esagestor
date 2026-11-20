@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     const notificationUrl = `${origin}/api/mercado-pago/webhook`;
 
     const resumoCombo = calcularResumoCombo(acessosEncontrados);
-    const { meses, valor: valorNumerico } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal);
+    const { meses, valor: valorNumerico } = calcularValorPlano(Number(mesesInput || 1), resumoCombo.valorComboTotal, new Date(), listaIds.length);
     const fator = resumoCombo.valorComboTotal > 0 ? valorNumerico / resumoCombo.valorComboTotal : meses;
     const itensCombo = acessosEncontrados.map((a, idx) => ({
       acessoId: a.id,
