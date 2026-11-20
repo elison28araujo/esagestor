@@ -17,6 +17,7 @@ interface ClienteCardProps {
   onRenovarRapido?: (id: string) => void;
   onCobrar?: (item: Acesso) => void;
   onAdicionarUsuario?: (item: Acesso) => void;
+  onEnviarVencimento?: (item: Acesso) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
 }
@@ -31,6 +32,7 @@ export function ClienteCard({
   onRenovarRapido,
   onCobrar,
   onAdicionarUsuario,
+  onEnviarVencimento,
   selecionado,
   onToggleSelecao,
 }: ClienteCardProps) {
@@ -215,6 +217,19 @@ export function ClienteCard({
             >
               <UserPlus className="mr-1 h-3 w-3" />
               + Usuário
+            </Button>
+          )}
+
+          {onEnviarVencimento && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] font-semibold border-indigo-500/30 text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20"
+              onClick={() => onEnviarVencimento(item)}
+              title="Enviar data de vencimento via WhatsApp"
+            >
+              <Calendar className="mr-1 h-3 w-3" />
+              Vencimento
             </Button>
           )}
 

@@ -40,6 +40,7 @@ import { NovoClienteForm } from "@/components/NovoClienteForm";
 import { ClienteCard } from "@/components/ClienteCard";
 import { EditClienteDialog } from "@/components/EditClienteDialog";
 import { AdicionarUsuarioDialog } from "@/components/AdicionarUsuarioDialog";
+import { EnviarVencimentoDialog } from "@/components/EnviarVencimentoDialog";
 import { RenovarAcessoDialog } from "@/components/RenovarAcessoDialog";
 import { CobrarDialog } from "@/components/CobrarDialog";
 import { DespesaList } from "@/components/DespesaList";
@@ -101,6 +102,7 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<Filter>("todos");
   const [editando, setEditando] = useState<Acesso | null>(null);
   const [adicionandoUsuarioPara, setAdicionandoUsuarioPara] = useState<Acesso | null>(null);
+  const [enviandoVencimentoPara, setEnviandoVencimentoPara] = useState<Acesso | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [importando, setImportando] = useState(false);
   const [toast, setToast] = useState<ImportFeedback | null>(null);
@@ -1249,6 +1251,7 @@ export default function HomePage() {
                               }}
                               onCobrar={handleCobrar}
                               onAdicionarUsuario={setAdicionandoUsuarioPara}
+                              onEnviarVencimento={setEnviandoVencimentoPara}
                               selecionado={selecionados.includes(item.id)}
                               onToggleSelecao={toggleSelecao}
                             />
@@ -1524,6 +1527,11 @@ export default function HomePage() {
         appOptions={appOptions}
         onAdicionar={addCliente}
         onFechar={() => setAdicionandoUsuarioPara(null)}
+      />
+
+      <EnviarVencimentoDialog
+        acesso={enviandoVencimentoPara}
+        onFechar={() => setEnviandoVencimentoPara(null)}
       />
 
       <RenovarAcessoDialog
