@@ -418,9 +418,8 @@ export default function ConsultaPage() {
             <img
               src={bannerAtual.imagem}
               alt={bannerAtual.titulo}
-              className="h-full w-full object-cover object-center opacity-25 dark:opacity-35 scale-105 transition-opacity duration-700"
+              className="h-full w-full object-cover object-center opacity-100 scale-105 transition-opacity duration-700"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-50/75 via-slate-100/70 to-slate-200/90 dark:from-slate-950/75 dark:via-slate-950/70 dark:to-slate-950/90" />
           </div>
           <div className="pointer-events-none fixed bottom-4 left-4 z-30 hidden sm:flex items-center gap-1.5 rounded-full border border-slate-300/60 bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700 backdrop-blur-md shadow-sm dark:border-slate-700/70 dark:bg-slate-900/80 dark:text-slate-200">
             <Sparkles className="h-3 w-3 text-amber-500" />
