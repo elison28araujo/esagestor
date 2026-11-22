@@ -5,6 +5,7 @@ import {
   isValidPhone,
   formatPhone,
   isP2P,
+  extrairLoginUsuario,
   detectarServidor,
   calcularVagasUsuario,
   ajustarTelasParaQuantidade,
@@ -45,6 +46,12 @@ describe("Normalização e Formatação de Dados", () => {
     expect(isP2P("OTT PLAYER")).toBe(false);
     expect(isP2P("KPLAY")).toBe(false);
     expect(isP2P(undefined)).toBe(false);
+  });
+
+  it("extrai o login limpo de textos colados com Usuário/Username e Senha", () => {
+    expect(extrairLoginUsuario("👤 Usuário: k9934w2 🔐 Senha: 6p672u9")).toBe("k9934w2");
+    expect(extrairLoginUsuario("🔰 Dados de acesso 🔰 Username: t12345")).toBe("t12345");
+    expect(extrairLoginUsuario("  k9934w2  ")).toBe("k9934w2");
   });
 });
 

@@ -160,6 +160,19 @@ export function isP2P(app: string | undefined): boolean {
   return app.trim().toUpperCase().includes("P2P");
 }
 
+/**
+ * Extrai o login limpo de textos colados do painel (ex: "👤 Usuário: k9934w2 🔐 Senha: ...").
+ */
+export function extrairLoginUsuario(usuario: string | undefined): string {
+  const raw = (usuario || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/(?:usu[aá]rio|username|login)\s*:\s*([^\s🔒🔐|]+)/i);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  return raw;
+}
+
 export function detectarServidor(item: { servidor?: string; usuario?: string; app?: string }): "Warez" | "Genial" | "Five" {
   if (item.servidor) {
     const s = item.servidor.toLowerCase();

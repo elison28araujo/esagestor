@@ -67,6 +67,7 @@ import {
   parseFlexibleDate,
   parseGoogleSheetUrl,
   isP2P,
+  extrairLoginUsuario,
   calcularOcupacaoCliente,
   calcularVagasUsuario,
   detectarServidor,
@@ -397,8 +398,9 @@ export default function HomePage() {
     lancarDespesaCredito?: boolean;
   }): Promise<boolean> {
     if (!user || !db) return false;
+    const loginNovo = extrairLoginUsuario(nomeUser).toLowerCase();
     const clientesMesmoUsuario = acessos.filter(
-      (item) => item.usuario.trim().toLowerCase() === nomeUser.trim().toLowerCase()
+      (item) => extrairLoginUsuario(item.usuario).toLowerCase() === loginNovo
     );
 
     // Servidor determinado (se não veio explicitamente, detecta ou assume do usuário)
@@ -917,15 +919,21 @@ export default function HomePage() {
   }
 
   const usuariosAgrupados: UsuarioAgrupado[] = useMemo(() => {
-    const groups: Record<string, Acesso[]> = {};
+    const groups: Record<string, { nomeExibicao: string; itens: Acesso[] }> = {};
     acessos.forEach((item) => {
-      const chaveUsuario = item.usuario.trim();
-      if (!groups[chaveUsuario]) groups[chaveUsuario] = [];
-      groups[chaveUsuario].push(item);
+      const loginLimpo = extrairLoginUsuario(item.usuario);
+      const chaveGrupo = loginLimpo.toLowerCase();
+      if (!groups[chaveGrupo]) {
+        groups[chaveGrupo] = { nomeExibicao: loginLimpo || item.usuario.trim(), itens: [] };
+      } else if (loginLimpo && loginLimpo.length < groups[chaveGrupo].nomeExibicao.length) {
+        groups[chaveGrupo].nomeExibicao = loginLimpo;
+      }
+      groups[chaveGrupo].itens.push(item);
     });
-    return Object.keys(groups)
-      .map((nome) => {
-        const clientes = groups[nome].sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
+    return Object.values(groups)
+      .map(({ nomeExibicao, itens }) => {
+        const nome = nomeExibicao;
+        const clientes = itens.sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
         const temP2P = clientes.some((item) => isP2P(item.app));
         const info = calcularVagasUsuario(nome, clientes);
         return {
