@@ -655,7 +655,8 @@ export function Dashboard({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {usuariosFiltradosPorServidor.map((u) => {
-              const porcentagem = Math.min(100, Math.round((u.clientes.length / u.capacidadeTotal) * 100));
+              const ocupados = u.ocupadosTotal ?? u.clientes.length;
+              const porcentagem = Math.min(100, Math.round((ocupados / u.capacidadeTotal) * 100));
               const srvColor =
                 u.servidor === "Genial"
                   ? "bg-purple-500/10 text-purple-700 border-purple-500/20 dark:text-purple-400"
@@ -700,7 +701,7 @@ export function Dashboard({
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-500 font-mono tabular-nums">
-                          {u.clientes.length}/{u.capacidadeTotal} ocupados ({porcentagem}%)
+                          {ocupados}/{u.capacidadeTotal} ocupados ({porcentagem}%)
                         </span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
                           {u.vagas.total} vaga{u.vagas.total !== 1 ? "s" : ""}
@@ -711,7 +712,7 @@ export function Dashboard({
                       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${
-                            u.clientes.length === 0
+                            ocupados === 0
                               ? "bg-slate-300"
                               : porcentagem >= 66
                               ? "bg-amber-500"
@@ -742,6 +743,11 @@ export function Dashboard({
                                 {c.cliente}
                               </span>
                               <div className="flex items-center gap-1.5">
+                                {c.dispositivos && c.dispositivos > 1 && (
+                                  <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-bold text-violet-700 dark:text-violet-300">
+                                    {c.dispositivos} disp.
+                                  </span>
+                                )}
                                 <span className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-300">
                                   {c.app}
                                 </span>

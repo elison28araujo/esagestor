@@ -5,9 +5,19 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Acesso, ServidorNome } from "@/lib/types";
+import { Acesso, ServidorNome, TelaDispositivo } from "@/lib/types";
 import { SERVIDOR_OPTIONS, SERVIDORES, normalizarDispositivos } from "@/lib/constants";
-import { formatPhone, toDateInput, isValidPhone, normalizePhone, fromDateInput, detectarServidor } from "@/lib/utils";
+import {
+  formatPhone,
+  toDateInput,
+  isValidPhone,
+  normalizePhone,
+  fromDateInput,
+  detectarServidor,
+  ajustarTelasParaQuantidade,
+  resumirTelasParaAcesso,
+} from "@/lib/utils";
+import { TelasDispositivosFields } from "@/components/TelasDispositivosFields";
 import { Loader2 } from "lucide-react";
 
 interface EditClienteDialogProps {
@@ -24,12 +34,10 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
     telefone: "",
     valor: "",
     valorCombo: "",
-    dispositivos: 1,
-    app: "P2P",
+    dispositivos: 1 as 1 | 2 | 3,
+    telas: [{ app: "P2P", enderecoMac: "", chaveKey: "" }] as TelaDispositivo[],
     servidor: "Warez" as ServidorNome,
     vencimento: "",
-    enderecoMac: "",
-    chaveKey: "",
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -37,18 +45,22 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
   useEffect(() => {
     if (acesso) {
       const servidorInicial = (acesso.servidor as ServidorNome) || detectarServidor(acesso);
+      const qtd = normalizarDispositivos(acesso.dispositivos);
+      const telasIniciais = ajustarTelasParaQuantidade(acesso.telas || [], qtd, {
+        app: acesso.app,
+        enderecoMac: acesso.enderecoMac,
+        chaveKey: acesso.chaveKey,
+      });
       setForm({
         usuario: acesso.usuario,
         cliente: acesso.cliente,
         telefone: formatPhone(acesso.telefone),
         valor: String(acesso.valor ?? ""),
         valorCombo: acesso.valorCombo && acesso.valorCombo > 0 ? String(acesso.valorCombo) : "",
-        dispositivos: normalizarDispositivos(acesso.dispositivos),
-        app: acesso.app,
+        dispositivos: qtd,
+        telas: telasIniciais,
         servidor: servidorInicial,
         vencimento: toDateInput(acesso.vencimento),
-        enderecoMac: acesso.enderecoMac || "",
-        chaveKey: acesso.chaveKey || "",
       });
       setErro("");
     }
@@ -58,8 +70,10 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
     if (!acesso) return;
     if (!form.usuario.trim() || !form.cliente.trim()) { setErro("Preencha usuário e cliente"); return; }
     if (!isValidPhone(form.telefone)) { setErro("Digite um telefone válido com DDD"); return; }
+    if (form.telas.some((t) => !t.app.trim())) { setErro("Preencha o app de todas as telas"); return; }
     setSalvando(true);
     setErro("");
+    const resumo = resumirTelasParaAcesso(form.telas);
     await onSalvar(acesso.id, {
       usuario: form.usuario.trim(),
       cliente: form.cliente.trim(),
@@ -67,11 +81,14 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
       valor: Number(form.valor) || 0,
       valorCombo: form.valorCombo.trim() !== "" ? Number(form.valorCombo) || 0 : 0,
       dispositivos: normalizarDispositivos(form.dispositivos),
-      app: form.app,
+      dispositivosP2P: resumo.dispositivosP2P,
+      dispositivosIPTV: resumo.dispositivosIPTV,
+      telas: resumo.telas,
+      app: resumo.app,
       servidor: form.servidor,
       vencimento: fromDateInput(form.vencimento),
-      enderecoMac: form.enderecoMac.trim(),
-      chaveKey: form.chaveKey.trim(),
+      enderecoMac: resumo.enderecoMac,
+      chaveKey: resumo.chaveKey,
     });
     setSalvando(false);
     onFechar();
@@ -132,43 +149,19 @@ export function EditClienteDialog({ acesso, appOptions, onSalvar, onFechar }: Ed
               <Input type="number" step="0.01" placeholder="Ex: 22.50" value={form.valorCombo} onChange={(e) => setForm((p) => ({ ...p, valorCombo: e.target.value }))} />
             </div>
           </div>
-          <div className="grid gap-1.5">
-            <Label>Dispositivos / Telas neste acesso</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {([1, 2, 3] as const).map((qtd) => (
-                <button
-                  key={qtd}
-                  type="button"
-                  onClick={() => setForm((p) => ({ ...p, dispositivos: qtd }))}
-                  className={`rounded-lg border px-2 py-2 text-xs font-bold transition-all ${
-                    form.dispositivos === qtd
-                      ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-300 ring-1 ring-blue-500/30"
-                      : "border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
-                  }`}
-                >
-                  {qtd} {qtd === 1 ? "Dispositivo" : "Dispositivos"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-1">
-            <Label>App</Label>
-            <Input list="app-options-edit" value={form.app} onChange={(e) => setForm((p) => ({ ...p, app: e.target.value.toUpperCase() }))} />
-            <datalist id="app-options-edit">
-              {appOptions.map((o) => <option key={o} value={o} />)}
-            </datalist>
-          </div>
+          <TelasDispositivosFields
+            dispositivos={form.dispositivos}
+            telas={form.telas}
+            appOptions={appOptions}
+            datalistId="app-options-edit"
+            onChangeDispositivos={(qtd, novasTelas) =>
+              setForm((p) => ({ ...p, dispositivos: qtd, telas: novasTelas }))
+            }
+            onChangeTelas={(novasTelas) => setForm((p) => ({ ...p, telas: novasTelas }))}
+          />
           <div className="grid gap-1">
             <Label>Vencimento</Label>
             <Input type="date" value={form.vencimento} onChange={(e) => setForm((p) => ({ ...p, vencimento: e.target.value }))} />
-          </div>
-          <div className="grid gap-1">
-            <Label>Endereço MAC (opcional)</Label>
-            <Input value={form.enderecoMac} onChange={(e) => setForm((p) => ({ ...p, enderecoMac: e.target.value }))} />
-          </div>
-          <div className="grid gap-1">
-            <Label>Chave Key (opcional)</Label>
-            <Input value={form.chaveKey} onChange={(e) => setForm((p) => ({ ...p, chaveKey: e.target.value }))} />
           </div>
           {erro && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{erro}</p>}
         </div>

@@ -7,6 +7,8 @@ import {
   isP2P,
   detectarServidor,
   calcularVagasUsuario,
+  ajustarTelasParaQuantidade,
+  resumirTelasParaAcesso,
   parseFlexibleDate,
   parseCsv,
 } from "./utils";
@@ -76,6 +78,55 @@ describe("Regras de Servidores e Cálculo de Vagas", () => {
     );
     expect(lotado.vagas.total).toBe(0);
     expect(lotado.disponivel).toBe(false);
+
+    // 1 único cadastro com 3 dispositivos (1 P2P + 2 IPTV) deve lotar o Warez
+    const multi3 = calcularVagasUsuario(
+      "7803a6v",
+      [{ app: "P2P - OTT - HD PLAYER", dispositivos: 3 }],
+      "Warez"
+    );
+    expect(multi3.ocupadosTotal).toBe(3);
+    expect(multi3.vagas.total).toBe(0);
+    expect(multi3.vagas.p2p).toBe(0);
+    expect(multi3.vagas.iptv).toBe(0);
+    expect(multi3.disponivel).toBe(false);
+
+    // 1 único cadastro com 2 dispositivos (1 P2P + 1 IPTV) deixa apenas 1 vaga IPTV
+    const multi2 = calcularVagasUsuario(
+      "user2",
+      [{ app: "P2P + OTT", dispositivos: 2 }],
+      "Warez"
+    );
+    expect(multi2.ocupadosTotal).toBe(2);
+    expect(multi2.vagas.total).toBe(1);
+    expect(multi2.vagas.p2p).toBe(0);
+    expect(multi2.vagas.iptv).toBe(1);
+    expect(multi2.disponivel).toBe(true);
+
+    // Telas explícitas por dispositivo (1 P2P + 2 IPTV)
+    const telas = ajustarTelasParaQuantidade([], 3, {
+      app: "P2P - OTT - HD PLAYER",
+      enderecoMac: "AA:BB:CC",
+      chaveKey: "1234",
+    });
+    expect(telas).toHaveLength(3);
+    expect(telas[0].app).toBe("P2P");
+    expect(telas[1].app).toBe("OTT");
+    expect(telas[2].app).toBe("HD PLAYER");
+
+    const resumo = resumirTelasParaAcesso(telas);
+    expect(resumo.app).toBe("P2P + OTT + HD PLAYER");
+    expect(resumo.dispositivosP2P).toBe(1);
+    expect(resumo.dispositivosIPTV).toBe(2);
+
+    const comTelas = calcularVagasUsuario(
+      "7803a6v",
+      [{ app: resumo.app, dispositivos: 3, telas: resumo.telas }],
+      "Warez"
+    );
+    expect(comTelas.ocupadosTotal).toBe(3);
+    expect(comTelas.vagas.total).toBe(0);
+    expect(comTelas.disponivel).toBe(false);
   });
 
   it("calcula vagas para Genial (Max 2: 2 IPTV OU 2 P2P)", () => {

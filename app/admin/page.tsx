@@ -56,7 +56,7 @@ import { SnowEffect, SantaHat, ChristmasDashboardBanner } from "@/components/Chr
 import { SuporteChatWidget } from "@/components/SuporteChatWidget";
 import { AdminSuporteView } from "@/components/AdminSuporteView";
 
-import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome } from "@/lib/types";
+import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos } from "@/lib/constants";
 import {
   escapeCsvValue,
@@ -67,6 +67,7 @@ import {
   parseFlexibleDate,
   parseGoogleSheetUrl,
   isP2P,
+  calcularOcupacaoCliente,
   calcularVagasUsuario,
   detectarServidor,
 } from "@/lib/utils";
@@ -379,13 +380,16 @@ export default function HomePage() {
     }
   }, [user, acessos]);
 
-  async function addCliente({ nomeUser, cliente, telefone, valor, valorCombo, dispositivos, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
+  async function addCliente({ nomeUser, cliente, telefone, valor, valorCombo, dispositivos, dispositivosP2P, dispositivosIPTV, telas, app, enderecoMac, chaveKey, servidor, lancarDespesaCredito }: {
     nomeUser: string;
     cliente: string;
     telefone: string;
     valor: string;
     valorCombo?: string;
     dispositivos?: number;
+    dispositivosP2P?: number;
+    dispositivosIPTV?: number;
+    telas?: TelaDispositivo[];
     app: string;
     enderecoMac?: string;
     chaveKey?: string;
@@ -399,44 +403,61 @@ export default function HomePage() {
 
     // Servidor determinado (se não veio explicitamente, detecta ou assume do usuário)
     const servidorEscolhido: ServidorNome = (servidor as ServidorNome) || detectarServidor({ usuario: nomeUser, servidor: servidor as string });
-    const isNovoP2P = isP2P(app);
-    const qtdP2PAtual = clientesMesmoUsuario.filter((c) => isP2P(c.app)).length;
-    const qtdIPTVAtual = clientesMesmoUsuario.length - qtdP2PAtual;
+    const ocupacaoAtual = clientesMesmoUsuario.reduce(
+      (acc, c) => {
+        const uso = calcularOcupacaoCliente(c, servidorEscolhido);
+        acc.total += uso.total;
+        acc.p2p += uso.p2p;
+        acc.iptv += uso.iptv;
+        return acc;
+      },
+      { total: 0, p2p: 0, iptv: 0 }
+    );
+    const novoUso = calcularOcupacaoCliente(
+      {
+        app,
+        dispositivos: dispositivos && dispositivos >= 3 ? 3 : dispositivos === 2 ? 2 : 1,
+        dispositivosP2P,
+        dispositivosIPTV,
+        telas,
+      },
+      servidorEscolhido
+    );
 
     if (servidorEscolhido === "Genial") {
-      if (clientesMesmoUsuario.length >= 2) {
-        setToast({ type: "error", message: "O servidor Genial suporta no máximo 2 clientes por usuário (2 IPTV ou 2 P2P)." });
+      if (ocupacaoAtual.total + novoUso.total > 2) {
+        setToast({ type: "error", message: "O servidor Genial suporta no máximo 2 dispositivos por usuário (2 IPTV ou 2 P2P)." });
         return false;
       }
-      if (isNovoP2P && qtdIPTVAtual > 0) {
+      if (novoUso.p2p > 0 && ocupacaoAtual.iptv > 0) {
         setToast({ type: "error", message: "O servidor Genial aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui IPTV)." });
         return false;
       }
-      if (!isNovoP2P && qtdP2PAtual > 0) {
+      if (novoUso.iptv > 0 && ocupacaoAtual.p2p > 0) {
         setToast({ type: "error", message: "O servidor Genial aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui P2P)." });
         return false;
       }
     } else if (servidorEscolhido === "Five") {
-      if (clientesMesmoUsuario.length >= 2) {
-        setToast({ type: "error", message: "O servidor Five suporta no máximo 2 clientes por usuário (apenas IPTV)." });
+      if (ocupacaoAtual.total + novoUso.total > 2) {
+        setToast({ type: "error", message: "O servidor Five suporta no máximo 2 dispositivos por usuário (apenas IPTV)." });
         return false;
       }
-      if (isNovoP2P) {
+      if (novoUso.p2p > 0) {
         setToast({ type: "error", message: "O servidor Five aceita somente clientes IPTV (não aceita P2P)." });
         return false;
       }
     } else {
       // Warez (padrão)
-      if (clientesMesmoUsuario.length >= 3) {
-        setToast({ type: "error", message: "O servidor Warez suporta no máximo 3 clientes por usuário (1 P2P e 2 IPTV)." });
+      if (ocupacaoAtual.total + novoUso.total > 3) {
+        setToast({ type: "error", message: "O servidor Warez suporta no máximo 3 dispositivos por usuário (1 P2P e 2 IPTV)." });
         return false;
       }
-      if (isNovoP2P && qtdP2PAtual >= 1) {
-        setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 1 cliente P2P neste usuário." });
+      if (ocupacaoAtual.p2p + novoUso.p2p > 1) {
+        setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 1 dispositivo P2P neste usuário." });
         return false;
       }
-      if (!isNovoP2P && qtdIPTVAtual >= 2) {
-        setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 2 clientes IPTV neste usuário." });
+      if (ocupacaoAtual.iptv + novoUso.iptv > 2) {
+        setToast({ type: "error", message: "O servidor Warez já atingiu o limite de 2 dispositivos IPTV neste usuário." });
         return false;
       }
     }
@@ -453,6 +474,9 @@ export default function HomePage() {
       valor: valNumerico,
       ...(valComboNumerico > 0 ? { valorCombo: valComboNumerico } : {}),
       dispositivos: dispositivos && dispositivos >= 3 ? 3 : dispositivos === 2 ? 2 : 1,
+      ...(typeof dispositivosP2P === "number" ? { dispositivosP2P } : {}),
+      ...(typeof dispositivosIPTV === "number" ? { dispositivosIPTV } : {}),
+      ...(Array.isArray(telas) && telas.length > 0 ? { telas } : {}),
       app,
       servidor: servidorEscolhido,
       vencimento: vencimento.toISOString(),
@@ -895,8 +919,9 @@ export default function HomePage() {
   const usuariosAgrupados: UsuarioAgrupado[] = useMemo(() => {
     const groups: Record<string, Acesso[]> = {};
     acessos.forEach((item) => {
-      if (!groups[item.usuario]) groups[item.usuario] = [];
-      groups[item.usuario].push(item);
+      const chaveUsuario = item.usuario.trim();
+      if (!groups[chaveUsuario]) groups[chaveUsuario] = [];
+      groups[chaveUsuario].push(item);
     });
     return Object.keys(groups)
       .map((nome) => {
@@ -909,6 +934,7 @@ export default function HomePage() {
           temP2P,
           servidor: info.servidor,
           capacidadeTotal: info.capacidadeTotal,
+          ocupadosTotal: info.ocupadosTotal,
           custoCredito: info.custoCredito,
           vagas: info.vagas,
           disponivel: info.disponivel,
@@ -1102,7 +1128,7 @@ export default function HomePage() {
                   importando={importando}
                   usuarioPredefinido={cadastroPredefinido?.usuario}
                   servidorPredefinido={cadastroPredefinido?.servidor}
-                  onAddCliente={async (data) => { await addCliente(data); }}
+                  onAddCliente={addCliente}
                   onExportarCsv={exportarClientesCsv}
                   onImportarCsv={importarClientesCsv}
                   onImportarGoogleSheet={importarGoogleSheet}

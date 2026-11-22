@@ -32,6 +32,12 @@ export interface VagasDisponiveis {
   detalhes: string;
 }
 
+export interface TelaDispositivo {
+  app: string;
+  enderecoMac?: string;
+  chaveKey?: string;
+}
+
 export interface Acesso {
   id: string;
   usuario: string;
@@ -40,6 +46,9 @@ export interface Acesso {
   valor: number;
   valorCombo?: number;
   dispositivos?: number;
+  dispositivosP2P?: number;
+  dispositivosIPTV?: number;
+  telas?: TelaDispositivo[];
   app: string;
   vencimento: string;
   data: string;
@@ -74,6 +83,7 @@ export interface UsuarioAgrupado {
   temP2P: boolean;
   servidor: ServidorNome | string;
   capacidadeTotal: number;
+  ocupadosTotal?: number;
   custoCredito: number;
   vagas: VagasDisponiveis;
   disponivel: boolean;

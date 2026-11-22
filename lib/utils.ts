@@ -177,17 +177,172 @@ export function detectarServidor(item: { servidor?: string; usuario?: string; ap
   return "Warez";
 }
 
+import { TelaDispositivo } from "./types";
+
+export interface OcupacaoCliente {
+  total: number;
+  p2p: number;
+  iptv: number;
+}
+
+/**
+ * Ajusta o array de telas para a quantidade de dispositivos selecionada (1..3),
+ * preservando os dados já preenchidos e dividindo nomes legados (ex: "P2P - OTT - HD PLAYER").
+ */
+export function ajustarTelasParaQuantidade(
+  telasAtuais: TelaDispositivo[],
+  quantidade: 1 | 2 | 3,
+  fallback?: TelaDispositivo
+): TelaDispositivo[] {
+  const base: TelaDispositivo[] = [...telasAtuais];
+
+  if (base.length === 0 && fallback) {
+    const partesApp = fallback.app
+      ? fallback.app.split(/\s*(?:\+|-|\/|,)\s*/).map((s) => s.trim()).filter(Boolean)
+      : ["P2P"];
+
+    for (let i = 0; i < quantidade; i++) {
+      base.push({
+        app: partesApp[i] || partesApp[0] || "P2P",
+        enderecoMac: i === 0 ? fallback.enderecoMac || "" : "",
+        chaveKey: i === 0 ? fallback.chaveKey || "" : "",
+      });
+    }
+    return base.slice(0, quantidade);
+  }
+
+  while (base.length < quantidade) {
+    base.push({ app: "OTT", enderecoMac: "", chaveKey: "" });
+  }
+  return base.slice(0, quantidade);
+}
+
+/**
+ * Gera os campos resumidos compatíveis com o banco legado/CSV a partir da lista de telas.
+ */
+export function resumirTelasParaAcesso(telas: TelaDispositivo[]) {
+  const limpas = telas.map((t) => ({
+    app: (t.app || "P2P").trim().toUpperCase(),
+    enderecoMac: (t.enderecoMac || "").trim(),
+    chaveKey: (t.chaveKey || "").trim(),
+  }));
+
+  const appsTexto = limpas.map((t) => t.app).filter(Boolean);
+  const appResumido = appsTexto.length > 0 ? appsTexto.join(" + ") : "P2P";
+  const primeiroMac = limpas.find((t) => t.enderecoMac)?.enderecoMac || "";
+  const primeiraKey = limpas.find((t) => t.chaveKey)?.chaveKey || "";
+  const dispositivosP2P = limpas.filter((t) => isP2P(t.app)).length;
+  const dispositivosIPTV = limpas.length - dispositivosP2P;
+
+  return {
+    app: appResumido,
+    enderecoMac: primeiroMac,
+    chaveKey: primeiraKey,
+    dispositivosP2P,
+    dispositivosIPTV,
+    telas: limpas,
+  };
+}
+
+export function calcularOcupacaoCliente(
+  cliente: {
+    app: string;
+    dispositivos?: number;
+    dispositivosP2P?: number;
+    dispositivosIPTV?: number;
+    telas?: TelaDispositivo[];
+  },
+  servidor: "Warez" | "Genial" | "Five"
+): OcupacaoCliente {
+  const dispositivos = Math.max(1, Number(cliente.dispositivos) || 1);
+
+  if (Array.isArray(cliente.telas) && cliente.telas.length > 0) {
+    const p2p = cliente.telas.filter((t) => isP2P(t.app)).length;
+    const iptv = cliente.telas.length - p2p;
+    return {
+      total: Math.max(dispositivos, cliente.telas.length),
+      p2p,
+      iptv,
+    };
+  }
+
+  if (
+    typeof cliente.dispositivosP2P === "number" ||
+    typeof cliente.dispositivosIPTV === "number"
+  ) {
+    const p2p = Math.max(0, Number(cliente.dispositivosP2P) || 0);
+    const iptv = Math.max(0, Number(cliente.dispositivosIPTV) || 0);
+    return {
+      total: Math.max(dispositivos, p2p + iptv),
+      p2p,
+      iptv,
+    };
+  }
+
+  const ehP2P = isP2P(cliente.app);
+  if (dispositivos === 1) {
+    return {
+      total: 1,
+      p2p: ehP2P ? 1 : 0,
+      iptv: ehP2P ? 0 : 1,
+    };
+  }
+
+  if (servidor === "Genial") {
+    return {
+      total: dispositivos,
+      p2p: ehP2P ? dispositivos : 0,
+      iptv: ehP2P ? 0 : dispositivos,
+    };
+  }
+
+  if (servidor === "Five") {
+    return {
+      total: dispositivos,
+      p2p: 0,
+      iptv: dispositivos,
+    };
+  }
+
+  // Warez: no máximo 1 P2P por usuário; dispositivos extras são IPTV
+  const p2p = ehP2P ? 1 : 0;
+  const iptv = Math.max(0, dispositivos - p2p);
+  return {
+    total: dispositivos,
+    p2p,
+    iptv,
+  };
+}
+
 export function calcularVagasUsuario(
   nomeUsuario: string,
-  clientes: Array<{ app: string; servidor?: string }>,
+  clientes: Array<{
+    app: string;
+    servidor?: string;
+    dispositivos?: number;
+    dispositivosP2P?: number;
+    dispositivosIPTV?: number;
+    telas?: TelaDispositivo[];
+  }>,
   servidorForcado?: "Warez" | "Genial" | "Five"
 ) {
   const servidorDefinido = clientes.find((c) => c.servidor)?.servidor as "Warez" | "Genial" | "Five" | undefined;
   const servidor = servidorForcado || servidorDefinido || detectarServidor({ usuario: nomeUsuario });
 
-  const total = clientes.length;
-  const qtdP2P = clientes.filter((c) => isP2P(c.app)).length;
-  const qtdIPTV = total - qtdP2P;
+  const ocupacao = clientes.reduce(
+    (acc, c) => {
+      const uso = calcularOcupacaoCliente(c, servidor);
+      acc.total += uso.total;
+      acc.p2p += uso.p2p;
+      acc.iptv += uso.iptv;
+      return acc;
+    },
+    { total: 0, p2p: 0, iptv: 0 }
+  );
+
+  const total = ocupacao.total;
+  const qtdP2P = ocupacao.p2p;
+  const qtdIPTV = ocupacao.iptv;
 
   let vagasP2P = 0;
   let vagasIPTV = 0;
@@ -235,6 +390,7 @@ export function calcularVagasUsuario(
   return {
     servidor,
     capacidadeTotal,
+    ocupadosTotal: total,
     custoCredito,
     vagas: {
       p2p: vagasP2P,
