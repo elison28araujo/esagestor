@@ -55,6 +55,8 @@ import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { SnowEffect, SantaHat, ChristmasDashboardBanner } from "@/components/ChristmasTheme";
 import { SuporteChatWidget } from "@/components/SuporteChatWidget";
 import { AdminSuporteView } from "@/components/AdminSuporteView";
+import { AplicarUpgradeDialog } from "@/components/AplicarUpgradeDialog";
+import { CampanhaUpgradeDialog } from "@/components/CampanhaUpgradeDialog";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos } from "@/lib/constants";
@@ -70,6 +72,7 @@ import {
   extrairLoginUsuario,
   calcularOcupacaoCliente,
   calcularVagasUsuario,
+  montarUpgradeTela,
   detectarServidor,
 } from "@/lib/utils";
 
@@ -104,6 +107,8 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<Filter>("todos");
   const [editando, setEditando] = useState<Acesso | null>(null);
   const [adicionandoUsuarioPara, setAdicionandoUsuarioPara] = useState<Acesso | null>(null);
+  const [aplicandoUpgradePara, setAplicandoUpgradePara] = useState<Acesso | null>(null);
+  const [campanhaUpgradeAberta, setCampanhaUpgradeAberta] = useState(false);
   const [enviandoVencimentoPara, setEnviandoVencimentoPara] = useState<Acesso | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [importando, setImportando] = useState(false);
@@ -1121,6 +1126,7 @@ export default function HomePage() {
                     setCadastroPredefinido({ usuario, servidor });
                     setActiveTab("cadastro");
                   }}
+                  onAbrirCampanhaUpgrade={() => setCampanhaUpgradeAberta(true)}
                 />
               </div>
             )}
@@ -1254,6 +1260,7 @@ export default function HomePage() {
                               mensagemCobranca={mensagemCobranca}
                               mensagemRenovacao={mensagemRenovacao}
                               onEditar={setEditando}
+                              onAplicarUpgrade={setAplicandoUpgradePara}
                               onRemover={(id) => remover(id, "acessos")}
                               onRenovar={handleRenovar}
                               onRenovarRapido={async (id) => {
@@ -1561,6 +1568,35 @@ export default function HomePage() {
         appOptions={appOptions}
         onAdicionar={addCliente}
         onFechar={() => setAdicionandoUsuarioPara(null)}
+      />
+
+      <AplicarUpgradeDialog
+        acesso={aplicandoUpgradePara}
+        appOptions={appOptions}
+        onFechar={() => setAplicandoUpgradePara(null)}
+        onConfirmar={async (acesso, novaTela, acrescimo) => {
+          if (!db) return;
+          const payload = montarUpgradeTela(acesso, novaTela, acrescimo);
+          await updateDoc(doc(db, "acessos", acesso.id), payload);
+          setToast({
+            type: "success",
+            message: `${payload.dispositivos}ª tela ativada para "${acesso.cliente}"! Novo valor: R$ ${payload.valor.toFixed(2)} na próxima mensalidade.`,
+          });
+        }}
+      />
+
+      <CampanhaUpgradeDialog
+        open={campanhaUpgradeAberta}
+        acessos={acessos}
+        usuariosAgrupados={usuariosAgrupados}
+        zapiInstanceId={zapiInstanceId}
+        zapiToken={zapiToken}
+        onFechar={() => setCampanhaUpgradeAberta(false)}
+        onAbrirUpgradeCliente={(item) => {
+          setCampanhaUpgradeAberta(false);
+          setAplicandoUpgradePara(item);
+        }}
+        onToast={setToast}
       />
 
       <EnviarVencimentoDialog

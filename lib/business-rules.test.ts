@@ -10,6 +10,8 @@ import {
   calcularVagasUsuario,
   ajustarTelasParaQuantidade,
   resumirTelasParaAcesso,
+  montarUpgradeTela,
+  formatarMensagemUpgrade,
   parseFlexibleDate,
   parseCsv,
 } from "./utils";
@@ -52,6 +54,26 @@ describe("Normalização e Formatação de Dados", () => {
     expect(extrairLoginUsuario("👤 Usuário: k9934w2 🔐 Senha: 6p672u9")).toBe("k9934w2");
     expect(extrairLoginUsuario("🔰 Dados de acesso 🔰 Username: t12345")).toBe("t12345");
     expect(extrairLoginUsuario("  k9934w2  ")).toBe("k9934w2");
+  });
+
+  it("aplica upgrade de +1 tela somando o acréscimo na mensalidade", () => {
+    const upgrade = montarUpgradeTela(
+      { app: "P2P", dispositivos: 1, valor: 30, enderecoMac: "AA:11" },
+      { app: "OTT PLAYER", enderecoMac: "BB:22", chaveKey: "KEY2" },
+      10
+    );
+    expect(upgrade.dispositivos).toBe(2);
+    expect(upgrade.valor).toBe(40);
+    expect(upgrade.app).toBe("P2P + OTT PLAYER");
+    expect(upgrade.dispositivosP2P).toBe(1);
+    expect(upgrade.dispositivosIPTV).toBe(1);
+    expect(upgrade.telas).toHaveLength(2);
+
+    const msg = formatarMensagemUpgrade(
+      "Olá {cliente}, de R$ {valor_atual} para R$ {valor_novo} (+R$ {acrescimo})",
+      { cliente: "Maria", usuario: "user1", valorAtual: 30, acrescimo: 10 }
+    );
+    expect(msg).toBe("Olá Maria, de R$ 30,00 para R$ 40,00 (+R$ 10,00)");
   });
 });
 

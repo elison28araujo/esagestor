@@ -20,6 +20,7 @@ import {
   Radio,
   CheckCircle2,
   Users,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ interface DashboardProps {
   pagamentos: Pagamento[];
   onCadastrarComUsuario?: (usuario: string, servidor: string) => void;
   onFiltrarStatus?: (filtro: "vencidos" | "vencendo") => void;
+  onAbrirCampanhaUpgrade?: () => void;
 }
 
 export function Dashboard({
@@ -39,6 +41,7 @@ export function Dashboard({
   pagamentos,
   onCadastrarComUsuario,
   onFiltrarStatus,
+  onAbrirCampanhaUpgrade,
 }: DashboardProps) {
   // Helper para obter o período (AAAA-MM) no fuso horário de Brasília
   function getPeriodoBrasilia(dateInput: string | number | Date) {
@@ -547,6 +550,17 @@ export function Dashboard({
               Contas ativas que ainda possuem vagas para cadastrar novos clientes antes de atingir o limite.
             </p>
           </div>
+          {onAbrirCampanhaUpgrade && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onAbrirCampanhaUpgrade}
+              className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Campanha +1 Tela (+R$ 10)
+            </Button>
+          )}
         </div>
 
         {/* Cards Informativos dos 3 Servidores */}

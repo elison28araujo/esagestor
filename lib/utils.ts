@@ -414,3 +414,59 @@ export function calcularVagasUsuario(
     disponivel,
   };
 }
+
+/**
+ * Monta o payload de atualização ao adicionar +1 tela (ex: +R$ 10,00 na próxima mensalidade).
+ */
+export function montarUpgradeTela(
+  acesso: {
+    app: string;
+    dispositivos?: number;
+    valor: number;
+    enderecoMac?: string;
+    chaveKey?: string;
+    telas?: TelaDispositivo[];
+  },
+  novaTela: TelaDispositivo,
+  acrescimoValor = 10
+) {
+  const qtdAtual = Math.max(1, Math.min(3, Number(acesso.dispositivos) || 1)) as 1 | 2 | 3;
+  const novaQtd = Math.min(3, qtdAtual + 1) as 1 | 2 | 3;
+  const telasBase = ajustarTelasParaQuantidade(acesso.telas || [], qtdAtual, {
+    app: acesso.app,
+    enderecoMac: acesso.enderecoMac,
+    chaveKey: acesso.chaveKey,
+  });
+
+  const telasAtualizadas = [
+    ...telasBase,
+    {
+      app: (novaTela.app || "OTT PLAYER").trim().toUpperCase(),
+      enderecoMac: (novaTela.enderecoMac || "").trim(),
+      chaveKey: (novaTela.chaveKey || "").trim(),
+    },
+  ].slice(0, novaQtd);
+
+  const resumo = resumirTelasParaAcesso(telasAtualizadas);
+  const valorAtual = Number(acesso.valor) || 0;
+  const novoValor = Number((valorAtual + Math.max(0, Number(acrescimoValor) || 0)).toFixed(2));
+
+  return {
+    dispositivos: novaQtd,
+    valor: novoValor,
+    ...resumo,
+  };
+}
+
+export function formatarMensagemUpgrade(
+  template: string,
+  dados: { cliente: string; usuario: string; valorAtual: number; acrescimo: number }
+): string {
+  const valorNovo = Number((dados.valorAtual + dados.acrescimo).toFixed(2));
+  return template
+    .replace(/\{cliente\}/g, dados.cliente)
+    .replace(/\{usuario\}/g, dados.usuario)
+    .replace(/\{valor_atual\}/g, dados.valorAtual.toFixed(2).replace(".", ","))
+    .replace(/\{valor_novo\}/g, valorNovo.toFixed(2).replace(".", ","))
+    .replace(/\{acrescimo\}/g, dados.acrescimo.toFixed(2).replace(".", ","));
+}

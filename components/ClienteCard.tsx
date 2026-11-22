@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
-import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus } from "lucide-react";
+import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles } from "lucide-react";
 
 interface ClienteCardProps {
   item: Acesso;
@@ -18,6 +18,7 @@ interface ClienteCardProps {
   onCobrar?: (item: Acesso) => void;
   onAdicionarUsuario?: (item: Acesso) => void;
   onEnviarVencimento?: (item: Acesso) => void;
+  onAplicarUpgrade?: (item: Acesso) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
 }
@@ -33,6 +34,7 @@ export function ClienteCard({
   onCobrar,
   onAdicionarUsuario,
   onEnviarVencimento,
+  onAplicarUpgrade,
   selecionado,
   onToggleSelecao,
 }: ClienteCardProps) {
@@ -217,6 +219,19 @@ export function ClienteCard({
             >
               <UserPlus className="mr-1 h-3 w-3" />
               + Usuário
+            </Button>
+          )}
+
+          {onAplicarUpgrade && (Number(item.dispositivos) || 1) < 3 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] font-semibold border-violet-500/30 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20"
+              onClick={() => onAplicarUpgrade(item)}
+              title="Ativar +1 tela (+R$ 10 na próxima mensalidade)"
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              +1 Tela
             </Button>
           )}
 
