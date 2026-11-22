@@ -23,11 +23,17 @@ import {
   Phone,
   Loader2,
   AlertCircle,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SantaHat } from "@/components/ChristmasTheme";
 import { MensagemSuporte, ConversaSuporte } from "@/lib/types";
+import {
+  escutarPushEmPrimeiroPlano,
+  registrarPushSuporte,
+  tocarSomNotificacao,
+} from "@/lib/push";
 
 interface SuporteChatWidgetProps {
   user: FirebaseUser | null;
@@ -42,7 +48,47 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
   const [enviando, setEnviando] = useState(false);
   const [temNaoLida, setTemNaoLida] = useState(0);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
+  const [permissaoPush, setPermissaoPush] = useState<string>("default");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const naoLidasAnteriorRef = useRef<number>(0);
+
+  // Registrar Web Push automaticamente se o navegador já tiver permissão
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermissaoPush(Notification.permission);
+    }
+
+    let unsubForeground: (() => void) | undefined;
+    registrarPushSuporte({
+      userId: user.uid,
+      email: user.email,
+      isAdmin: false,
+      solicitarPermissao: false,
+    }).then((res) => {
+      if (res.permission !== "unsupported") setPermissaoPush(res.permission);
+    });
+
+    escutarPushEmPrimeiroPlano(() => {
+      tocarSomNotificacao();
+    }).then((unsub) => {
+      unsubForeground = unsub;
+    });
+
+    return () => {
+      if (unsubForeground) unsubForeground();
+    };
+  }, [user]);
+
+  // Atualizar título da aba com mensagens não lidas
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (temNaoLida > 0 && !aberto) {
+      document.title = `(${temNaoLida}) Nova mensagem • ESA Gestor`;
+    } else if (document.title.startsWith("(")) {
+      document.title = "ESA Gestor";
+    }
+  }, [temNaoLida, aberto]);
 
   // Escutar metadados da conversa do usuário atual
   useEffect(() => {
@@ -66,7 +112,12 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
             naoLidasUser: data.naoLidasUser || 0,
             updatedAt: data.updatedAt || "",
           });
-          setTemNaoLida(data.naoLidasUser || 0);
+          const novasNaoLidas = data.naoLidasUser || 0;
+          if (novasNaoLidas > naoLidasAnteriorRef.current && data.remetenteUltima === "admin") {
+            tocarSomNotificacao();
+          }
+          naoLidasAnteriorRef.current = novasNaoLidas;
+          setTemNaoLida(novasNaoLidas);
         }
       },
       (err) => {
@@ -268,6 +319,24 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
             </div>
 
             <div className="flex items-center gap-1">
+              {permissaoPush === "default" && user && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await registrarPushSuporte({
+                      userId: user.uid,
+                      email: user.email,
+                      isAdmin: false,
+                      solicitarPermissao: true,
+                    });
+                    if (res.permission !== "unsupported") setPermissaoPush(res.permission);
+                  }}
+                  title="Ativar notificações no celular/PC"
+                  className="rounded-lg p-1.5 text-amber-200 transition hover:bg-white/10 hover:text-white animate-pulse"
+                >
+                  <Bell size={16} />
+                </button>
+              )}
               <a
                 href="https://wa.me/5591985066711?text=Olá!%20Sou%20usuário%20do%20ESA%20Gestor%20e%20preciso%20de%20suporte."
                 target="_blank"

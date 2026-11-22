@@ -51,6 +51,69 @@ export async function POST(req: Request) {
       lida: false,
     });
 
+    // 3. Enviar notificação Web Push (FCM) para o destinatário
+    try {
+      const targetDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+      if (remetente === "admin") {
+        const snap = await adminDb.collection("suporte_push_tokens").doc(userId).get();
+        if (snap.exists) targetDocs.push(snap);
+      } else {
+        const adminsSnap = await adminDb
+          .collection("suporte_push_tokens")
+          .where("isAdmin", "==", true)
+          .get();
+        adminsSnap.forEach((d) => targetDocs.push(d));
+      }
+
+      const title =
+        remetente === "admin"
+          ? "Suporte ESAGESTOR"
+          : `Nova mensagem de ${userEmail || "Revendedor"}`;
+
+      for (const targetDoc of targetDocs) {
+        const tokens = (targetDoc.data()?.tokens as string[] | undefined) || [];
+        if (tokens.length === 0) continue;
+
+        const resp = await admin.messaging().sendEachForMulticast({
+          tokens,
+          notification: {
+            title,
+            body: textoFinal.slice(0, 180),
+          },
+          data: {
+            link: "/admin",
+            userId,
+          },
+          webpush: {
+            fcmOptions: { link: "/admin" },
+            notification: {
+              icon: "/icon-192x192.png",
+              badge: "/icon-192x192.png",
+            },
+          },
+        });
+
+        // Limpa tokens expirados/inválidos
+        const invalidTokens: string[] = [];
+        resp.responses.forEach((r, idx) => {
+          if (
+            !r.success &&
+            (r.error?.code === "messaging/registration-token-not-registered" ||
+              r.error?.code === "messaging/invalid-registration-token")
+          ) {
+            invalidTokens.push(tokens[idx]);
+          }
+        });
+        if (invalidTokens.length > 0) {
+          await targetDoc.ref.update({
+            tokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+          });
+        }
+      }
+    } catch (pushErr) {
+      console.warn("Aviso ao enviar Web Push do suporte:", pushErr);
+    }
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Erro na API de suporte:", err);
