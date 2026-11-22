@@ -942,8 +942,8 @@ export default function HomePage() {
       })
       .sort((a, b) => {
         if (a.disponivel !== b.disponivel) return a.disponivel ? -1 : 1;
-        if (a.vagas.total !== b.vagas.total) return b.vagas.total - a.vagas.total;
-        return a.clientes.length - b.clientes.length;
+        if (a.vagas.total !== b.vagas.total) return a.vagas.total - b.vagas.total;
+        return (b.ocupadosTotal ?? b.clientes.length) - (a.ocupadosTotal ?? a.clientes.length);
       });
   }, [acessos]);
 
