@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import {
   collection,
   doc,
@@ -198,9 +198,13 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
     // Tentativa 2: Fallback via API Route
     if (!enviadoComSucesso) {
       try {
+        const idToken = await auth?.currentUser?.getIdToken();
         const res = await fetch("/api/suporte/mensagem", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
           body: JSON.stringify({
             userId: conversaAtiva.id,
             userEmail: conversaAtiva.userEmail,

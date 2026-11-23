@@ -1,6 +1,7 @@
 "use client";
 
 import { getApps } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 
 /**
@@ -81,15 +82,18 @@ export async function registrarPushSuporte(params: {
       return { ok: false, permission, reason: "Não foi possível obter token FCM." };
     }
 
+    const idToken = await getAuth(app).currentUser?.getIdToken();
+    if (!idToken) {
+      return { ok: false, permission, reason: "Usuário não autenticado para registrar push." };
+    }
+
     await fetch("/api/suporte/push-token", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: params.userId,
-        email: params.email || "",
-        isAdmin: Boolean(params.isAdmin),
-        token,
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ token }),
     });
 
     return { ok: true, permission };

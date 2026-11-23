@@ -50,64 +50,75 @@ export async function GET(req: Request) {
               const hoje = new Date();
               const hojeStr = hoje.toISOString();
 
-              // Atualiza status local
-              await docRef.update({
-                status: "approved",
-                approvedAt: hojeStr,
-                source: "mp_api_fallback",
-              });
+              await adminDb.runTransaction(async (transaction) => {
+                const pDoc = await transaction.get(docRef);
+                if (!pDoc.exists) return;
+                const pData = pDoc.data();
+                if (!pData || pData.status === "approved") return;
 
-              // Atualiza vencimento do(s) acesso(s) conforme meses do plano
-              const { acessoId, acessoIds, itensCombo, usuario, cliente, app, valor, meses } = data;
-              const mesesRenovacao = Number(meses || 1);
-              const itensParaRenovar: Array<{
-                acessoId: string;
-                usuario: string;
-                cliente: string;
-                app: string;
-                valor: number;
-              }> = Array.isArray(itensCombo) && itensCombo.length > 0
-                ? itensCombo
-                : Array.isArray(acessoIds) && acessoIds.length > 0
-                  ? acessoIds.map((id: string) => ({
-                      acessoId: id,
-                      usuario,
-                      cliente,
-                      app,
-                      valor: Number(valor || 0) / acessoIds.length,
-                    }))
-                  : acessoId
-                    ? [{ acessoId, usuario, cliente, app, valor: Number(valor || 0) }]
-                    : [];
+                const { acessoId, acessoIds, itensCombo, usuario, cliente, app, valor, meses } = pData;
+                const mesesRenovacao = Number(meses || 1);
+                const itensParaRenovar: Array<{
+                  acessoId: string;
+                  usuario: string;
+                  cliente: string;
+                  app: string;
+                  valor: number;
+                }> = Array.isArray(itensCombo) && itensCombo.length > 0
+                  ? itensCombo
+                  : Array.isArray(acessoIds) && acessoIds.length > 0
+                    ? acessoIds.map((id: string) => ({
+                        acessoId: id,
+                        usuario,
+                        cliente,
+                        app,
+                        valor: Number(valor || 0) / acessoIds.length,
+                      }))
+                    : acessoId
+                      ? [{ acessoId, usuario, cliente, app, valor: Number(valor || 0) }]
+                      : [];
 
-              for (const item of itensParaRenovar) {
-                const acessoRef = adminDb.collection("acessos").doc(item.acessoId);
-                const acessoDoc = await acessoRef.get();
-                if (acessoDoc.exists) {
-                  const acessoData = acessoDoc.data();
-                  if (acessoData) {
-                    const vencAtual = new Date(acessoData.vencimento);
-                    const novaData = vencAtual > hoje ? new Date(vencAtual) : new Date(hoje);
-                    novaData.setMonth(novaData.getMonth() + mesesRenovacao);
+                const acessoRefs = itensParaRenovar.map((item) => adminDb!.collection("acessos").doc(item.acessoId));
+                const acessoDocs = await Promise.all(acessoRefs.map((ref) => transaction.get(ref)));
 
-                    await acessoRef.update({
-                      vencimento: novaData.toISOString(),
-                      data: hojeStr,
-                    });
+                acessoDocs.forEach((acessoDoc, idx) => {
+                  const item = itensParaRenovar[idx];
+                  if (acessoDoc.exists) {
+                    const acessoData = acessoDoc.data();
+                    if (acessoData) {
+                      const vencAtual = new Date(acessoData.vencimento);
+                      const novaData = vencAtual > hoje ? new Date(vencAtual) : new Date(hoje);
+                      novaData.setMonth(novaData.getMonth() + mesesRenovacao);
 
-                    // Registra pagamento
-                    await adminDb.collection("pagamentos").add({
-                      acessoId: item.acessoId,
-                      usuario: item.usuario || acessoData.usuario,
-                      cliente: item.cliente || acessoData.cliente,
-                      app: item.app || acessoData.app,
-                      valor: Number(item.valor || 0),
-                      data: hojeStr,
-                      userId: data.userId,
-                    });
+                      transaction.update(acessoRefs[idx], {
+                        vencimento: novaData.toISOString(),
+                        data: hojeStr,
+                        acordoAtivo: false,
+                        acordoValor: 0,
+                        acordoData: "",
+                        acordoObs: "",
+                      });
+
+                      const novoPagRef = adminDb!.collection("pagamentos").doc();
+                      transaction.set(novoPagRef, {
+                        acessoId: item.acessoId,
+                        usuario: item.usuario || acessoData.usuario,
+                        cliente: item.cliente || acessoData.cliente,
+                        app: item.app || acessoData.app,
+                        valor: Number(item.valor || 0),
+                        data: hojeStr,
+                        userId: pData.userId,
+                      });
+                    }
                   }
-                }
-              }
+                });
+
+                transaction.update(docRef, {
+                  status: "approved",
+                  approvedAt: hojeStr,
+                  source: "mp_api_fallback",
+                });
+              });
 
               return NextResponse.json({ status: "approved", source: "mp_api_fallback" });
             }

@@ -1,10 +1,34 @@
 import { NextResponse } from "next/server";
 import { adminDb, admin } from "@/lib/firebase-admin";
 
+const ADMIN_EMAIL = "elison28araujo@gmail.com";
+
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1]?.trim();
+    if (!idToken) {
+      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
+    }
+
+    let decoded: { uid: string; email?: string };
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Sessão expirada ou token inválido." }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { userId, userEmail, texto, remetente = "user", remetenteEmail } = body;
+    const { userId: bodyUserId, userEmail, texto, remetente: bodyRemetente = "user" } = body;
+
+    const isAdmin = decoded.email === ADMIN_EMAIL;
+    const remetente: "user" | "admin" = isAdmin && bodyRemetente === "admin" ? "admin" : "user";
+    const userId = remetente === "admin" ? String(bodyUserId || "").trim() : decoded.uid;
+    const remetenteEmail = decoded.email || "";
 
     if (!userId || !texto?.trim()) {
       return NextResponse.json(

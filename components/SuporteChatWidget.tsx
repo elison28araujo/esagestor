@@ -243,9 +243,13 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
     // Tentativa 2: Fallback transparente via API Server Route
     if (!enviadoComSucesso) {
       try {
+        const idToken = await user.getIdToken();
         const res = await fetch("/api/suporte/mensagem", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
           body: JSON.stringify({
             userId: user.uid,
             userEmail: user.email || "",

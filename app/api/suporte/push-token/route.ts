@@ -1,18 +1,41 @@
 import { NextResponse } from "next/server";
 import { adminDb, admin } from "@/lib/firebase-admin";
 
+const ADMIN_EMAIL = "elison28araujo@gmail.com";
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { userId, token, email = "", isAdmin = false } = body;
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    }
 
-    if (!userId || !token) {
-      return NextResponse.json({ error: "userId e token são obrigatórios." }, { status: 400 });
+    const idToken = authHeader.split("Bearer ")[1]?.trim();
+    if (!idToken) {
+      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
+    }
+
+    let decoded: { uid: string; email?: string };
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Sessão expirada ou token inválido." }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { token } = body;
+
+    if (!token || typeof token !== "string") {
+      return NextResponse.json({ error: "token é obrigatório." }, { status: 400 });
     }
 
     if (!adminDb) {
       return NextResponse.json({ error: "Firebase Admin não configurado." }, { status: 503 });
     }
+
+    const userId = decoded.uid;
+    const email = decoded.email || "";
+    const isAdmin = email === ADMIN_EMAIL;
 
     await adminDb
       .collection("suporte_push_tokens")
@@ -21,7 +44,7 @@ export async function POST(req: Request) {
         {
           userId,
           email,
-          isAdmin: Boolean(isAdmin),
+          isAdmin,
           tokens: admin.firestore.FieldValue.arrayUnion(token),
           updatedAt: new Date().toISOString(),
         },
