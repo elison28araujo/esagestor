@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConversaSuporte, MensagemSuporte } from "@/lib/types";
+import { PapaiNoelChatOverlay, usePapaiNoelMensagem } from "@/components/PapaiNoelChatOverlay";
 
 interface AdminSuporteViewProps {
   adminEmail: string;
@@ -47,6 +48,7 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
   const [textoResposta, setTextoResposta] = useState("");
   const [enviando, setEnviando] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mostrarPapaiNoel = usePapaiNoelMensagem(mensagens.length, true);
 
   // Escutar todas as conversas de suporte em tempo real
   useEffect(() => {
@@ -381,7 +383,9 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
               </div>
 
               {/* Corpo de Mensagens */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40 dark:bg-[#070a12]/50 text-xs">
+              <div className="relative flex-1 flex flex-col overflow-hidden">
+                <PapaiNoelChatOverlay visivel={mostrarPapaiNoel} />
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40 dark:bg-[#070a12]/50 text-xs">
                 {mensagens.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-slate-400">
                     Aguardando mensagem do revendedor...
@@ -416,6 +420,7 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
                   })
                 )}
                 <div ref={messagesEndRef} />
+                </div>
               </div>
 
               {/* Campo de Resposta */}

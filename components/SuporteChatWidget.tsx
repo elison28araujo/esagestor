@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SantaHat } from "@/components/ChristmasTheme";
+import { PapaiNoelChatOverlay, usePapaiNoelMensagem } from "@/components/PapaiNoelChatOverlay";
 import { MensagemSuporte, ConversaSuporte } from "@/lib/types";
 import {
   escutarPushEmPrimeiroPlano,
@@ -51,6 +52,7 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
   const [permissaoPush, setPermissaoPush] = useState<string>("default");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const naoLidasAnteriorRef = useRef<number>(0);
+  const mostrarPapaiNoel = usePapaiNoelMensagem(mensagens.length, christmasMode);
 
   // Registrar Web Push automaticamente se o navegador já tiver permissão
   useEffect(() => {
@@ -357,7 +359,9 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
           </div>
 
           {/* Área de Mensagens */}
-          <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-slate-50/70 dark:bg-[#070a12]/70 text-xs">
+          <div className="relative flex-1 flex flex-col overflow-hidden">
+            <PapaiNoelChatOverlay visivel={mostrarPapaiNoel} />
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-slate-50/70 dark:bg-[#070a12]/70 text-xs">
             {/* Mensagem de Boas-vindas inicial */}
             <div className="flex gap-2">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-[10px]">
@@ -409,6 +413,7 @@ export function SuporteChatWidget({ user, christmasMode = false }: SuporteChatWi
             })}
 
             <div ref={messagesEndRef} />
+            </div>
           </div>
 
           {/* Alerta de Erro se houver */}
