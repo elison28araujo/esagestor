@@ -73,6 +73,7 @@ export function Dashboard({
 
   // Estados da seção de Linhas com Vagas
   const [filtroServidor, setFiltroServidor] = useState<"TODOS" | ServidorNome>("TODOS");
+  const [filtroTipoVaga, setFiltroTipoVaga] = useState<"TODOS" | "P2P" | "IPTV">("TODOS");
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [copiadoUser, setCopiadoUser] = useState<string | null>(null);
 
@@ -114,6 +115,11 @@ export function Dashboard({
     if (filtroServidor !== "TODOS") {
       list = list.filter((u) => u.servidor === filtroServidor);
     }
+    if (filtroTipoVaga === "P2P") {
+      list = list.filter((u) => u.vagas.p2p > 0);
+    } else if (filtroTipoVaga === "IPTV") {
+      list = list.filter((u) => u.vagas.iptv > 0);
+    }
     if (buscaUsuario.trim()) {
       const q = buscaUsuario.toLowerCase();
       list = list.filter(
@@ -128,7 +134,7 @@ export function Dashboard({
       );
     }
     return list;
-  }, [usuariosDisponiveis, filtroServidor, buscaUsuario]);
+  }, [usuariosDisponiveis, filtroServidor, filtroTipoVaga, buscaUsuario]);
 
   // Gerar lista de períodos disponíveis (meses que possuem transações + mês atual)
   const periodosDisponiveis = useMemo(() => {
@@ -616,7 +622,7 @@ export function Dashboard({
 
         {/* Filtros e Busca */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {(["TODOS", "Warez", "Genial", "Five"] as const).map((srv) => (
               <button
                 key={srv}
@@ -629,6 +635,33 @@ export function Dashboard({
                 }`}
               >
                 {srv === "TODOS" ? "Todos os Servidores" : srv}
+              </button>
+            ))}
+
+            <span className="mx-1 hidden h-4 w-px bg-slate-200 dark:bg-slate-700 sm:inline-block" />
+
+            {(
+              [
+                { id: "TODOS", label: "Todas" },
+                { id: "P2P", label: "Só P2P" },
+                { id: "IPTV", label: "Só IPTV" },
+              ] as const
+            ).map((tipo) => (
+              <button
+                key={tipo.id}
+                type="button"
+                onClick={() => setFiltroTipoVaga(tipo.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                  filtroTipoVaga === tipo.id
+                    ? tipo.id === "P2P"
+                      ? "bg-amber-500 text-slate-950 shadow-sm"
+                      : tipo.id === "IPTV"
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {tipo.label}
               </button>
             ))}
           </div>
@@ -649,7 +682,7 @@ export function Dashboard({
           <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-12 text-center dark:border-slate-800">
             <CheckCircle2 className="mb-2 h-8 w-8 text-emerald-500" />
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              {buscaUsuario || filtroServidor !== "TODOS"
+              {buscaUsuario || filtroServidor !== "TODOS" || filtroTipoVaga !== "TODOS"
                 ? "Nenhum usuário com vagas encontrado para este filtro."
                 : "Todas as suas contas estão com a capacidade máxima ocupada!"}
             </p>
