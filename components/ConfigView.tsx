@@ -13,7 +13,8 @@ import {
   BlackFridayPrecosPorDispositivos,
   normalizarBlackFridayPrecos,
 } from "@/lib/constants";
-import { MessageSquare, Smartphone, CreditCard, Bell, Sparkles, Save, Flame, RotateCcw } from "lucide-react";
+import { MessageSquare, Smartphone, CreditCard, Bell, Sparkles, Save, Flame, RotateCcw, TrendingUp } from "lucide-react";
+import { CUSTO_SERVIDOR_PADRAO } from "@/lib/utils";
 
 interface ConfigViewProps {
   mensagem: string;
@@ -65,6 +66,8 @@ export function ConfigView({
   onSalvar,
 }: ConfigViewProps) {
   const [activeTab, setActiveTab] = useState<TabConfig>("mensagens");
+  const [servidorSimulador, setServidorSimulador] = useState<"Warez" | "Five" | "Genial">("Warez");
+  const [contarPorDispositivo, setContarPorDispositivo] = useState(true);
   const [msgCobranca, setMsgCobranca] = useState(mensagem);
   const [msgRenovacaoState, setMsgRenovacaoState] = useState(mensagemRenovacao);
   const [msgReativacaoState, setMsgReativacaoState] = useState(mensagemReativacao);
@@ -543,49 +546,103 @@ export function ConfigView({
             </Button>
           </div>
 
+          {/* Seletor de Servidor para Simulação de Gasto e Lucro */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 dark:border-slate-800 dark:bg-slate-900/70">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                Simular gasto e lucro no servidor:
+              </span>
+              {(["Warez", "Five", "Genial"] as const).map((srv) => (
+                <button
+                  key={srv}
+                  type="button"
+                  onClick={() => setServidorSimulador(srv)}
+                  className={`rounded-xl px-3 py-1 text-xs font-semibold transition ${
+                    servidorSimulador === srv
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {srv} (R$ {CUSTO_SERVIDOR_PADRAO[srv].toFixed(2).replace(".", ",")})
+                </button>
+              ))}
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={contarPorDispositivo}
+                onChange={(e) => setContarPorDispositivo(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"
+              />
+              <span>Multiplicar gasto por dispositivos (1 crédito/tela)</span>
+            </label>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-3">
-            {(["1", "2", "3"] as const).map((disp) => (
+            {(["1", "2", "3"] as const).map((disp) => {
+              const qtdDisp = Number(disp);
+              const custoCredito = CUSTO_SERVIDOR_PADRAO[servidorSimulador];
+              return (
               <Card key={disp} className="border-slate-200/80 dark:border-slate-800 dark:bg-slate-900/70">
                 <CardContent className="space-y-3 p-5">
                   <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100">
                     {disp} {disp === "1" ? "Dispositivo" : "Dispositivos"}
                   </h4>
-                  <div className="grid gap-2.5">
+                  <div className="grid gap-3">
                     {([
                       { key: "1", label: "1 mês (30 dias)" },
                       { key: "2", label: "2 meses (60 dias)" },
                       { key: "3", label: "3 meses (Mais Escolhido)" },
                       { key: "6", label: "6 meses (180 dias)" },
                       { key: "12", label: "12 meses (360 dias)" },
-                    ] as const).map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between gap-2">
-                        <Label className="text-xs text-slate-600 dark:text-slate-400">{label}</Label>
-                        <div className="relative w-28">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">R$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="1"
-                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 pl-8 pr-2 py-1.5 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-amber-500"
-                            value={bfPrecosState[disp][key]}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setBfPrecosState((prev) => ({
-                                ...prev,
-                                [disp]: {
-                                  ...prev[disp],
-                                  [key]: Number.isFinite(val) ? val : 0,
-                                },
-                              }));
-                            }}
-                          />
+                    ] as const).map(({ key, label }) => {
+                      const mesesNum = Number(key);
+                      const valorVenda = Number(bfPrecosState[disp][key]) || 0;
+                      const gasto = Number((custoCredito * mesesNum * (contarPorDispositivo ? qtdDisp : 1)).toFixed(2));
+                      const lucro = Number((valorVenda - gasto).toFixed(2));
+                      return (
+                      <div key={key} className="space-y-1 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0 dark:border-slate-800/80">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs text-slate-600 dark:text-slate-400">{label}</Label>
+                          <div className="relative w-28">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">R$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="1"
+                              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 pl-8 pr-2 py-1.5 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-amber-500"
+                              value={bfPrecosState[disp][key]}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setBfPrecosState((prev) => ({
+                                  ...prev,
+                                  [disp]: {
+                                    ...prev[disp],
+                                    [key]: Number.isFinite(val) ? val : 0,
+                                  },
+                                }));
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono tabular-nums">
+                          <span className="text-slate-500 dark:text-slate-400">
+                            Gasto ({servidorSimulador}): <strong className="text-rose-500">R$ {gasto.toFixed(2)}</strong>
+                          </span>
+                          <span className={lucro >= 0 ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-bold text-rose-600 dark:text-rose-400"}>
+                            Lucro: R$ {lucro.toFixed(2)}
+                          </span>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
