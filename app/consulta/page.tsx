@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { gerarPixEstatico } from "@/lib/pix";
 import { getApiUrl } from "@/lib/utils";
-import { isPeriodoBlackFriday, obterPlanosDisponiveis, calcularResumoCombo, PlanoRenovacao } from "@/lib/constants";
+import { isPeriodoBlackFriday, obterPlanosDisponiveis, calcularResumoCombo, aplicarAcordoNosPlanos, getValorAcordoAcesso, PlanoRenovacao } from "@/lib/constants";
 
 export default function ConsultaPage() {
   const [telefone, setTelefone] = useState("");
@@ -227,6 +227,9 @@ export default function ConsultaPage() {
   function iniciarFluxoRenovarTodos() {
     if (acessos.length < 2) return;
     const resumo = calcularResumoCombo(acessos);
+    const acordoTotal = Number(
+      acessos.reduce((acc, a) => acc + getValorAcordoAcesso(a), 0).toFixed(2)
+    );
     const primeiro = acessos[0];
     const comboAcesso = {
       ...primeiro,
@@ -237,6 +240,8 @@ export default function ConsultaPage() {
       valor: resumo.valorComboTotal,
       valorUnitarioTotal: resumo.valorUnitarioTotal,
       economia: resumo.economia,
+      acordoAtivo: acordoTotal > 0,
+      acordoValor: acordoTotal,
     };
     iniciarFluxoPagamento(comboAcesso, useMp, pixManual, "pix");
   }
@@ -755,6 +760,21 @@ export default function ConsultaPage() {
                           </div>
                         </div>
 
+                        {getValorAcordoAcesso(acesso) > 0 && (
+                          <div className="rounded-2xl border border-amber-400/70 bg-amber-50/90 dark:border-amber-500/40 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span>
+                                Pagamento pendente (Acordo): R$ {getValorAcordoAcesso(acesso).toFixed(2).replace(".", ",")}
+                              </span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
+                              Valor em aberto somado automaticamente na renovação (não entra no desconto Black Friday).
+                              {acesso.acordoObs ? ` Obs.: ${acesso.acordoObs}` : ""}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Detalhes Técnicos (MAC / Key) */}
                         {(acesso.enderecoMac || acesso.chaveKey) && (
                           <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap gap-3 text-xs font-mono">
@@ -906,13 +926,31 @@ export default function ConsultaPage() {
                       )}
                     </div>
 
+                    {getValorAcordoAcesso(acessoSelecionado) > 0 && (
+                      <div className="rounded-2xl border border-amber-400/70 bg-amber-50/90 dark:border-amber-500/40 dark:bg-amber-950/30 p-3.5 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                        <div className="flex items-center gap-1.5 font-extrabold">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>
+                            Atenção: você possui R$ {getValorAcordoAcesso(acessoSelecionado).toFixed(2).replace(".", ",")} pendente (Acordo)
+                          </span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
+                          Os valores abaixo já incluem a quitação do mês pendente (sem desconto Black Friday) + a renovação escolhida.
+                          {acessoSelecionado.acordoObs ? ` Obs.: ${acessoSelecionado.acordoObs}` : ""}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {obterPlanosDisponiveis(
-                        Number(acessoSelecionado.valor || 0),
-                        new Date(),
-                        acessoSelecionado.isCombo ? (acessoSelecionado.acessoIds?.length || 2) : 1,
-                        Number(acessoSelecionado.dispositivos || 1),
-                        blackFridayPrecos
+                      {aplicarAcordoNosPlanos(
+                        obterPlanosDisponiveis(
+                          Number(acessoSelecionado.valor || 0),
+                          new Date(),
+                          acessoSelecionado.isCombo ? (acessoSelecionado.acessoIds?.length || 2) : 1,
+                          Number(acessoSelecionado.dispositivos || 1),
+                          blackFridayPrecos
+                        ),
+                        getValorAcordoAcesso(acessoSelecionado)
                       ).map((plano) => (
                         <button
                           key={plano.meses}
@@ -936,8 +974,13 @@ export default function ConsultaPage() {
                               )}
                             </div>
                             <span className="text-xs text-slate-500 dark:text-slate-400">
-                              +{plano.meses * 30} dias de acesso
+                              +{plano.meses * 30} dias de acesso{plano.valorAcordo ? " + quitação" : ""}
                             </span>
+                            {plano.valorAcordo && plano.valorBasePlano ? (
+                              <span className="block text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-0.5">
+                                R$ {plano.valorBasePlano.toFixed(2).replace(".", ",")} plano + R$ {plano.valorAcordo.toFixed(2).replace(".", ",")} pendente
+                              </span>
+                            ) : null}
                           </div>
                           <div className="text-right">
                             <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">

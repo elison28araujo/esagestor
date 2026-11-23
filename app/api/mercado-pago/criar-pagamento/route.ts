@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { calcularValorPlano, calcularResumoCombo } from "@/lib/constants";
+import { calcularValorPlano, calcularResumoCombo, getValorAcordoAcesso } from "@/lib/constants";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -42,6 +42,8 @@ export async function POST(req: Request) {
           valor: Number(data.valor) || 0,
           valorCombo: Number(data.valorCombo) || 0,
           dispositivos: Number(data.dispositivos) >= 3 ? 3 : Number(data.dispositivos) === 2 ? 2 : 1,
+          acordoAtivo: Boolean(data.acordoAtivo),
+          acordoValor: Number(data.acordoValor) || 0,
           userId: data.userId as string | undefined,
         };
       });
@@ -93,7 +95,7 @@ export async function POST(req: Request) {
     }
 
     const resumoCombo = calcularResumoCombo(acessosEncontrados);
-    const { meses, valor: valorFinal } = calcularValorPlano(
+    const { meses, valor: valorPlano } = calcularValorPlano(
       Number(mesesInput || 1),
       resumoCombo.valorComboTotal,
       new Date(),
@@ -101,13 +103,17 @@ export async function POST(req: Request) {
       primeiroAcesso.dispositivos,
       configData?.blackFridayPrecos || null
     );
-    const fator = resumoCombo.valorComboTotal > 0 ? valorFinal / resumoCombo.valorComboTotal : meses;
+    const acordoTotal = Number(
+      acessosEncontrados.reduce((acc, a) => acc + getValorAcordoAcesso(a), 0).toFixed(2)
+    );
+    const valorFinal = Number((valorPlano + acordoTotal).toFixed(2));
+    const fator = resumoCombo.valorComboTotal > 0 ? valorPlano / resumoCombo.valorComboTotal : meses;
     const itensCombo = acessosEncontrados.map((a, idx) => ({
       acessoId: a.id,
       usuario: a.usuario,
       cliente: a.cliente,
       app: a.app,
-      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator).toFixed(2)),
+      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator + getValorAcordoAcesso(a)).toFixed(2)),
     }));
 
     // Identificar host para montar notification_url dinamicamente
@@ -128,7 +134,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         transaction_amount: valorFinal,
-        description: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${descricaoUsuarios} (${cliente})`,
+        description: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"}${acordoTotal > 0 ? " + quitação de acordo" : ""} - ${descricaoUsuarios} (${cliente})`,
         payment_method_id: "pix",
         payer: {
           email: "pagamento-cliente@esagestor.com",

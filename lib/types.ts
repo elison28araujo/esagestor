@@ -1,5 +1,5 @@
 export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
-export type Filter = "todos" | "ativos" | "vencendo" | "vencidos" | "inativos15" | "inativos30";
+export type Filter = "todos" | "ativos" | "vencendo" | "vencidos" | "acordo" | "inativos15" | "inativos30";
 
 export interface MensagemSuporte {
   id: string;
@@ -56,6 +56,10 @@ export interface Acesso {
   enderecoMac?: string;
   chaveKey?: string;
   servidor?: ServidorNome | string;
+  acordoAtivo?: boolean;
+  acordoValor?: number;
+  acordoData?: string;
+  acordoObs?: string;
 }
 
 export interface Pagamento {

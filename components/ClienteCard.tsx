@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
-import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles } from "lucide-react";
+import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles, Handshake, AlertTriangle } from "lucide-react";
 
 interface ClienteCardProps {
   item: Acesso;
@@ -19,6 +19,7 @@ interface ClienteCardProps {
   onAdicionarUsuario?: (item: Acesso) => void;
   onEnviarVencimento?: (item: Acesso) => void;
   onAplicarUpgrade?: (item: Acesso) => void;
+  onAcordo?: (item: Acesso) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
 }
@@ -35,6 +36,7 @@ export function ClienteCard({
   onAdicionarUsuario,
   onEnviarVencimento,
   onAplicarUpgrade,
+  onAcordo,
   selecionado,
   onToggleSelecao,
 }: ClienteCardProps) {
@@ -42,9 +44,16 @@ export function ClienteCard({
   const [removendo, setRemovendo] = useState(false);
 
   const dias = Math.ceil((new Date(item.vencimento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const isAcordo = Boolean(item.acordoAtivo && Number(item.acordoValor || 0) > 0);
 
-  const statusConfig =
-    dias <= 0
+  const statusConfig = isAcordo
+    ? {
+        texto: `Acordo • R$ ${Number(item.acordoValor).toFixed(2)}`,
+        badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40",
+        dot: "bg-amber-500",
+        cardBorder: "border-amber-400 dark:border-amber-500/70 bg-amber-500/[0.04]",
+      }
+    : dias <= 0
       ? {
         texto: "Vencido",
         badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
@@ -174,6 +183,23 @@ export function ClienteCard({
                 )}
               </div>
             )}
+
+            {isAcordo && (
+              <div className="mt-2 rounded-lg border border-amber-400/50 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-300 space-y-0.5">
+                <div className="flex items-center gap-1 font-semibold">
+                  <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                  <span>
+                    Pendente: R$ {Number(item.acordoValor).toFixed(2)}
+                    {item.acordoData ? ` • Combinado p/ ${new Date(item.acordoData).toLocaleDateString("pt-BR")}` : ""}
+                  </span>
+                </div>
+                {item.acordoObs && (
+                  <p className="text-[10px] opacity-90 truncate" title={item.acordoObs}>
+                    {item.acordoObs}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -245,6 +271,23 @@ export function ClienteCard({
             >
               <Calendar className="mr-1 h-3 w-3" />
               Vencimento
+            </Button>
+          )}
+
+          {onAcordo && (
+            <Button
+              size="sm"
+              variant="outline"
+              className={`h-7 px-2 text-[11px] font-semibold ${
+                isAcordo
+                  ? "border-amber-500/60 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
+                  : "border-amber-500/30 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
+              }`}
+              onClick={() => onAcordo(item)}
+              title="Registrar ou gerenciar acordo de pagamento pendente"
+            >
+              <Handshake className="mr-1 h-3 w-3" />
+              Acordo
             </Button>
           )}
 

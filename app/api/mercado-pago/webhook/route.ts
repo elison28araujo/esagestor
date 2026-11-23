@@ -234,6 +234,10 @@ export async function POST(req: Request) {
               transaction.update(acessoRefs[idx], {
                 vencimento: novaData.toISOString(),
                 data: hoje.toISOString(),
+                acordoAtivo: false,
+                acordoValor: 0,
+                acordoData: "",
+                acordoObs: "",
               });
 
               if (!formattedPhone && aData.telefone) {

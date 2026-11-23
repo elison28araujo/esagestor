@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { calcularValorPlano, calcularResumoCombo } from "@/lib/constants";
+import { calcularValorPlano, calcularResumoCombo, getValorAcordoAcesso } from "@/lib/constants";
 
 export async function POST(req: Request) {
   try {
@@ -43,6 +43,8 @@ export async function POST(req: Request) {
           valor: Number(data.valor) || 0,
           valorCombo: Number(data.valorCombo) || 0,
           dispositivos: Number(data.dispositivos) >= 3 ? 3 : Number(data.dispositivos) === 2 ? 2 : 1,
+          acordoAtivo: Boolean(data.acordoAtivo),
+          acordoValor: Number(data.acordoValor) || 0,
           userId: data.userId as string | undefined,
         };
       });
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
     const notificationUrl = `${origin}/api/mercado-pago/webhook`;
 
     const resumoCombo = calcularResumoCombo(acessosEncontrados);
-    const { meses, valor: valorNumerico } = calcularValorPlano(
+    const { meses, valor: valorPlano } = calcularValorPlano(
       Number(mesesInput || 1),
       resumoCombo.valorComboTotal,
       new Date(),
@@ -108,13 +110,17 @@ export async function POST(req: Request) {
       primeiroAcesso.dispositivos,
       configData?.blackFridayPrecos || null
     );
-    const fator = resumoCombo.valorComboTotal > 0 ? valorNumerico / resumoCombo.valorComboTotal : meses;
+    const acordoTotal = Number(
+      acessosEncontrados.reduce((acc, a) => acc + getValorAcordoAcesso(a), 0).toFixed(2)
+    );
+    const valorNumerico = Number((valorPlano + acordoTotal).toFixed(2));
+    const fator = resumoCombo.valorComboTotal > 0 ? valorPlano / resumoCombo.valorComboTotal : meses;
     const itensCombo = acessosEncontrados.map((a, idx) => ({
       acessoId: a.id,
       usuario: a.usuario,
       cliente: a.cliente,
       app: a.app,
-      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator).toFixed(2)),
+      valor: Number((resumoCombo.valoresPorAcesso[idx] * fator + getValorAcordoAcesso(a)).toFixed(2)),
     }));
 
     // 4. Criar Preferência de Pagamento no Mercado Pago (Checkout Pro com Cartão de Crédito)
@@ -122,8 +128,8 @@ export async function POST(req: Request) {
       items: [
         {
           id: acessoIdPrincipal,
-          title: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"} - ${descricaoUsuarios} (${cliente})`,
-          description: `Renovação de ${listaIds.length} acesso(s) IPTV/P2P por ${meses} ${meses === 1 ? "mês" : "meses"}`,
+          title: `Renovação ${meses} ${meses === 1 ? "mês" : "meses"}${acordoTotal > 0 ? " + Acordo" : ""} - ${descricaoUsuarios} (${cliente})`,
+          description: `Renovação de ${listaIds.length} acesso(s) IPTV/P2P por ${meses} ${meses === 1 ? "mês" : "meses"}${acordoTotal > 0 ? " + quitação de acordo pendente" : ""}`,
           quantity: 1,
           currency_id: "BRL",
           unit_price: valorNumerico,

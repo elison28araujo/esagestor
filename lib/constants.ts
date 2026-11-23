@@ -176,6 +176,8 @@ export interface PlanoRenovacao {
   meses: number;
   label: string;
   valor: number;
+  valorBasePlano?: number;
+  valorAcordo?: number;
   destaque?: boolean;
 }
 
@@ -322,4 +324,27 @@ export function calcularResumoCombo<
   );
   const economia = Number(Math.max(0, valorUnitarioTotal - valorComboTotal).toFixed(2));
   return { valorUnitarioTotal, valorComboTotal, economia, valoresPorAcesso };
+}
+
+export function getValorAcordoAcesso(acesso?: { acordoAtivo?: boolean; acordoValor?: number } | null): number {
+  if (!acesso?.acordoAtivo) return 0;
+  const valor = Number(acesso.acordoValor || 0);
+  return Number.isFinite(valor) && valor > 0 ? Number(valor.toFixed(2)) : 0;
+}
+
+export function aplicarAcordoNosPlanos(
+  planos: PlanoRenovacao[],
+  valorAcordoPendente = 0
+): PlanoRenovacao[] {
+  const acordo = Number.isFinite(valorAcordoPendente) && valorAcordoPendente > 0
+    ? Number(valorAcordoPendente.toFixed(2))
+    : 0;
+  if (acordo <= 0) return planos;
+
+  return planos.map((p) => ({
+    ...p,
+    valorBasePlano: p.valor,
+    valorAcordo: acordo,
+    valor: Number((p.valor + acordo).toFixed(2)),
+  }));
 }

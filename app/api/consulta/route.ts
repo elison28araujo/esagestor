@@ -131,6 +131,10 @@ export async function POST(req: Request) {
         app: data.app,
         enderecoMac: data.enderecoMac || "",
         chaveKey: data.chaveKey || "",
+        acordoAtivo: Boolean(data.acordoAtivo),
+        acordoValor: Number(data.acordoValor) || 0,
+        acordoData: data.acordoData || "",
+        acordoObs: data.acordoObs || "",
       });
     });
 

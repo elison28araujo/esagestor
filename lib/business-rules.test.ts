@@ -16,7 +16,13 @@ import {
   parseCsv,
 } from "./utils";
 import { gerarPixEstatico } from "./pix";
-import { calcularResumoCombo, calcularValorPlano } from "./constants";
+import {
+  calcularResumoCombo,
+  calcularValorPlano,
+  obterPlanosDisponiveis,
+  aplicarAcordoNosPlanos,
+  getValorAcordoAcesso,
+} from "./constants";
 
 describe("Normalização e Formatação de Dados", () => {
   it("normaliza headers removendo acentos e caracteres especiais", () => {
@@ -281,6 +287,28 @@ describe("Cálculo de Combo de Acessos", () => {
     expect(calcularValorPlano(3, 40.0, dataBlackFriday, 1, 3).valor).toBe(99.0);
     expect(calcularValorPlano(6, 40.0, dataBlackFriday, 1, 3).valor).toBe(179.0);
     expect(calcularValorPlano(12, 40.0, dataBlackFriday, 1, 3).valor).toBe(319.0);
+  });
+
+  it("soma valor do acordo pendente sem aplicar desconto Black Friday (ex: 27 + 30 = 57)", () => {
+    const dataBlackFriday = new Date("2026-11-23T00:55:00-03:00");
+    const valorAcordo = getValorAcordoAcesso({ acordoAtivo: true, acordoValor: 30 });
+    expect(valorAcordo).toBe(30);
+
+    const planosBase = obterPlanosDisponiveis(30, dataBlackFriday, 1, 1);
+    const planosComAcordo = aplicarAcordoNosPlanos(planosBase, valorAcordo);
+
+    expect(planosComAcordo[0].valorBasePlano).toBe(27);
+    expect(planosComAcordo[0].valorAcordo).toBe(30);
+    expect(planosComAcordo[0].valor).toBe(57);
+
+    // 2 meses na Black Friday (49) + 30 pendente = 79
+    expect(planosComAcordo[1].valorBasePlano).toBe(49);
+    expect(planosComAcordo[1].valor).toBe(79);
+  });
+
+  it("retorna 0 quando acordoAtivo é falso", () => {
+    expect(getValorAcordoAcesso({ acordoAtivo: false, acordoValor: 30 })).toBe(0);
+    expect(getValorAcordoAcesso(null)).toBe(0);
   });
 });
 

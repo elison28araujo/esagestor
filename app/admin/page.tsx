@@ -57,9 +57,10 @@ import { SuporteChatWidget } from "@/components/SuporteChatWidget";
 import { AdminSuporteView } from "@/components/AdminSuporteView";
 import { AplicarUpgradeDialog } from "@/components/AplicarUpgradeDialog";
 import { CampanhaUpgradeDialog } from "@/components/CampanhaUpgradeDialog";
+import { AcordoDialog } from "@/components/AcordoDialog";
 
 import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo } from "@/lib/types";
-import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos } from "@/lib/constants";
+import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos, getValorAcordoAcesso } from "@/lib/constants";
 import {
   escapeCsvValue,
   isValidPhone,
@@ -108,6 +109,7 @@ export default function HomePage() {
   const [editando, setEditando] = useState<Acesso | null>(null);
   const [adicionandoUsuarioPara, setAdicionandoUsuarioPara] = useState<Acesso | null>(null);
   const [aplicandoUpgradePara, setAplicandoUpgradePara] = useState<Acesso | null>(null);
+  const [acordoPara, setAcordoPara] = useState<Acesso | null>(null);
   const [campanhaUpgradeAberta, setCampanhaUpgradeAberta] = useState(false);
   const [enviandoVencimentoPara, setEnviandoVencimentoPara] = useState<Acesso | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
@@ -552,6 +554,10 @@ export default function HomePage() {
       await updateDoc(doc(db, "acessos", id), {
         vencimento: novaData.toISOString(),
         data: hoje.toISOString(), // Atualiza a data da última renovação
+        acordoAtivo: false,
+        acordoValor: 0,
+        acordoData: "",
+        acordoObs: "",
       });
 
       // Registrar pagamento no histórico com o valor final cobrado
@@ -971,6 +977,7 @@ export default function HomePage() {
         clientes: grupo.clientes.filter(c => {
           const dias = Math.ceil((new Date(c.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
           if (activeFilter === "vencidos") return dias <= 0;
+          if (activeFilter === "acordo") return Boolean(c.acordoAtivo && Number(c.acordoValor || 0) > 0);
           if (activeFilter === "inativos15") return dias <= -15;
           if (activeFilter === "inativos30") return dias <= -30;
           if (activeFilter === "vencendo") return dias > 0 && dias <= 3;
@@ -1201,6 +1208,7 @@ export default function HomePage() {
                         { id: "ativos", label: "Ativos" },
                         { id: "vencendo", label: "Vencendo (≤3d)" },
                         { id: "vencidos", label: "Vencidos" },
+                        { id: "acordo", label: "Em Acordo" },
                         { id: "inativos15", label: "Inativos +15d" },
                         { id: "inativos30", label: "Inativos +30d" },
                       ] as { id: Filter; label: string }[]
@@ -1213,7 +1221,9 @@ export default function HomePage() {
                           activeFilter === f.id
                             ? f.id.startsWith("inativos")
                               ? "bg-purple-600 text-white shadow-sm"
-                              : "bg-blue-600 text-white shadow-sm"
+                              : f.id === "acordo"
+                                ? "bg-amber-500 text-slate-950 shadow-sm"
+                                : "bg-blue-600 text-white shadow-sm"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                         }`}
                       >
@@ -1261,6 +1271,7 @@ export default function HomePage() {
                               mensagemRenovacao={mensagemRenovacao}
                               onEditar={setEditando}
                               onAplicarUpgrade={setAplicandoUpgradePara}
+                              onAcordo={setAcordoPara}
                               onRemover={(id) => remover(id, "acessos")}
                               onRenovar={handleRenovar}
                               onRenovarRapido={async (id) => {
@@ -1271,17 +1282,23 @@ export default function HomePage() {
                                 const dataVencimentoAtual = new Date(itemAcesso.vencimento);
                                 const novaData = dataVencimentoAtual > hoje ? new Date(dataVencimentoAtual) : new Date(hoje);
                                 novaData.setMonth(novaData.getMonth() + 1);
+                                const acordoPendente = getValorAcordoAcesso(itemAcesso);
+                                const valorTotalPago = Number(((itemAcesso.valor || 0) + acordoPendente).toFixed(2));
                                 try {
                                   await updateDoc(doc(db, "acessos", id), {
                                     vencimento: novaData.toISOString(),
                                     data: hoje.toISOString(),
+                                    acordoAtivo: false,
+                                    acordoValor: 0,
+                                    acordoData: "",
+                                    acordoObs: "",
                                   });
                                   await addDoc(collection(db, "pagamentos"), {
                                     acessoId: id,
                                     usuario: itemAcesso.usuario,
                                     cliente: itemAcesso.cliente,
                                     app: itemAcesso.app,
-                                    valor: itemAcesso.valor || 0,
+                                    valor: valorTotalPago,
                                     data: hoje.toISOString(),
                                     userId: user.uid,
                                   });
@@ -1602,6 +1619,61 @@ export default function HomePage() {
       <EnviarVencimentoDialog
         acesso={enviandoVencimentoPara}
         onFechar={() => setEnviandoVencimentoPara(null)}
+      />
+
+      <AcordoDialog
+        acesso={acordoPara}
+        onClose={() => setAcordoPara(null)}
+        onSalvarAcordo={async (acesso, dados) => {
+          if (!db) return;
+          await updateDoc(doc(db, "acessos", acesso.id), {
+            acordoAtivo: true,
+            acordoValor: dados.valor,
+            acordoData: dados.dataCombinada,
+            acordoObs: dados.observacao,
+            ...(dados.avancarVencimento ? { vencimento: dados.dataCombinada } : {}),
+          });
+          setToast({
+            type: "success",
+            message: `Acordo de R$ ${dados.valor.toFixed(2)} registrado para "${acesso.cliente}" (card marcado em amarelo).`,
+          });
+        }}
+        onQuitarAcordo={async (acesso, valorRecebido) => {
+          if (!db || !user) return;
+          const hoje = new Date().toISOString();
+          await updateDoc(doc(db, "acessos", acesso.id), {
+            acordoAtivo: false,
+            acordoValor: 0,
+            acordoData: "",
+            acordoObs: "",
+          });
+          await addDoc(collection(db, "pagamentos"), {
+            acessoId: acesso.id,
+            usuario: acesso.usuario,
+            cliente: acesso.cliente,
+            app: acesso.app,
+            valor: valorRecebido,
+            data: hoje,
+            userId: user.uid,
+          });
+          setToast({
+            type: "success",
+            message: `Acordo de "${acesso.cliente}" quitado (R$ ${valorRecebido.toFixed(2)} lançado no financeiro)!`,
+          });
+        }}
+        onCancelarAcordo={async (acesso) => {
+          if (!db) return;
+          await updateDoc(doc(db, "acessos", acesso.id), {
+            acordoAtivo: false,
+            acordoValor: 0,
+            acordoData: "",
+            acordoObs: "",
+          });
+          setToast({
+            type: "info",
+            message: `Acordo de "${acesso.cliente}" removido.`,
+          });
+        }}
       />
 
       <RenovarAcessoDialog
