@@ -21,8 +21,9 @@ import {
   CheckCircle2,
   Users,
   Sparkles,
+  TrendingUp,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, CUSTO_SERVIDOR_PADRAO, calcularLucroPorServidor } from "@/lib/utils";
 
 interface DashboardProps {
   acessos: Acesso[];
@@ -74,6 +75,12 @@ export function Dashboard({
   // Estados da seção de Linhas com Vagas
   const [filtroServidor, setFiltroServidor] = useState<"TODOS" | ServidorNome>("TODOS");
   const [filtroTipoVaga, setFiltroTipoVaga] = useState<"TODOS" | "P2P" | "IPTV">("TODOS");
+  const [custosServidor, setCustosServidor] = useState<Record<"Warez" | "Five" | "Genial", number>>(CUSTO_SERVIDOR_PADRAO);
+
+  const lucroPorServidor = useMemo(
+    () => calcularLucroPorServidor(usuariosAgrupados, custosServidor),
+    [usuariosAgrupados, custosServidor]
+  );
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [copiadoUser, setCopiadoUser] = useState<string | null>(null);
 
@@ -477,6 +484,84 @@ export function Dashboard({
           </CardContent>
         </Card>
       </section>
+
+      {/* Previsão de Lucro por Servidor */}
+      <Card className="mb-6 border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/70 shadow-sm">
+        <CardContent className="p-5 space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-500" />
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Previsão de Lucro por Servidor (Base Mensal)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Calcula quanto você terá de lucro descontando o gasto por crédito de cada servidor ({lucroPorServidor.totais.linhas} linhas / {lucroPorServidor.totais.clientes} clientes).
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs font-mono tabular-nums">
+              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                Receita: <strong>R$ {lucroPorServidor.totais.receitaPrevista.toFixed(2)}</strong>
+              </span>
+              <span className="rounded-lg bg-rose-500/10 px-2.5 py-1 text-rose-600 dark:text-rose-400">
+                Gasto: <strong>R$ {lucroPorServidor.totais.custoTotal.toFixed(2)}</strong>
+              </span>
+              <span className="rounded-lg bg-emerald-500/15 px-2.5 py-1 font-bold text-emerald-700 dark:text-emerald-400">
+                Lucro: R$ {lucroPorServidor.totais.lucroPrevisto.toFixed(2)} ({lucroPorServidor.totais.margem}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {(["Warez", "Five", "Genial"] as const).map((srv) => {
+              const info = lucroPorServidor.porServidor[srv];
+              return (
+                <div
+                  key={srv}
+                  className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-[#111622]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{srv}</span>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                      <span>Custo/crédito: R$</span>
+                      <input
+                        type="number"
+                        step="0.50"
+                        min="0"
+                        value={custosServidor[srv]}
+                        onChange={(e) =>
+                          setCustosServidor((prev) => ({
+                            ...prev,
+                            [srv]: Math.max(0, Number(e.target.value) || 0),
+                          }))
+                        }
+                        className="w-16 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-right font-mono font-bold text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2.5 space-y-1 text-xs font-mono tabular-nums">
+                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                      <span>{info.linhas} linha(s) × R$ {info.custoUnitario.toFixed(2)}:</span>
+                      <span className="text-rose-600 dark:text-rose-400">- R$ {info.custoTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                      <span>Receita ({info.clientes} cliente{info.clientes !== 1 ? "s" : ""}):</span>
+                      <span className="text-slate-800 dark:text-slate-200">R$ {info.receitaPrevista.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-200/80 pt-1.5 font-bold dark:border-slate-800">
+                      <span className="text-slate-700 dark:text-slate-300">Lucro previsto:</span>
+                      <span className={info.lucroPrevisto >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                        R$ {info.lucroPrevisto.toFixed(2)} ({info.margem}%)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {dadosMensais.length > 0 && (
         <Card className="mb-6 overflow-hidden border-slate-200/80 dark:border-slate-800/80 dark:bg-slate-900/80">

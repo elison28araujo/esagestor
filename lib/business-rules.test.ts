@@ -14,6 +14,7 @@ import {
   formatarMensagemUpgrade,
   parseFlexibleDate,
   parseCsv,
+  calcularLucroPorServidor,
 } from "./utils";
 import { gerarPixEstatico } from "./pix";
 import {
@@ -309,6 +310,25 @@ describe("Cálculo de Combo de Acessos", () => {
   it("retorna 0 quando acordoAtivo é falso", () => {
     expect(getValorAcordoAcesso({ acordoAtivo: false, acordoValor: 30 })).toBe(0);
     expect(getValorAcordoAcesso(null)).toBe(0);
+  });
+
+  it("calcula previsão de lucro descontando custo por crédito de cada servidor (Warez 9, Five 8, Genial 7)", () => {
+    const res = calcularLucroPorServidor([
+      { servidor: "Warez", clientes: [{ valor: 30 }, { valor: 35 }] }, // receita 65, custo 9 => lucro 56
+      { servidor: "Five", clientes: [{ valor: 30 }] },                  // receita 30, custo 8 => lucro 22
+      { servidor: "Genial", clientes: [{ valor: 30 }, { valor: 30 }] }, // receita 60, custo 7 => lucro 53
+    ]);
+
+    expect(res.porServidor.Warez.custoTotal).toBe(9);
+    expect(res.porServidor.Warez.lucroPrevisto).toBe(56);
+    expect(res.porServidor.Five.custoTotal).toBe(8);
+    expect(res.porServidor.Five.lucroPrevisto).toBe(22);
+    expect(res.porServidor.Genial.custoTotal).toBe(7);
+    expect(res.porServidor.Genial.lucroPrevisto).toBe(53);
+
+    expect(res.totais.receitaPrevista).toBe(155);
+    expect(res.totais.custoTotal).toBe(24);
+    expect(res.totais.lucroPrevisto).toBe(131);
   });
 });
 

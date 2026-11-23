@@ -470,3 +470,123 @@ export function formatarMensagemUpgrade(
     .replace(/\{valor_novo\}/g, valorNovo.toFixed(2).replace(".", ","))
     .replace(/\{acrescimo\}/g, dados.acrescimo.toFixed(2).replace(".", ","));
 }
+
+export const CUSTO_SERVIDOR_PADRAO: Record<"Warez" | "Five" | "Genial", number> = {
+  Warez: 9.0,
+  Five: 8.0,
+  Genial: 7.0,
+};
+
+export interface ResumoLucroServidor {
+  servidor: "Warez" | "Five" | "Genial";
+  linhas: number;
+  clientes: number;
+  custoUnitario: number;
+  receitaPrevista: number;
+  custoTotal: number;
+  lucroPrevisto: number;
+  margem: number;
+}
+
+export interface ResultadoLucroServidores {
+  porServidor: Record<"Warez" | "Five" | "Genial", ResumoLucroServidor>;
+  totais: {
+    linhas: number;
+    clientes: number;
+    receitaPrevista: number;
+    custoTotal: number;
+    lucroPrevisto: number;
+    margem: number;
+  };
+}
+
+/**
+ * Calcula a previsão de lucro mensal com base no custo de crédito por servidor
+ * (Warez = R$ 9,00 | Five = R$ 8,00 | Genial = R$ 7,00) e na receita das linhas.
+ */
+export function calcularLucroPorServidor(
+  grupos: Array<{
+    servidor?: string;
+    clientes: Array<{ valor?: number }>;
+  }>,
+  custosCustomizados?: Partial<Record<"Warez" | "Five" | "Genial", number>>
+): ResultadoLucroServidores {
+  const custos = {
+    Warez: Number(custosCustomizados?.Warez ?? CUSTO_SERVIDOR_PADRAO.Warez),
+    Five: Number(custosCustomizados?.Five ?? CUSTO_SERVIDOR_PADRAO.Five),
+    Genial: Number(custosCustomizados?.Genial ?? CUSTO_SERVIDOR_PADRAO.Genial),
+  };
+
+  const criarBase = (servidor: "Warez" | "Five" | "Genial"): ResumoLucroServidor => ({
+    servidor,
+    linhas: 0,
+    clientes: 0,
+    custoUnitario: custos[servidor],
+    receitaPrevista: 0,
+    custoTotal: 0,
+    lucroPrevisto: 0,
+    margem: 0,
+  });
+
+  const porServidor: Record<"Warez" | "Five" | "Genial", ResumoLucroServidor> = {
+    Warez: criarBase("Warez"),
+    Five: criarBase("Five"),
+    Genial: criarBase("Genial"),
+  };
+
+  grupos.forEach((grupo) => {
+    const srv: "Warez" | "Five" | "Genial" =
+      grupo.servidor === "Five"
+        ? "Five"
+        : grupo.servidor === "Genial"
+          ? "Genial"
+          : "Warez";
+
+    const receitaGrupo = grupo.clientes.reduce(
+      (sum, c) => sum + (Number(c.valor) || 0),
+      0
+    );
+
+    porServidor[srv].linhas += 1;
+    porServidor[srv].clientes += grupo.clientes.length;
+    porServidor[srv].receitaPrevista += receitaGrupo;
+  });
+
+  let totalLinhas = 0;
+  let totalClientes = 0;
+  let totalReceita = 0;
+  let totalCusto = 0;
+
+  (["Warez", "Five", "Genial"] as const).forEach((srv) => {
+    const item = porServidor[srv];
+    item.receitaPrevista = Number(item.receitaPrevista.toFixed(2));
+    item.custoTotal = Number((item.linhas * item.custoUnitario).toFixed(2));
+    item.lucroPrevisto = Number((item.receitaPrevista - item.custoTotal).toFixed(2));
+    item.margem = item.receitaPrevista > 0
+      ? Number(((item.lucroPrevisto / item.receitaPrevista) * 100).toFixed(1))
+      : 0;
+
+    totalLinhas += item.linhas;
+    totalClientes += item.clientes;
+    totalReceita += item.receitaPrevista;
+    totalCusto += item.custoTotal;
+  });
+
+  const receitaTotalArred = Number(totalReceita.toFixed(2));
+  const custoTotalArred = Number(totalCusto.toFixed(2));
+  const lucroTotalArred = Number((receitaTotalArred - custoTotalArred).toFixed(2));
+
+  return {
+    porServidor,
+    totais: {
+      linhas: totalLinhas,
+      clientes: totalClientes,
+      receitaPrevista: receitaTotalArred,
+      custoTotal: custoTotalArred,
+      lucroPrevisto: lucroTotalArred,
+      margem: receitaTotalArred > 0
+        ? Number(((lucroTotalArred / receitaTotalArred) * 100).toFixed(1))
+        : 0,
+    },
+  };
+}
