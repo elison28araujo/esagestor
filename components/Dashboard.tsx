@@ -537,13 +537,19 @@ export function Dashboard({
         {/* Cabeçalho da Seção */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Server className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 Linhas com Vagas Disponíveis
               </h3>
               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400">
                 {usuariosDisponiveis.length} linha{usuariosDisponiveis.length !== 1 ? "s" : ""} livre{usuariosDisponiveis.length !== 1 ? "s" : ""}
+              </span>
+              <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                {estatisticasServidores.Warez.vagasP2P + estatisticasServidores.Genial.vagasP2P + estatisticasServidores.Five.vagasP2P} P2P
+              </span>
+              <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                {estatisticasServidores.Warez.vagasIPTV + estatisticasServidores.Genial.vagasIPTV + estatisticasServidores.Five.vagasIPTV} IPTV
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -565,62 +571,47 @@ export function Dashboard({
 
         {/* Cards Informativos dos 3 Servidores */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {/* WAREZ */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-[#111622]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Warez</span>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-mono font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 tabular-nums">
-                R$ 9,00 / crédito
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              1 P2P e 2 IPTV (Até 3 clientes)
-            </p>
-            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
-              <span className="text-slate-500">Linhas c/ vagas:</span>
-              <strong className="font-mono text-slate-900 dark:text-slate-100 tabular-nums">
-                {estatisticasServidores.Warez.usuariosComVagas} ({estatisticasServidores.Warez.vagasTotal} vaga{estatisticasServidores.Warez.vagasTotal !== 1 ? "s" : ""})
-              </strong>
-            </div>
-          </div>
-
-          {/* GENIAL */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-[#111622]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Genial</span>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-mono font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 tabular-nums">
-                R$ 7,00 / crédito
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              2 IPTV ou 2 P2P (Até 2 clientes)
-            </p>
-            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
-              <span className="text-slate-500">Linhas c/ vagas:</span>
-              <strong className="font-mono text-slate-900 dark:text-slate-100 tabular-nums">
-                {estatisticasServidores.Genial.usuariosComVagas} ({estatisticasServidores.Genial.vagasTotal} vaga{estatisticasServidores.Genial.vagasTotal !== 1 ? "s" : ""})
-              </strong>
-            </div>
-          </div>
-
-          {/* FIVE */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-[#111622]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Five</span>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-mono font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 tabular-nums">
-                R$ 8,00 / crédito
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              2 IPTV (Até 2 clientes)
-            </p>
-            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
-              <span className="text-slate-500">Linhas c/ vagas:</span>
-              <strong className="font-mono text-slate-900 dark:text-slate-100 tabular-nums">
-                {estatisticasServidores.Five.usuariosComVagas} ({estatisticasServidores.Five.vagasTotal} vaga{estatisticasServidores.Five.vagasTotal !== 1 ? "s" : ""})
-              </strong>
-            </div>
-          </div>
+          {(
+            [
+              { nome: "Warez", preco: "R$ 9,00 / crédito", regra: "1 P2P e 2 IPTV (Até 3 clientes)" },
+              { nome: "Genial", preco: "R$ 7,00 / crédito", regra: "2 IPTV ou 2 P2P (Até 2 clientes)" },
+              { nome: "Five", preco: "R$ 8,00 / crédito", regra: "2 IPTV (Até 2 clientes)" },
+            ] as const
+          ).map((srv) => {
+            const stat = estatisticasServidores[srv.nome];
+            return (
+              <div
+                key={srv.nome}
+                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-[#111622]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{srv.nome}</span>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-mono font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 tabular-nums">
+                    {srv.preco}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {srv.regra}
+                </p>
+                <div className="mt-3 border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Linhas c/ vagas:</span>
+                    <strong className="font-mono text-slate-900 dark:text-slate-100 tabular-nums">
+                      {stat.usuariosComVagas} ({stat.vagasTotal} vaga{stat.vagasTotal !== 1 ? "s" : ""})
+                    </strong>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-mono tabular-nums">
+                    <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-600 dark:text-amber-400">
+                      P2P: {stat.vagasP2P} vaga{stat.vagasP2P !== 1 ? "s" : ""}
+                    </span>
+                    <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 font-semibold text-blue-600 dark:text-blue-400">
+                      IPTV: {stat.vagasIPTV} vaga{stat.vagasIPTV !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Filtros e Busca */}
