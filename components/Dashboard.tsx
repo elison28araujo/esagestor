@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ interface DashboardProps {
   onCadastrarComUsuario?: (usuario: string, servidor: string) => void;
   onFiltrarStatus?: (filtro: "vencidos" | "vencendo") => void;
   onAbrirCampanhaUpgrade?: () => void;
+  christmasMode?: boolean;
 }
 
 export function Dashboard({
@@ -43,6 +44,7 @@ export function Dashboard({
   onCadastrarComUsuario,
   onFiltrarStatus,
   onAbrirCampanhaUpgrade,
+  christmasMode = true,
 }: DashboardProps) {
   // Helper para obter o período (AAAA-MM) no fuso horário de Brasília
   function getPeriodoBrasilia(dateInput: string | number | Date) {
@@ -76,11 +78,46 @@ export function Dashboard({
   const [filtroServidor, setFiltroServidor] = useState<"TODOS" | ServidorNome>("TODOS");
   const [filtroTipoVaga, setFiltroTipoVaga] = useState<"TODOS" | "P2P" | "IPTV">("TODOS");
   const [custosServidor, setCustosServidor] = useState<Record<"Warez" | "Five" | "Genial", number>>(CUSTO_SERVIDOR_PADRAO);
+  const chartWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [santaPos, setSantaPos] = useState<{ x: number; y: number; angle: number; opacity: number } | null>(null);
 
   const lucroPorServidor = useMemo(
     () => calcularLucroPorServidor(usuariosAgrupados, custosServidor),
     [usuariosAgrupados, custosServidor]
   );
+
+  useEffect(() => {
+    if (!christmasMode) {
+      setSantaPos(null);
+      return;
+    }
+
+    let rafId = 0;
+    const durationMs = 7500;
+    const startTime = performance.now();
+
+    const step = (now: number) => {
+      const container = chartWrapperRef.current;
+      const path = container?.querySelector(".recharts-area-curve") as SVGPathElement | null;
+      if (path && typeof path.getTotalLength === "function") {
+        const len = path.getTotalLength();
+        if (len > 10) {
+          const progress = ((now - startTime) % durationMs) / durationMs;
+          const dist = progress * len;
+          const pt = path.getPointAtLength(dist);
+          const ptNext = path.getPointAtLength(Math.min(len, dist + 4));
+          const rawAngle = (Math.atan2(ptNext.y - pt.y, ptNext.x - pt.x) * 180) / Math.PI;
+          const angle = Math.max(-28, Math.min(28, rawAngle));
+          const opacity = progress < 0.06 ? progress / 0.06 : progress > 0.94 ? (1 - progress) / 0.06 : 1;
+          setSantaPos({ x: pt.x, y: pt.y, angle, opacity });
+        }
+      }
+      rafId = requestAnimationFrame(step);
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [christmasMode, pagamentos, despesas]);
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [copiadoUser, setCopiadoUser] = useState<string | null>(null);
 
@@ -572,53 +609,71 @@ export function Dashboard({
                 <p className="text-xs text-slate-400">Resultado líquido por mês</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={230}>
-              <AreaChart data={dadosMensais} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.25} />
-                <XAxis
-                  dataKey="mes"
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(m: string) => m.toUpperCase()}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => `R$${v}`}
-                />
-                <Tooltip
-                  content={({ active, payload, label }: any) => {
-                    if (!active || !payload?.length) return null;
-                    return (
-                      <div className="rounded-xl border border-slate-700/60 bg-slate-950/95 p-3 shadow-xl backdrop-blur-md">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-                        <p className="mt-1 text-sm font-bold text-blue-400">
-                          Lucro: R$ {Number(payload[0]?.value ?? 0).toFixed(2)}
-                        </p>
-                      </div>
-                    );
+            <div ref={chartWrapperRef} className="relative">
+              <ResponsiveContainer width="100%" height={230}>
+                <AreaChart data={dadosMensais} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.25} />
+                  <XAxis
+                    dataKey="mes"
+                    tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(m: string) => m.toUpperCase()}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => `R$${v}`}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }: any) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="rounded-xl border border-slate-700/60 bg-slate-950/95 p-3 shadow-xl backdrop-blur-md">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+                          <p className="mt-1 text-sm font-bold text-blue-400">
+                            Lucro: R$ {Number(payload[0]?.value ?? 0).toFixed(2)}
+                          </p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="lucro"
+                    stroke="#3b82f6"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#profitGradient)"
+                    dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: "#3b82f6" }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              {christmasMode && santaPos && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-0 select-none drop-shadow-[0_2px_8px_rgba(251,191,36,0.55)]"
+                  style={{
+                    transform: `translate3d(${santaPos.x}px, ${santaPos.y}px, 0) translate(-50%, -95%) rotate(${santaPos.angle}deg)`,
+                    opacity: santaPos.opacity,
                   }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="lucro"
-                  stroke="#3b82f6"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#profitGradient)"
-                  dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: "#3b82f6" }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                >
+                  <span className="inline-flex items-center gap-0.5 text-lg leading-none">
+                    <span className="text-xs text-amber-300 animate-pulse">✨</span>
+                    <span className="inline-block -scale-x-100">🛷</span>
+                    <span>🎅</span>
+                  </span>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

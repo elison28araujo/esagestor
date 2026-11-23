@@ -1134,6 +1134,7 @@ export default function HomePage() {
                     setActiveTab("cadastro");
                   }}
                   onAbrirCampanhaUpgrade={() => setCampanhaUpgradeAberta(true)}
+                  christmasMode={christmasMode}
                 />
               </div>
             )}
