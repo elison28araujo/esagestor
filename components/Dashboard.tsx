@@ -660,17 +660,17 @@ export function Dashboard({
               {christmasMode && santaPos && (
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-0 select-none drop-shadow-[0_2px_8px_rgba(251,191,36,0.55)]"
+                  className="pointer-events-none absolute left-0 top-0 select-none"
                   style={{
-                    transform: `translate3d(${santaPos.x}px, ${santaPos.y}px, 0) translate(-50%, -95%) rotate(${santaPos.angle}deg)`,
+                    transform: `translate3d(${santaPos.x}px, ${santaPos.y}px, 0) translate(-50%, -92%) rotate(${santaPos.angle * 0.45}deg)`,
                     opacity: santaPos.opacity,
                   }}
                 >
-                  <span className="inline-flex items-center gap-0.5 text-lg leading-none">
-                    <span className="text-xs text-amber-300 animate-pulse">✨</span>
-                    <span className="inline-block -scale-x-100">🛷</span>
-                    <span>🎅</span>
-                  </span>
+                  <img
+                    src="/papai-noel.gif"
+                    alt=""
+                    className="h-14 w-auto object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
+                  />
                 </div>
               )}
             </div>
