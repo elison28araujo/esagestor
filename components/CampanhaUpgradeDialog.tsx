@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Acesso, UsuarioAgrupado } from "@/lib/types";
 import { extrairLoginUsuario, formatarMensagemUpgrade, formatPhone } from "@/lib/utils";
+import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
 import { CheckCircle2, Loader2, MessageCircle, Send, Sparkles, Tv } from "lucide-react";
 
 const MENSAGEM_PADRAO_UPGRADE =
@@ -43,6 +44,7 @@ export function CampanhaUpgradeDialog({
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [enviandoLote, setEnviandoLote] = useState(false);
   const [enviados, setEnviados] = useState<string[]>([]);
+  const [whatsappPendente, setWhatsappPendente] = useState<(WhatsappEnvioPendente & { acessoId: string }) | null>(null);
 
   const vagasIptvPorLogin = useMemo(() => {
     const map = new Map<string, number>();
@@ -113,11 +115,20 @@ export function CampanhaUpgradeDialog({
         setEnviados((prev) => [...new Set([...prev, a.id])]);
         onToast?.({ type: "success", message: `Oferta enviada para ${a.cliente}!` });
       } catch {
-        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(texto)}`, "_blank");
+        setWhatsappPendente({
+          acessoId: a.id,
+          telefone: phone,
+          mensagem: texto,
+          titulo: a.cliente,
+        });
       }
     } else {
-      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(texto)}`, "_blank");
-      setEnviados((prev) => [...new Set([...prev, a.id])]);
+      setWhatsappPendente({
+        acessoId: a.id,
+        telefone: phone,
+        mensagem: texto,
+        titulo: a.cliente,
+      });
     }
   }
 
@@ -150,6 +161,7 @@ export function CampanhaUpgradeDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => !o && onFechar()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -288,5 +300,16 @@ export function CampanhaUpgradeDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <WhatsappChoiceDialog
+      alvo={whatsappPendente}
+      onFechar={() => setWhatsappPendente(null)}
+      onEnviado={() => {
+        if (whatsappPendente) {
+          setEnviados((prev) => [...new Set([...prev, whatsappPendente.acessoId])]);
+        }
+      }}
+    />
+    </>
   );
 }

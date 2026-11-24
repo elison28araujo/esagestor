@@ -41,6 +41,7 @@ import { ClienteCard } from "@/components/ClienteCard";
 import { EditClienteDialog } from "@/components/EditClienteDialog";
 import { AdicionarUsuarioDialog } from "@/components/AdicionarUsuarioDialog";
 import { EnviarVencimentoDialog } from "@/components/EnviarVencimentoDialog";
+import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
 import { RenovarAcessoDialog } from "@/components/RenovarAcessoDialog";
 import { CobrarDialog } from "@/components/CobrarDialog";
 import { DespesaList } from "@/components/DespesaList";
@@ -112,6 +113,7 @@ export default function HomePage() {
   const [acordoPara, setAcordoPara] = useState<Acesso | null>(null);
   const [campanhaUpgradeAberta, setCampanhaUpgradeAberta] = useState(false);
   const [enviandoVencimentoItens, setEnviandoVencimentoItens] = useState<Acesso[]>([]);
+  const [whatsappPendente, setWhatsappPendente] = useState<WhatsappEnvioPendente | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [importando, setImportando] = useState(false);
   const [toast, setToast] = useState<ImportFeedback | null>(null);
@@ -608,11 +610,19 @@ export default function HomePage() {
             setToast({ type: "success", message: `Acesso renovado e aviso enviado pelo WhatsApp!` });
           } catch (err) {
             console.error("Erro Z-API ao renovar:", err);
-            setToast({ type: "error", message: "Falha no envio automático. Abrindo WhatsApp Web..." });
-            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+            setToast({ type: "error", message: "Falha no envio automático. Escolha o WhatsApp para enviar..." });
+            setWhatsappPendente({
+              telefone: phone,
+              mensagem,
+              titulo: item.cliente,
+            });
           }
         } else {
-          window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+          setWhatsappPendente({
+            telefone: phone,
+            mensagem,
+            titulo: item.cliente,
+          });
         }
       }
     } catch (e) {
@@ -1650,6 +1660,11 @@ export default function HomePage() {
       <EnviarVencimentoDialog
         acessos={enviandoVencimentoItens}
         onFechar={() => setEnviandoVencimentoItens([])}
+      />
+
+      <WhatsappChoiceDialog
+        alvo={whatsappPendente}
+        onFechar={() => setWhatsappPendente(null)}
       />
 
       <AcordoDialog

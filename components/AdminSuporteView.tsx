@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConversaSuporte, MensagemSuporte } from "@/lib/types";
 import { PapaiNoelChatOverlay, usePapaiNoelMensagem } from "@/components/PapaiNoelChatOverlay";
+import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
 
 interface AdminSuporteViewProps {
   adminEmail: string;
@@ -43,6 +44,7 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
   const [conversas, setConversas] = useState<ConversaSuporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
+  const [whatsappPendente, setWhatsappPendente] = useState<WhatsappEnvioPendente | null>(null);
   const [conversaAtiva, setConversaAtiva] = useState<ConversaSuporte | null>(null);
   const [mensagens, setMensagens] = useState<MensagemSuporte[]>([]);
   const [textoResposta, setTextoResposta] = useState("");
@@ -374,15 +376,20 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
                 </div>
 
                 {conversaAtiva.userWhatsapp && (
-                  <a
-                    href={`https://wa.me/55${conversaAtiva.userWhatsapp.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setWhatsappPendente({
+                        telefone: conversaAtiva.userWhatsapp || "",
+                        mensagem: "",
+                        titulo: conversaAtiva.userEmail,
+                      })
+                    }
                     className="flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 transition"
                   >
                     <Phone size={13} />
                     <span>WhatsApp</span>
-                  </a>
+                  </button>
                 )}
               </div>
 
@@ -467,6 +474,11 @@ export function AdminSuporteView({ adminEmail }: AdminSuporteViewProps) {
           )}
         </div>
       </div>
+
+      <WhatsappChoiceDialog
+        alvo={whatsappPendente}
+        onFechar={() => setWhatsappPendente(null)}
+      />
     </div>
   );
 }

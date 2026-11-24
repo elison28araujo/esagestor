@@ -5,7 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
+import { abrirWhatsappComEscolha } from "@/lib/whatsapp";
 import { Calendar, Copy, Check, MessageCircle, Briefcase, Users, AlertTriangle } from "lucide-react";
+
+export { abrirWhatsappComEscolha };
 
 interface EnviarVencimentoDialogProps {
   acessos: Acesso[];
@@ -89,25 +92,6 @@ export function montarMensagemVencimentoMultiplos(acessos: Acesso[], origin = ""
     `${linhasUsuarios}\n\n` +
     `Caso queira consultar ou renovar seus acessos, acesse:\n${linkPortal}`
   );
-}
-
-export function abrirWhatsappComEscolha(
-  telefone: string,
-  mensagem: string,
-  tipo: "normal" | "business"
-) {
-  const digits = telefone.replace(/\D/g, "");
-  const phoneWithCountry = digits.startsWith("55") && digits.length >= 12 ? digits : `55${digits}`;
-  const encoded = encodeURIComponent(mensagem);
-  const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-
-  if (isAndroid) {
-    const pkg = tipo === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
-    window.location.href = `intent://send?phone=${phoneWithCountry}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
-    return;
-  }
-
-  window.open(`https://wa.me/${phoneWithCountry}?text=${encoded}`, "_blank");
 }
 
 export function EnviarVencimentoDialog({ acessos, onFechar }: EnviarVencimentoDialogProps) {

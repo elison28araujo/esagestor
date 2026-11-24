@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Acesso } from "@/lib/types";
 import { REATIVACAO_TEMPLATES, PROMOCOES_TEMPLATES } from "@/lib/constants";
+import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
 import { Loader2, MessageCircle, Send, Sparkles, Wand2 } from "lucide-react";
 
 interface CobrarDialogProps {
@@ -75,6 +76,7 @@ export function CobrarDialog({
   const [gerandoIA, setGerandoIA] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [progressoLote, setProgressoLote] = useState<{ atual: number; total: number } | null>(null);
+  const [whatsappPendente, setWhatsappPendente] = useState<WhatsappEnvioPendente | null>(null);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -187,15 +189,21 @@ export function CobrarDialog({
           }
           throw new Error("Erro na Z-API");
         } catch {
-          onToast({ type: "info", message: "Falha na Z-API. Abrindo WhatsApp Web..." });
-          window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagemTexto)}`, "_blank");
-          onFechar();
+          onToast({ type: "info", message: "Falha na Z-API. Escolha o WhatsApp para abrir..." });
+          setWhatsappPendente({
+            telefone: phone,
+            mensagem: mensagemTexto,
+            titulo: primeiro.cliente,
+          });
         } finally {
           setEnviando(false);
         }
       } else {
-        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagemTexto)}`, "_blank");
-        onFechar();
+        setWhatsappPendente({
+          telefone: phone,
+          mensagem: mensagemTexto,
+          titulo: primeiro.cliente,
+        });
       }
       return;
     }
@@ -260,6 +268,7 @@ export function CobrarDialog({
   }
 
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={(o) => {
@@ -493,5 +502,12 @@ export function CobrarDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <WhatsappChoiceDialog
+      alvo={whatsappPendente}
+      onFechar={() => setWhatsappPendente(null)}
+      onEnviado={() => onFechar()}
+    />
+    </>
   );
 }

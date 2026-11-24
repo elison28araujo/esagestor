@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
 import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles, Handshake, AlertTriangle, Users } from "lucide-react";
@@ -46,6 +47,7 @@ export function ClienteCard({
 }: ClienteCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removendo, setRemovendo] = useState(false);
+  const [whatsappPendente, setWhatsappPendente] = useState<WhatsappEnvioPendente | null>(null);
 
   const dias = Math.ceil((new Date(item.vencimento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   const isAcordo = Boolean(item.acordoAtivo && Number(item.acordoValor || 0) > 0);
@@ -95,7 +97,11 @@ export function ClienteCard({
         mensagem = `${mensagem}\n\nEfetue o pagamento pelo link: ${linkPortal}`;
       }
 
-      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`, "_blank");
+      setWhatsappPendente({
+        telefone: phone,
+        mensagem,
+        titulo: item.cliente,
+      });
     }
   }
 
@@ -337,6 +343,11 @@ export function ClienteCard({
         onConfirm={handleRemover}
         onCancel={() => setConfirmOpen(false)}
         loading={removendo}
+      />
+
+      <WhatsappChoiceDialog
+        alvo={whatsappPendente}
+        onFechar={() => setWhatsappPendente(null)}
       />
     </>
   );
