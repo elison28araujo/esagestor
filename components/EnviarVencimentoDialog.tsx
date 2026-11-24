@@ -4,19 +4,35 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Acesso } from "@/lib/types";
-import { Calendar, Copy, Check, MessageCircle, Briefcase } from "lucide-react";
+import { formatPhone } from "@/lib/utils";
+import { Calendar, Copy, Check, MessageCircle, Briefcase, Users, AlertTriangle } from "lucide-react";
 
 interface EnviarVencimentoDialogProps {
-  acesso: Acesso | null;
+  acessos: Acesso[];
   onFechar: () => void;
 }
 
-export function montarMensagemVencimento(acesso: Acesso, origin = ""): string {
-  const vencimentoDate = new Date(acesso.vencimento);
-  const vencimentoFormatado = vencimentoDate.toLocaleDateString("pt-BR", {
+function formatarDataPtBr(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString("pt-BR", {
     timeZone: "America/Sao_Paulo",
   });
-  const dias = Math.ceil((vencimentoDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function calcularDetalheDias(isoDate: string): { dias: number; texto: string } {
+  const dias = Math.ceil((new Date(isoDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (dias <= 0) {
+    const abs = Math.abs(dias);
+    return { dias, texto: `venceu há ${abs} dia${abs === 1 ? "" : "s"}` };
+  }
+  if (dias === 1) {
+    return { dias, texto: "vence amanhã" };
+  }
+  return { dias, texto: `faltam ${dias} dias` };
+}
+
+export function montarMensagemVencimento(acesso: Acesso, origin = ""): string {
+  const vencimentoFormatado = formatarDataPtBr(acesso.vencimento);
+  const { dias } = calcularDetalheDias(acesso.vencimento);
   const phone = acesso.telefone.replace(/\D/g, "");
   const baseUrl = origin || "https://esaplay.site";
   const linkPortal = `${baseUrl}/consulta?telefone=${phone}`;
@@ -40,6 +56,41 @@ export function montarMensagemVencimento(acesso: Acesso, origin = ""): string {
   );
 }
 
+export function montarMensagemVencimentoMultiplos(acessos: Acesso[], origin = ""): string {
+  if (acessos.length === 0) return "";
+  if (acessos.length === 1) return montarMensagemVencimento(acessos[0], origin);
+
+  const primeiro = acessos[0];
+  const phone = primeiro.telefone.replace(/\D/g, "");
+  const baseUrl = origin || "https://esaplay.site";
+  const linkPortal = `${baseUrl}/consulta?telefone=${phone}`;
+  const usuariosLista = acessos.map((a) => a.usuario).filter(Boolean).join(", ");
+  const datasUnicas = Array.from(new Set(acessos.map((a) => formatarDataPtBr(a.vencimento))));
+
+  if (datasUnicas.length === 1) {
+    const dataUnica = datasUnicas[0];
+    const { texto } = calcularDetalheDias(primeiro.vencimento);
+    return (
+      `Olá ${primeiro.cliente}! 👋\n\n` +
+      `Sua assinatura foi renovada! ✅\n` +
+      `👥 Seus usuários são: *${usuariosLista}*\n` +
+      `📅 Sua assinatura vence em *${dataUnica}* (${texto}).\n\n` +
+      `Caso queira consultar seus acessos, acesse:\n${linkPortal}`
+    );
+  }
+
+  const linhasUsuarios = acessos
+    .map((a) => `• *${a.usuario}* — vence em *${formatarDataPtBr(a.vencimento)}*`)
+    .join("\n");
+
+  return (
+    `Olá ${primeiro.cliente}! 👋\n\n` +
+    `Segue o resumo dos seus usuários e vencimentos:\n` +
+    `${linhasUsuarios}\n\n` +
+    `Caso queira consultar ou renovar seus acessos, acesse:\n${linkPortal}`
+  );
+}
+
 export function abrirWhatsappComEscolha(
   telefone: string,
   mensagem: string,
@@ -59,21 +110,27 @@ export function abrirWhatsappComEscolha(
   window.open(`https://wa.me/${phoneWithCountry}?text=${encoded}`, "_blank");
 }
 
-export function EnviarVencimentoDialog({ acesso, onFechar }: EnviarVencimentoDialogProps) {
+export function EnviarVencimentoDialog({ acessos, onFechar }: EnviarVencimentoDialogProps) {
   const [mensagem, setMensagem] = useState("");
   const [copiado, setCopiado] = useState(false);
 
+  const primeiro = acessos[0] ?? null;
+  const telefonesDistintos = new Set(
+    acessos.map((a) => (a.telefone || "").replace(/\D/g, "").replace(/^55(?=\d{10,})/, "")).filter(Boolean)
+  );
+  const temTelefonesDiferentes = telefonesDistintos.size > 1;
+
   useEffect(() => {
-    if (acesso) {
+    if (acessos.length > 0) {
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      setMensagem(montarMensagemVencimento(acesso, origin));
+      setMensagem(montarMensagemVencimentoMultiplos(acessos, origin));
       setCopiado(false);
     }
-  }, [acesso]);
+  }, [acessos]);
 
   function handleEnviar(tipo: "normal" | "business") {
-    if (!acesso) return;
-    abrirWhatsappComEscolha(acesso.telefone, mensagem, tipo);
+    if (!primeiro) return;
+    abrirWhatsappComEscolha(primeiro.telefone, mensagem, tipo);
     onFechar();
   }
 
@@ -84,16 +141,31 @@ export function EnviarVencimentoDialog({ acesso, onFechar }: EnviarVencimentoDia
   }
 
   return (
-    <Dialog open={!!acesso} onOpenChange={(open) => !open && onFechar()}>
+    <Dialog open={acessos.length > 0} onOpenChange={(open) => !open && onFechar()}>
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            Enviar Vencimento — {acesso?.cliente}
+            {acessos.length > 1 ? (
+              <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            ) : (
+              <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            )}
+            {acessos.length > 1
+              ? `Enviar Vencimento (${acessos.length} usuários) — ${primeiro?.cliente}`
+              : `Enviar Vencimento — ${primeiro?.cliente}`}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-1">
+          {temTelefonesDiferentes && primeiro && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Os itens selecionados possuem telefones diferentes. A mensagem será enviada para{" "}
+                <strong>{primeiro.cliente}</strong> ({formatPhone(primeiro.telefone)}).
+              </span>
+            </div>
+          )}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">

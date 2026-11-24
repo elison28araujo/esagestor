@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
-import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles, Handshake, AlertTriangle } from "lucide-react";
+import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles, Handshake, AlertTriangle, Users } from "lucide-react";
 
 interface ClienteCardProps {
   item: Acesso;
@@ -18,6 +18,8 @@ interface ClienteCardProps {
   onCobrar?: (item: Acesso) => void;
   onAdicionarUsuario?: (item: Acesso) => void;
   onEnviarVencimento?: (item: Acesso) => void;
+  onEnviarVencimentoTodos?: (item: Acesso) => void;
+  qtdUsuariosCliente?: number;
   onAplicarUpgrade?: (item: Acesso) => void;
   onAcordo?: (item: Acesso) => void;
   selecionado: boolean;
@@ -35,6 +37,8 @@ export function ClienteCard({
   onCobrar,
   onAdicionarUsuario,
   onEnviarVencimento,
+  onEnviarVencimentoTodos,
+  qtdUsuariosCliente = 1,
   onAplicarUpgrade,
   onAcordo,
   selecionado,
@@ -271,6 +275,19 @@ export function ClienteCard({
             >
               <Calendar className="mr-1 h-3 w-3" />
               Vencimento
+            </Button>
+          )}
+
+          {onEnviarVencimentoTodos && qtdUsuariosCliente > 1 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] font-semibold border-sky-500/30 bg-sky-500/5 text-sky-700 hover:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30"
+              onClick={() => onEnviarVencimentoTodos(item)}
+              title={`Enviar vencimento com todos os ${qtdUsuariosCliente} usuários deste cliente`}
+            >
+              <Users className="mr-1 h-3 w-3" />
+              Venc. Todos ({qtdUsuariosCliente})
             </Button>
           )}
 

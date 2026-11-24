@@ -24,6 +24,7 @@ interface BulkActionBarProps {
   onAlterarValorEmLote: (valor: number) => Promise<void>;
   onAlterarAppEmLote: (app: string) => Promise<void>;
   onCobrarEmLote?: () => void;
+  onEnviarVencimentoEmLote?: () => void;
   appOptions: string[];
 }
 
@@ -35,6 +36,7 @@ export function BulkActionBar({
   onAlterarValorEmLote,
   onAlterarAppEmLote,
   onCobrarEmLote,
+  onEnviarVencimentoEmLote,
   appOptions,
 }: BulkActionBarProps) {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -150,6 +152,20 @@ export function BulkActionBar({
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   Cobrar / Reativar
+                </Button>
+              )}
+
+              {onEnviarVencimentoEmLote && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1 text-xs border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300"
+                  onClick={onEnviarVencimentoEmLote}
+                  disabled={processando}
+                  title="Enviar vencimento com os usuários selecionados"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  Vencimento
                 </Button>
               )}
 

@@ -111,7 +111,7 @@ export default function HomePage() {
   const [aplicandoUpgradePara, setAplicandoUpgradePara] = useState<Acesso | null>(null);
   const [acordoPara, setAcordoPara] = useState<Acesso | null>(null);
   const [campanhaUpgradeAberta, setCampanhaUpgradeAberta] = useState(false);
-  const [enviandoVencimentoPara, setEnviandoVencimentoPara] = useState<Acesso | null>(null);
+  const [enviandoVencimentoItens, setEnviandoVencimentoItens] = useState<Acesso[]>([]);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
   const [importando, setImportando] = useState(false);
   const [toast, setToast] = useState<ImportFeedback | null>(null);
@@ -538,6 +538,13 @@ export default function HomePage() {
     }
   }
 
+  function handleEnviarVencimentoEmLote() {
+    const itensSelecionados = acessos.filter((a) => selecionados.includes(a.id));
+    if (itensSelecionados.length > 0) {
+      setEnviandoVencimentoItens(itensSelecionados);
+    }
+  }
+
   async function handleConfirmarRenovacao(id: string, meses: number, valorCobrado: number) {
     if (!db || !user) return;
     const item = acessos.find((a) => a.id === id);
@@ -929,6 +936,18 @@ export default function HomePage() {
     setToast({ type: "success", message: `App de ${selecionados.length} clientes alterado para ${novoApp}.` });
   }
 
+  const acessosPorTelefone = useMemo(() => {
+    const map = new Map<string, Acesso[]>();
+    acessos.forEach((a) => {
+      const chave = (a.telefone || "").replace(/\D/g, "").replace(/^55(?=\d{10,})/, "");
+      if (!chave) return;
+      const lista = map.get(chave);
+      if (lista) lista.push(a);
+      else map.set(chave, [a]);
+    });
+    return map;
+  }, [acessos]);
+
   const usuariosAgrupados: UsuarioAgrupado[] = useMemo(() => {
     const groups: Record<string, { nomeExibicao: string; itens: Acesso[] }> = {};
     acessos.forEach((item) => {
@@ -1310,7 +1329,18 @@ export default function HomePage() {
                               }}
                               onCobrar={handleCobrar}
                               onAdicionarUsuario={setAdicionandoUsuarioPara}
-                              onEnviarVencimento={setEnviandoVencimentoPara}
+                              onEnviarVencimento={(a) => setEnviandoVencimentoItens([a])}
+                              onEnviarVencimentoTodos={(a) => {
+                                const chave = (a.telefone || "").replace(/\D/g, "").replace(/^55(?=\d{10,})/, "");
+                                const grupoTel = chave ? acessosPorTelefone.get(chave) : undefined;
+                                setEnviandoVencimentoItens(grupoTel && grupoTel.length > 1 ? grupoTel : [a]);
+                              }}
+                              qtdUsuariosCliente={
+                                (() => {
+                                  const chave = (item.telefone || "").replace(/\D/g, "").replace(/^55(?=\d{10,})/, "");
+                                  return chave ? (acessosPorTelefone.get(chave)?.length ?? 1) : 1;
+                                })()
+                              }
                               selecionado={selecionados.includes(item.id)}
                               onToggleSelecao={toggleSelecao}
                             />
@@ -1618,8 +1648,8 @@ export default function HomePage() {
       />
 
       <EnviarVencimentoDialog
-        acesso={enviandoVencimentoPara}
-        onFechar={() => setEnviandoVencimentoPara(null)}
+        acessos={enviandoVencimentoItens}
+        onFechar={() => setEnviandoVencimentoItens([])}
       />
 
       <AcordoDialog
@@ -1704,6 +1734,7 @@ export default function HomePage() {
         onAlterarValorEmLote={handleAlterarValorEmLote}
         onAlterarAppEmLote={handleAlterarAppEmLote}
         onCobrarEmLote={handleCobrarEmLote}
+        onEnviarVencimentoEmLote={handleEnviarVencimentoEmLote}
         appOptions={appOptions}
       />
 
