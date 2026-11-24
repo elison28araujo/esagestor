@@ -12,6 +12,8 @@ import {
   resumirTelasParaAcesso,
   montarUpgradeTela,
   formatarMensagemUpgrade,
+  calcularUpgradeProporcional,
+  formatarMensagemUpgradeLongoPrazo,
   parseFlexibleDate,
   parseCsv,
   calcularLucroPorServidor,
@@ -81,6 +83,27 @@ describe("Normalização e Formatação de Dados", () => {
       { cliente: "Maria", usuario: "user1", valorAtual: 30, acrescimo: 10 }
     );
     expect(msg).toBe("Olá Maria, de R$ 30,00 para R$ 40,00 (+R$ 10,00)");
+  });
+
+  it("calcula proporcional e adapta mensagem para clientes com meses adiantados", () => {
+    const agoraMs = new Date("2026-11-24T12:00:00Z").getTime();
+    const curto = calcularUpgradeProporcional("2026-12-10T12:00:00Z", 10, agoraMs);
+    expect(curto.isLongoPrazo).toBe(false);
+
+    const longo = calcularUpgradeProporcional("2027-04-06T12:00:00Z", 10, agoraMs);
+    expect(longo.isLongoPrazo).toBe(true);
+    expect(longo.mesesRestantes).toBe(4);
+    expect(longo.valorProporcional).toBe(40);
+
+    const msgLonga = formatarMensagemUpgradeLongoPrazo(
+      { cliente: "Valdemir", valorAtual: 35, acrescimo: 10, vencimento: "2027-04-06T12:00:00Z" },
+      agoraMs
+    );
+    expect(msgLonga).toContain("Valdemir");
+    expect(msgLonga).toContain("06/04/2027");
+    expect(msgLonga).toContain("4 meses");
+    expect(msgLonga).toContain("R$ 40,00");
+    expect(msgLonga).toContain("R$ 45,00");
   });
 });
 

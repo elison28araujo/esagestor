@@ -6,9 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Acesso, UsuarioAgrupado } from "@/lib/types";
-import { extrairLoginUsuario, formatarMensagemUpgrade, formatPhone } from "@/lib/utils";
+import {
+  extrairLoginUsuario,
+  formatarMensagemUpgrade,
+  formatarMensagemUpgradeLongoPrazo,
+  calcularUpgradeProporcional,
+  formatPhone,
+} from "@/lib/utils";
 import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
-import { CheckCircle2, Loader2, MessageCircle, Send, Sparkles, Tv } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, MessageCircle, Send, Sparkles, Tv } from "lucide-react";
 
 const MENSAGEM_PADRAO_UPGRADE =
   "Olá {cliente}! 🎉 Como você já é nosso cliente, liberamos uma oferta exclusiva: quer adicionar *mais 1 dispositivo (outra TV ou celular)* no seu acesso por apenas *+R$ {acrescimo}/mês*? A gente já ativa hoje e você *só paga na sua próxima mensalidade* (passando de R$ {valor_atual} para R$ {valor_novo}). Quer que eu libere agora?";
@@ -92,6 +98,15 @@ export function CampanhaUpgradeDialog({
   }
 
   function gerarTexto(a: Acesso) {
+    const info = calcularUpgradeProporcional(a.vencimento, acrescimoNum);
+    if (info.isLongoPrazo) {
+      return formatarMensagemUpgradeLongoPrazo({
+        cliente: a.cliente,
+        valorAtual: Number(a.valor) || 0,
+        acrescimo: acrescimoNum,
+        vencimento: a.vencimento,
+      });
+    }
     return formatarMensagemUpgrade(mensagem, {
       cliente: a.cliente,
       usuario: extrairLoginUsuario(a.usuario) || a.usuario,
@@ -208,6 +223,9 @@ export function CampanhaUpgradeDialog({
                 onChange={(e) => setMensagem(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
               />
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Clientes com mais de 40 dias pagos pela frente recebem automaticamente a mensagem com valor proporcional aos meses restantes.
+              </p>
             </div>
           </div>
 
@@ -245,10 +263,15 @@ export function CampanhaUpgradeDialog({
                 const valorAtual = Number(item.valor) || 0;
                 const valorNovo = valorAtual + acrescimoNum;
                 const jaEnviado = enviados.includes(item.id);
+                const infoProp = calcularUpgradeProporcional(item.vencimento, acrescimoNum);
                 return (
                   <div
                     key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-2.5 text-xs dark:border-slate-800 dark:bg-slate-900/50"
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-2.5 text-xs ${
+                      infoProp.isLongoPrazo
+                        ? "border-amber-300/70 bg-amber-50/40 dark:border-amber-700/40 dark:bg-amber-950/20"
+                        : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50"
+                    }`}
                   >
                     <label className="flex items-center gap-2.5 cursor-pointer min-w-0">
                       <input
@@ -257,9 +280,15 @@ export function CampanhaUpgradeDialog({
                         onChange={() => toggleSelecao(item.id)}
                       />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100">
+                        <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100">
                           <span className="truncate">{item.cliente}</span>
                           {jaEnviado && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+                          {infoProp.isLongoPrazo && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                              <AlertTriangle className="h-3 w-3" />
+                              Pago até {infoProp.vencimentoFormatado} ({infoProp.mesesRestantes}m • prop. R$ {infoProp.valorProporcional.toFixed(2)})
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-500">
                           {extrairLoginUsuario(item.usuario)} • {formatPhone(item.telefone)} •{" "}

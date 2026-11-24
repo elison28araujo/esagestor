@@ -471,6 +471,56 @@ export function formatarMensagemUpgrade(
     .replace(/\{acrescimo\}/g, dados.acrescimo.toFixed(2).replace(".", ","));
 }
 
+export interface InfoUpgradeProporcional {
+  diasRestantes: number;
+  mesesRestantes: number;
+  isLongoPrazo: boolean;
+  valorProporcional: number;
+  vencimentoFormatado: string;
+}
+
+export function calcularUpgradeProporcional(
+  vencimentoIso: string,
+  acrescimoMensal: number,
+  agoraMs = Date.now()
+): InfoUpgradeProporcional {
+  const vencMs = new Date(vencimentoIso).getTime();
+  const diasRestantes = Number.isNaN(vencMs)
+    ? 0
+    : Math.max(0, Math.ceil((vencMs - agoraMs) / (1000 * 60 * 60 * 24)));
+  const isLongoPrazo = diasRestantes > 40;
+  const mesesRestantes = Math.max(1, Math.round(diasRestantes / 30));
+  const valorProporcional = Number((mesesRestantes * Math.max(0, acrescimoMensal)).toFixed(2));
+  const vencimentoFormatado = Number.isNaN(vencMs)
+    ? ""
+    : new Date(vencMs).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+  return {
+    diasRestantes,
+    mesesRestantes,
+    isLongoPrazo,
+    valorProporcional,
+    vencimentoFormatado,
+  };
+}
+
+export function formatarMensagemUpgradeLongoPrazo(
+  dados: { cliente: string; valorAtual: number; acrescimo: number; vencimento: string },
+  agoraMs = Date.now()
+): string {
+  const info = calcularUpgradeProporcional(dados.vencimento, dados.acrescimo, agoraMs);
+  const valorNovo = Number((dados.valorAtual + dados.acrescimo).toFixed(2));
+  const pluralMes = info.mesesRestantes === 1 ? "mês" : "meses";
+
+  return (
+    `Olá ${dados.cliente}! 🎉 Como você já garantiu seu plano até *${info.vencimentoFormatado}*, liberamos uma oferta exclusiva: ` +
+    `quer adicionar *mais 1 dispositivo (outra TV ou celular)* no seu acesso por apenas *+R$ ${dados.acrescimo.toFixed(2).replace(".", ",")}/mês*? ` +
+    `Como ainda faltam *${info.mesesRestantes} ${pluralMes}* para sua próxima renovação, você pode liberar hoje pagando apenas o proporcional de ` +
+    `*R$ ${info.valorProporcional.toFixed(2).replace(".", ",")}* pelo período restante (e na renovação passa de R$ ${dados.valorAtual.toFixed(2).replace(".", ",")} para R$ ${valorNovo.toFixed(2).replace(".", ",")}). ` +
+    `Quer que eu libere agora?`
+  );
+}
+
 export const CUSTO_SERVIDOR_PADRAO: Record<"Warez" | "Five" | "Genial", number> = {
   Warez: 9.0,
   Five: 8.0,

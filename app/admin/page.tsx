@@ -1632,14 +1632,30 @@ export default function HomePage() {
         acesso={aplicandoUpgradePara}
         appOptions={appOptions}
         onFechar={() => setAplicandoUpgradePara(null)}
-        onConfirmar={async (acesso, novaTela, acrescimo) => {
+        onConfirmar={async (acesso, novaTela, acrescimo, valorProporcionalPago) => {
           if (!db) return;
           const payload = montarUpgradeTela(acesso, novaTela, acrescimo);
           await updateDoc(doc(db, "acessos", acesso.id), payload);
-          setToast({
-            type: "success",
-            message: `${payload.dispositivos}ª tela ativada para "${acesso.cliente}"! Novo valor: R$ ${payload.valor.toFixed(2)} na próxima mensalidade.`,
-          });
+          if (valorProporcionalPago && valorProporcionalPago > 0 && user) {
+            await addDoc(collection(db, "pagamentos"), {
+              acessoId: acesso.id,
+              usuario: acesso.usuario,
+              cliente: acesso.cliente,
+              app: acesso.app,
+              valor: valorProporcionalPago,
+              data: new Date().toISOString(),
+              userId: user.uid,
+            });
+            setToast({
+              type: "success",
+              message: `${payload.dispositivos}ª tela ativada para "${acesso.cliente}" + pagamento proporcional de R$ ${valorProporcionalPago.toFixed(2)} registrado!`,
+            });
+          } else {
+            setToast({
+              type: "success",
+              message: `${payload.dispositivos}ª tela ativada para "${acesso.cliente}"! Novo valor: R$ ${payload.valor.toFixed(2)} na próxima mensalidade.`,
+            });
+          }
         }}
       />
 

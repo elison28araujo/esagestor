@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Acesso, TelaDispositivo } from "@/lib/types";
-import { Cpu, Key, Loader2, Sparkles, Tv } from "lucide-react";
+import { calcularUpgradeProporcional } from "@/lib/utils";
+import { AlertTriangle, Cpu, Key, Loader2, Sparkles, Tv } from "lucide-react";
 
 interface AplicarUpgradeDialogProps {
   acesso: Acesso | null;
   appOptions: string[];
-  onConfirmar: (acesso: Acesso, novaTela: TelaDispositivo, acrescimo: number) => Promise<void>;
+  onConfirmar: (
+    acesso: Acesso,
+    novaTela: TelaDispositivo,
+    acrescimo: number,
+    valorProporcionalPago?: number
+  ) => Promise<void>;
   onFechar: () => void;
 }
 
@@ -29,6 +35,8 @@ export function AplicarUpgradeDialog({
   const [enderecoMac, setEnderecoMac] = useState("");
   const [chaveKey, setChaveKey] = useState("");
   const [acrescimo, setAcrescimo] = useState("10");
+  const [registrarProporcional, setRegistrarProporcional] = useState(false);
+  const [valorProporcional, setValorProporcional] = useState("");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -37,6 +45,9 @@ export function AplicarUpgradeDialog({
       setEnderecoMac("");
       setChaveKey("");
       setAcrescimo("10");
+      const info = calcularUpgradeProporcional(acesso.vencimento, 10);
+      setRegistrarProporcional(info.isLongoPrazo);
+      setValorProporcional(info.isLongoPrazo ? info.valorProporcional.toFixed(2) : "");
     }
   }, [acesso]);
 
@@ -47,10 +58,12 @@ export function AplicarUpgradeDialog({
   const valorAtual = Number(acesso.valor) || 0;
   const acrescimoNum = Math.max(0, Number(acrescimo) || 0);
   const novoValor = valorAtual + acrescimoNum;
+  const infoProporcional = calcularUpgradeProporcional(acesso.vencimento, acrescimoNum);
 
   async function handleConfirmar() {
     if (!acesso) return;
     setSalvando(true);
+    const proporcionalNum = registrarProporcional ? Math.max(0, Number(valorProporcional) || 0) : 0;
     await onConfirmar(
       acesso,
       {
@@ -58,7 +71,8 @@ export function AplicarUpgradeDialog({
         enderecoMac: enderecoMac.trim(),
         chaveKey: chaveKey.trim(),
       },
-      acrescimoNum
+      acrescimoNum,
+      proporcionalNum > 0 ? proporcionalNum : undefined
     );
     setSalvando(false);
     onFechar();
@@ -142,9 +156,46 @@ export function AplicarUpgradeDialog({
               type="number"
               step="0.01"
               value={acrescimo}
-              onChange={(e) => setAcrescimo(e.target.value)}
+              onChange={(e) => {
+                const novoAcrescimo = e.target.value;
+                setAcrescimo(novoAcrescimo);
+                if (infoProporcional.isLongoPrazo) {
+                  const atualizado = calcularUpgradeProporcional(acesso.vencimento, Math.max(0, Number(novoAcrescimo) || 0));
+                  setValorProporcional(atualizado.valorProporcional.toFixed(2));
+                }
+              }}
             />
           </div>
+
+          {infoProporcional.isLongoPrazo && (
+            <div className="rounded-xl border border-amber-300/80 bg-amber-50/70 p-3 text-xs space-y-2 dark:border-amber-700/50 dark:bg-amber-950/30">
+              <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200 font-semibold">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <span>
+                  Cliente pago até {infoProporcional.vencimentoFormatado} (~{infoProporcional.mesesRestantes}{" "}
+                  {infoProporcional.mesesRestantes === 1 ? "mês" : "meses"} restantes). Proporcional sugerido:{" "}
+                  <strong>R$ {infoProporcional.valorProporcional.toFixed(2)}</strong>.
+                </span>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={registrarProporcional}
+                  onChange={(e) => setRegistrarProporcional(e.target.checked)}
+                />
+                <span>Registrar pagamento proporcional agora (R$)</span>
+              </label>
+              {registrarProporcional && (
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={valorProporcional}
+                  onChange={(e) => setValorProporcional(e.target.value)}
+                  className="h-8 bg-white dark:bg-slate-950"
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
