@@ -25,6 +25,99 @@ import {
 } from "lucide-react";
 import { cn, CUSTO_SERVIDOR_PADRAO, calcularLucroPorServidor } from "@/lib/utils";
 
+const BRASILIA_PERIOD_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+});
+
+const MESES_CURTOS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const MESES_LONGOS_PT = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+// Helper para obter o período (AAAA-MM) no fuso horário de Brasília sem recriar Intl.DateTimeFormat
+function getPeriodoBrasilia(dateInput: string | number | Date): string | null {
+  try {
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return null;
+    const [mes, ano] = BRASILIA_PERIOD_FORMATTER.format(d).split("/");
+    return `${ano}-${mes}`;
+  } catch {
+    return null;
+  }
+}
+
+function SantaChartOverlay({
+  chartWrapperRef,
+  active,
+}: {
+  chartWrapperRef: React.RefObject<HTMLDivElement | null>;
+  active: boolean;
+}) {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+
+    let rafId = 0;
+    const durationMs = 7500;
+    const startTime = performance.now();
+
+    const step = (now: number) => {
+      const container = chartWrapperRef.current;
+      const overlay = overlayRef.current;
+      const path = container?.querySelector(".recharts-area-curve") as SVGPathElement | null;
+      if (overlay && path && typeof path.getTotalLength === "function") {
+        const len = path.getTotalLength();
+        if (len > 10) {
+          const progress = ((now - startTime) % durationMs) / durationMs;
+          const dist = progress * len;
+          const pt = path.getPointAtLength(dist);
+          const ptNext = path.getPointAtLength(Math.min(len, dist + 4));
+          const rawAngle = (Math.atan2(ptNext.y - pt.y, ptNext.x - pt.x) * 180) / Math.PI;
+          const angle = Math.max(-28, Math.min(28, rawAngle));
+          const opacity = progress < 0.06 ? progress / 0.06 : progress > 0.94 ? (1 - progress) / 0.06 : 1;
+          overlay.style.transform = `translate3d(${pt.x}px, ${pt.y}px, 0) translate(-50%, -92%) rotate(${angle * 0.45}deg)`;
+          overlay.style.opacity = String(opacity);
+        }
+      }
+      rafId = requestAnimationFrame(step);
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [active, chartWrapperRef]);
+
+  if (!active) return null;
+
+  return (
+    <div
+      ref={overlayRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute left-0 top-0 select-none"
+      style={{ opacity: 0 }}
+    >
+      <img
+        src="/papai-noel.gif"
+        alt=""
+        className="h-14 w-auto object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
+      />
+    </div>
+  );
+}
+
 interface DashboardProps {
   acessos: Acesso[];
   despesas: Despesa[];
@@ -46,26 +139,6 @@ export function Dashboard({
   onAbrirCampanhaUpgrade,
   christmasMode = true,
 }: DashboardProps) {
-  // Helper para obter o período (AAAA-MM) no fuso horário de Brasília
-  function getPeriodoBrasilia(dateInput: string | number | Date) {
-    try {
-      const d = new Date(dateInput);
-      if (isNaN(d.getTime())) return null;
-      
-      const formatter = new Intl.DateTimeFormat("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-        year: "numeric",
-        month: "2-digit",
-      });
-      
-      const formatted = formatter.format(d);
-      const [mes, ano] = formatted.split("/");
-      return `${ano}-${mes}`;
-    } catch {
-      return null;
-    }
-  }
-
   // Estado para o período selecionado (Mês/Ano). Padrão é o mês atual de Brasília.
   const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
     const periodoAtual = getPeriodoBrasilia(new Date());
@@ -79,45 +152,11 @@ export function Dashboard({
   const [filtroTipoVaga, setFiltroTipoVaga] = useState<"TODOS" | "P2P" | "IPTV">("TODOS");
   const [custosServidor, setCustosServidor] = useState<Record<"Warez" | "Five" | "Genial", number>>(CUSTO_SERVIDOR_PADRAO);
   const chartWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [santaPos, setSantaPos] = useState<{ x: number; y: number; angle: number; opacity: number } | null>(null);
 
   const lucroPorServidor = useMemo(
     () => calcularLucroPorServidor(usuariosAgrupados, custosServidor),
     [usuariosAgrupados, custosServidor]
   );
-
-  useEffect(() => {
-    if (!christmasMode) {
-      setSantaPos(null);
-      return;
-    }
-
-    let rafId = 0;
-    const durationMs = 7500;
-    const startTime = performance.now();
-
-    const step = (now: number) => {
-      const container = chartWrapperRef.current;
-      const path = container?.querySelector(".recharts-area-curve") as SVGPathElement | null;
-      if (path && typeof path.getTotalLength === "function") {
-        const len = path.getTotalLength();
-        if (len > 10) {
-          const progress = ((now - startTime) % durationMs) / durationMs;
-          const dist = progress * len;
-          const pt = path.getPointAtLength(dist);
-          const ptNext = path.getPointAtLength(Math.min(len, dist + 4));
-          const rawAngle = (Math.atan2(ptNext.y - pt.y, ptNext.x - pt.x) * 180) / Math.PI;
-          const angle = Math.max(-28, Math.min(28, rawAngle));
-          const opacity = progress < 0.06 ? progress / 0.06 : progress > 0.94 ? (1 - progress) / 0.06 : 1;
-          setSantaPos({ x: pt.x, y: pt.y, angle, opacity });
-        }
-      }
-      rafId = requestAnimationFrame(step);
-    };
-
-    rafId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafId);
-  }, [christmasMode, pagamentos, despesas]);
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [copiadoUser, setCopiadoUser] = useState<string | null>(null);
 
@@ -180,59 +219,66 @@ export function Dashboard({
     return list;
   }, [usuariosDisponiveis, filtroServidor, filtroTipoVaga, buscaUsuario]);
 
+  // Pré-calcula o período (AAAA-MM) uma única vez por registro
+  const pagamentosComPeriodo = useMemo(
+    () => pagamentos.map((p) => ({ item: p, periodo: getPeriodoBrasilia(p.data) })),
+    [pagamentos]
+  );
+
+  const despesasComPeriodo = useMemo(
+    () => despesas.map((d) => ({ item: d, periodo: getPeriodoBrasilia(d.data) })),
+    [despesas]
+  );
+
   // Gerar lista de períodos disponíveis (meses que possuem transações + mês atual)
   const periodosDisponiveis = useMemo(() => {
     const periods = new Set<string>();
-    
-    // Sempre incluir mês atual na lista
+
     const periodoAtual = getPeriodoBrasilia(new Date());
     if (periodoAtual) periods.add(periodoAtual);
     else {
       const hoje = new Date();
       periods.add(`${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`);
     }
-    
-    pagamentos.forEach((p) => {
-      const periodStr = getPeriodoBrasilia(p.data);
-      if (periodStr) periods.add(periodStr);
-    });
-    
-    despesas.forEach((d) => {
-      const periodStr = getPeriodoBrasilia(d.data);
-      if (periodStr) periods.add(periodStr);
+
+    pagamentosComPeriodo.forEach(({ periodo }) => {
+      if (periodo) periods.add(periodo);
     });
 
-    // Ordenar decrescente (meses mais recentes primeiro)
+    despesasComPeriodo.forEach(({ periodo }) => {
+      if (periodo) periods.add(periodo);
+    });
+
     return Array.from(periods).sort((a, b) => b.localeCompare(a));
-  }, [pagamentos, despesas]);
+  }, [pagamentosComPeriodo, despesasComPeriodo]);
 
   // Formatar rótulo amigável (Ex: "Agosto de 2026")
   function formatPeriodoLabel(periodStr: string) {
     const [year, month] = periodStr.split("-");
-    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const mStr = date.toLocaleString("pt-BR", { month: "long" });
-    return `${mStr.charAt(0).toUpperCase() + mStr.slice(1)} de ${year}`;
+    const mesNome = MESES_LONGOS_PT[parseInt(month, 10) - 1] || month;
+    return `${mesNome} de ${year}`;
   }
 
-  // Filtrar pagamentos do período selecionado
-  const pagamentosFiltrados = useMemo(() => {
-    return pagamentos.filter((p) => {
-      const periodStr = getPeriodoBrasilia(p.data);
-      return periodStr === selectedPeriod;
-    });
-  }, [pagamentos, selectedPeriod]);
+  // Filtrar pagamentos e despesas do período selecionado
+  const pagamentosFiltrados = useMemo(
+    () => pagamentosComPeriodo.filter((p) => p.periodo === selectedPeriod).map((p) => p.item),
+    [pagamentosComPeriodo, selectedPeriod]
+  );
 
-  // Filtrar despesas do período selecionado
-  const despesasFiltradas = useMemo(() => {
-    return despesas.filter((d) => {
-      const periodStr = getPeriodoBrasilia(d.data);
-      return periodStr === selectedPeriod;
-    });
-  }, [despesas, selectedPeriod]);
+  const despesasFiltradas = useMemo(
+    () => despesasComPeriodo.filter((d) => d.periodo === selectedPeriod).map((d) => d.item),
+    [despesasComPeriodo, selectedPeriod]
+  );
 
   // Totais do período selecionado
-  const totalEntrada = pagamentosFiltrados.reduce((sum, item) => sum + Number(item.valor || 0), 0);
-  const totalSaida = despesasFiltradas.reduce((sum, item) => sum + Number(item.valor || 0), 0);
+  const totalEntrada = useMemo(
+    () => pagamentosFiltrados.reduce((sum, item) => sum + Number(item.valor || 0), 0),
+    [pagamentosFiltrados]
+  );
+  const totalSaida = useMemo(
+    () => despesasFiltradas.reduce((sum, item) => sum + Number(item.valor || 0), 0),
+    [despesasFiltradas]
+  );
   const lucro = totalEntrada - totalSaida;
 
   const vencendoHoje = useMemo(() => {
@@ -244,37 +290,43 @@ export function Dashboard({
   }, [acessos]);
 
   const vencidos = useMemo(() => {
-    return acessos.filter((a) => new Date(a.vencimento).getTime() < Date.now()).length;
+    const agora = Date.now();
+    return acessos.filter((a) => new Date(a.vencimento).getTime() < agora).length;
   }, [acessos]);
 
   // Histórico de lucro por mês (para o gráfico anual de linha)
   const dadosMensais = useMemo(() => {
-    const meses: Record<string, { entrada: number; saida: number }> = {};
-    pagamentos.forEach((item) => {
-      const mes = new Date(item.data).toLocaleString("pt-BR", { month: "short" });
-      if (!meses[mes]) meses[mes] = { entrada: 0, saida: 0 };
+    const meses: Record<string, { entrada: number; saida: number; idx: number }> = {};
+
+    pagamentosComPeriodo.forEach(({ item, periodo }) => {
+      if (!periodo) return;
+      const monthIdx = parseInt(periodo.split("-")[1], 10) - 1;
+      const mes = MESES_CURTOS_PT[monthIdx];
+      if (!mes) return;
+      if (!meses[mes]) meses[mes] = { entrada: 0, saida: 0, idx: monthIdx };
       meses[mes].entrada += Number(item.valor || 0);
     });
-    despesas.forEach((item) => {
-      const mes = new Date(item.data).toLocaleString("pt-BR", { month: "short" });
-      if (!meses[mes]) meses[mes] = { entrada: 0, saida: 0 };
+
+    despesasComPeriodo.forEach(({ item, periodo }) => {
+      if (!periodo) return;
+      const monthIdx = parseInt(periodo.split("-")[1], 10) - 1;
+      const mes = MESES_CURTOS_PT[monthIdx];
+      if (!mes) return;
+      if (!meses[mes]) meses[mes] = { entrada: 0, saida: 0, idx: monthIdx };
       meses[mes].saida += Number(item.valor || 0);
     });
 
-    const nomeMeses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     return Object.entries(meses)
       .map(([mes, v]) => ({
         mes,
         entrada: v.entrada,
         saida: v.saida,
         lucro: v.entrada - v.saida,
+        idx: v.idx,
       }))
-      .sort((a, b) => {
-        const idxA = nomeMeses.findIndex((m) => a.mes.toLowerCase().startsWith(m));
-        const idxB = nomeMeses.findIndex((m) => b.mes.toLowerCase().startsWith(m));
-        return idxA - idxB;
-      });
-  }, [pagamentos, despesas]);
+      .sort((a, b) => a.idx - b.idx)
+      .map(({ mes, entrada, saida, lucro }) => ({ mes, entrada, saida, lucro }));
+  }, [pagamentosComPeriodo, despesasComPeriodo]);
 
   async function gerarRelatorioPDF() {
     try {
@@ -657,22 +709,7 @@ export function Dashboard({
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {christmasMode && santaPos && (
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-0 select-none"
-                  style={{
-                    transform: `translate3d(${santaPos.x}px, ${santaPos.y}px, 0) translate(-50%, -92%) rotate(${santaPos.angle * 0.45}deg)`,
-                    opacity: santaPos.opacity,
-                  }}
-                >
-                  <img
-                    src="/papai-noel.gif"
-                    alt=""
-                    className="h-14 w-auto object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
-                  />
-                </div>
-              )}
+              <SantaChartOverlay chartWrapperRef={chartWrapperRef} active={christmasMode} />
             </div>
           </CardContent>
         </Card>
