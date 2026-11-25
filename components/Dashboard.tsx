@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Acesso, Despesa, Pagamento, UsuarioAgrupado, ServidorNome } from "@/lib/types";
 import { SERVIDORES } from "@/lib/constants";
+import { auth } from "@/lib/firebase";
 import {
   AlertTriangle,
   FileText,
@@ -22,6 +23,10 @@ import {
   Users,
   Sparkles,
   TrendingUp,
+  Eye,
+  EyeOff,
+  Clock3,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { cn, CUSTO_SERVIDOR_PADRAO, calcularLucroPorServidor } from "@/lib/utils";
 
@@ -152,6 +157,42 @@ export function Dashboard({
   const [filtroTipoVaga, setFiltroTipoVaga] = useState<"TODOS" | "P2P" | "IPTV">("TODOS");
   const [custosServidor, setCustosServidor] = useState<Record<"Warez" | "Five" | "Genial", number>>(CUSTO_SERVIDOR_PADRAO);
   const chartWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [ocultarValores, setOcultarValores] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("esa_hide_values") === "1";
+  });
+  const [pendentesPixCount, setPendentesPixCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("esa_hide_values", ocultarValores ? "1" : "0");
+    }
+  }, [ocultarValores]);
+
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      try {
+        const token = await auth?.currentUser?.getIdToken();
+        if (!token) return;
+        const res = await fetch("/api/insights-conversao", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (ativo && typeof json.pendentesCount === "number") {
+          setPendentesPixCount(json.pendentesCount);
+        }
+      } catch {
+        // Silencioso em modo estático/offline
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, [pagamentos.length]);
+
+  const fmtValor = (v: number) => (ocultarValores ? "R$ •••••" : `R$ ${v.toFixed(2)}`);
 
   const lucroPorServidor = useMemo(
     () => calcularLucroPorServidor(usuariosAgrupados, custosServidor),
@@ -281,18 +322,23 @@ export function Dashboard({
   );
   const lucro = totalEntrada - totalSaida;
 
+  const acessosAtivos = useMemo(() => acessos.filter((a) => !a.desativado), [acessos]);
+
   const vencendoHoje = useMemo(() => {
     const hoje = Date.now();
-    return acessos.filter((a) => {
+    return acessosAtivos.filter((a) => {
       const dias = Math.ceil((new Date(a.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
-      return dias <= 3 && dias >= 0;
+      return dias > 0 && dias <= 3;
     }).length;
-  }, [acessos]);
+  }, [acessosAtivos]);
 
   const vencidos = useMemo(() => {
-    const agora = Date.now();
-    return acessos.filter((a) => new Date(a.vencimento).getTime() < agora).length;
-  }, [acessos]);
+    const hoje = Date.now();
+    return acessosAtivos.filter((a) => {
+      const dias = Math.ceil((new Date(a.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
+      return dias <= 0;
+    }).length;
+  }, [acessosAtivos]);
 
   // Histórico de lucro por mês (para o gráfico anual de linha)
   const dadosMensais = useMemo(() => {
@@ -481,6 +527,17 @@ export function Dashboard({
             ))}
           </select>
 
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 gap-1.5 border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
+            onClick={() => setOcultarValores((v) => !v)}
+            title={ocultarValores ? "Exibir valores financeiros" : "Ocultar valores financeiros"}
+          >
+            {ocultarValores ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            <span className="hidden sm:inline">{ocultarValores ? "Exibir" : "Ocultar"}</span>
+          </Button>
+
           <Button 
             size="sm" 
             variant="outline" 
@@ -503,7 +560,7 @@ export function Dashboard({
               </div>
             </div>
             <div className="mt-2 text-xl font-heading font-bold text-emerald-600 dark:text-emerald-400">
-              R$ {totalEntrada.toFixed(2)}
+              {fmtValor(totalEntrada)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Recebimentos do período
@@ -521,7 +578,7 @@ export function Dashboard({
               </div>
             </div>
             <div className="mt-2 text-xl font-heading font-bold text-rose-600 dark:text-rose-400">
-              R$ {totalSaida.toFixed(2)}
+              {fmtValor(totalSaida)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Custos operacionais
@@ -547,7 +604,7 @@ export function Dashboard({
               </div>
             </div>
             <div className={cn("mt-2 text-xl font-heading font-bold", lucro >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400")}>
-              R$ {lucro.toFixed(2)}
+              {fmtValor(lucro)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Margem: {totalEntrada > 0 ? ((lucro / totalEntrada) * 100).toFixed(0) : 0}%
@@ -565,7 +622,7 @@ export function Dashboard({
               </div>
             </div>
             <div className="mt-2 text-xl font-heading font-bold text-slate-900 dark:text-slate-100">
-              {acessos.length}
+              {acessosAtivos.length}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Acessos monitorados
@@ -714,6 +771,154 @@ export function Dashboard({
           </CardContent>
         </Card>
       )}
+
+      {/* Insights de Conversão PIX & Melhores Horários */}
+      {(() => {
+        const aprovadosCount = pagamentosFiltrados.length;
+        const totalPixGerados = aprovadosCount + pendentesPixCount;
+        const taxaConversao = totalPixGerados > 0 ? Math.round((aprovadosCount / totalPixGerados) * 100) : 0;
+        const pieData = [
+          { name: "Pagos", value: aprovadosCount, color: "#10b981" },
+          { name: "Pendentes", value: pendentesPixCount, color: "#f59e0b" },
+        ].filter((d) => d.value > 0);
+
+        const buckets = Array.from({ length: 8 }, (_, idx) => ({
+          label: `${String(idx * 3).padStart(2, "0")}h`,
+          value: 0,
+        }));
+        pagamentosFiltrados.forEach((p) => {
+          try {
+            const hStr = new Intl.DateTimeFormat("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+              hour: "2-digit",
+              hour12: false,
+            }).format(new Date(p.data));
+            const h = parseInt(hStr, 10);
+            if (!isNaN(h)) {
+              const bucket = buckets[Math.floor(h / 3)];
+              if (bucket) bucket.value += Number(p.valor || 0);
+            }
+          } catch {
+            // ignora data inválida
+          }
+        });
+        const pico = buckets.reduce((best, cur) => (cur.value > best.value ? cur : best), {
+          label: "00h",
+          value: 0,
+        });
+
+        return (
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Taxa de Conversão PIX */}
+            <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/70 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                    <PieChartIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Taxa de Conversão PIX</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Pagamentos aprovados no período vs. PIX pendentes.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-5">
+                  <div className="relative h-[108px] w-[108px] shrink-0">
+                    {pieData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            dataKey="value"
+                            innerRadius={35}
+                            outerRadius={50}
+                            paddingAngle={3}
+                            stroke="none"
+                          >
+                            {pieData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full w-full rounded-full border-[12px] border-slate-200 dark:border-slate-800" />
+                    )}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-lg font-heading font-bold text-slate-900 dark:text-slate-100 leading-none">
+                        {taxaConversao}%
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">conversão</span>
+                    </div>
+                  </div>
+                  <ul className="flex-1 space-y-2 text-xs">
+                    <li className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        Pagos (período)
+                      </span>
+                      <strong className="text-slate-900 dark:text-slate-100">{aprovadosCount}</strong>
+                    </li>
+                    <li className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                        Pendentes (aguardando)
+                      </span>
+                      <strong className="text-slate-900 dark:text-slate-100">{pendentesPixCount}</strong>
+                    </li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Melhores Horários */}
+            <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/70 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+                    <Clock3 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Melhores Horários</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {pico.value > 0
+                        ? `Pico entre ${pico.label} e ${String(parseInt(pico.label, 10) + 3).padStart(2, "0")}h (ideal para disparos).`
+                        : "Quando seus clientes mais pagam no período."}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 h-[112px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={buckets} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                      <Tooltip
+                        cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                        contentStyle={{
+                          background: "#0f172a",
+                          border: "1px solid rgba(148,163,184,0.2)",
+                          borderRadius: 12,
+                          fontSize: 12,
+                          color: "#f8fafc",
+                        }}
+                        formatter={(val: number) => [fmtValor(Number(val)), "Recebido"]}
+                      />
+                      <Bar dataKey="value" radius={[6, 6, 2, 2]}>
+                        {buckets.map((entry) => (
+                          <Cell
+                            key={entry.label}
+                            fill={entry.label === pico.label && entry.value > 0 ? "#3b82f6" : "#334155"}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        );
+      })()}
 
       {/* SEÇÃO: LINHAS COM VAGAS DISPONÍVEIS */}
       <section className="mt-8 space-y-4">

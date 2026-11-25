@@ -14,6 +14,8 @@ import {
   Loader2,
   CheckSquare,
   MessageCircle,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 
 interface BulkActionBarProps {
@@ -25,6 +27,9 @@ interface BulkActionBarProps {
   onAlterarAppEmLote: (app: string) => Promise<void>;
   onCobrarEmLote?: () => void;
   onEnviarVencimentoEmLote?: () => void;
+  onDesativarEmLote?: () => Promise<void>;
+  onReativarEmLote?: () => Promise<void>;
+  isDesativadosView?: boolean;
   appOptions: string[];
 }
 
@@ -37,6 +42,9 @@ export function BulkActionBar({
   onAlterarAppEmLote,
   onCobrarEmLote,
   onEnviarVencimentoEmLote,
+  onDesativarEmLote,
+  onReativarEmLote,
+  isDesativadosView = false,
   appOptions,
 }: BulkActionBarProps) {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -151,8 +159,44 @@ export function BulkActionBar({
                   disabled={processando}
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
-                  Cobrar / Reativar
+                  {isDesativadosView ? "Enviar Promoção" : "Cobrar / Reativar"}
                 </Button>
+              )}
+
+              {isDesativadosView && onReativarEmLote ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  onClick={async () => {
+                    setProcessando(true);
+                    await onReativarEmLote();
+                    setProcessando(false);
+                    onLimparSelecao();
+                  }}
+                  disabled={processando}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reativar
+                </Button>
+              ) : (
+                onDesativarEmLote && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 gap-1 text-xs border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    onClick={async () => {
+                      setProcessando(true);
+                      await onDesativarEmLote();
+                      setProcessando(false);
+                      onLimparSelecao();
+                    }}
+                    disabled={processando}
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                    Desativar
+                  </Button>
+                )
               )}
 
               {onEnviarVencimentoEmLote && (

@@ -86,9 +86,14 @@ export function CobrarDialog({
     setEnviando(false);
 
     const diasVenc = calcularDiasVencido(primeiro.vencimento);
-    const tplInicial = diasVenc >= 15 ? mensagemReativacao : mensagemCobranca;
+    const isDesativado = Boolean(primeiro.desativado);
+    const tplInicial = isDesativado
+      ? PROMOCOES_TEMPLATES[0]?.texto || mensagemReativacao
+      : diasVenc >= 15
+        ? mensagemReativacao
+        : mensagemCobranca;
     setTemplateAtual(tplInicial);
-    setEstiloIA(diasVenc >= 15 ? "amigavel" : "variar");
+    setEstiloIA(isDesativado ? "oferta" : diasVenc >= 15 ? "amigavel" : "variar");
 
     if (itens.length === 1) {
       setMensagemTexto(formatarMensagem(tplInicial, primeiro, window.location.origin));

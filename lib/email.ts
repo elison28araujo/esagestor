@@ -5,9 +5,14 @@ import { getApiUrl } from "./utils";
 export async function enviarResumoAlertasEmail(to: string, acessos: Acesso[]): Promise<boolean> {
   const hoje = Date.now();
 
-  const vencidos = acessos.filter((a) => new Date(a.vencimento).getTime() < hoje);
+  const acessosAtivos = acessos.filter((a) => !a.desativado);
+
+  const vencidos = acessosAtivos.filter((a) => {
+    const dias = Math.ceil((new Date(a.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
+    return dias <= 0;
+  });
   
-  const vencendo = acessos.filter((a) => {
+  const vencendo = acessosAtivos.filter((a) => {
     const dias = Math.ceil((new Date(a.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
     return dias > 0 && dias <= 3;
   });

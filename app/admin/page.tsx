@@ -567,6 +567,8 @@ export default function HomePage() {
         acordoValor: 0,
         acordoData: "",
         acordoObs: "",
+        desativado: false,
+        desativadoEm: "",
       });
 
       // Registrar pagamento no histórico com o valor final cobrado
@@ -906,6 +908,8 @@ export default function HomePage() {
       batch.update(doc(database, "acessos", id), {
         vencimento: novaData.toISOString(),
         data: hoje.toISOString(),
+        desativado: false,
+        desativadoEm: "",
       });
 
       const pagDocRef = doc(collection(database, "pagamentos"));
@@ -944,6 +948,48 @@ export default function HomePage() {
     });
     await batch.commit();
     setToast({ type: "success", message: `App de ${selecionados.length} clientes alterado para ${novoApp}.` });
+  }
+
+  async function handleAlternarDesativado(item: Acesso) {
+    if (!db) return;
+    const novoEstado = !item.desativado;
+    try {
+      await updateDoc(doc(db, "acessos", item.id), {
+        desativado: novoEstado,
+        desativadoEm: novoEstado ? new Date().toISOString() : "",
+      });
+      setToast({
+        type: novoEstado ? "info" : "success",
+        message: novoEstado
+          ? `"${item.cliente}" movido para Desativados (saiu dos vencidos e fica disponível para promoções).`
+          : `"${item.cliente}" reativado para a lista normal.`,
+      });
+    } catch {
+      setToast({ type: "error", message: "Erro ao atualizar status do cliente." });
+    }
+  }
+
+  async function handleDesativarEmLote() {
+    if (!db || selecionados.length === 0) return;
+    const database = db;
+    const batch = writeBatch(database);
+    const agora = new Date().toISOString();
+    selecionados.forEach((id) => {
+      batch.update(doc(database, "acessos", id), { desativado: true, desativadoEm: agora });
+    });
+    await batch.commit();
+    setToast({ type: "info", message: `${selecionados.length} clientes movidos para Desativados.` });
+  }
+
+  async function handleReativarEmLote() {
+    if (!db || selecionados.length === 0) return;
+    const database = db;
+    const batch = writeBatch(database);
+    selecionados.forEach((id) => {
+      batch.update(doc(database, "acessos", id), { desativado: false, desativadoEm: "" });
+    });
+    await batch.commit();
+    setToast({ type: "success", message: `${selecionados.length} clientes reativados.` });
   }
 
   const acessosPorTelefone = useMemo(() => {
@@ -995,15 +1041,23 @@ export default function HomePage() {
       });
   }, [acessos]);
 
+  const desativadosCount = useMemo(
+    () => acessos.filter((a) => Boolean(a.desativado)).length,
+    [acessos]
+  );
+
   const usuariosFiltrados = useMemo(() => {
     let list = usuariosAgrupados;
 
-    // Apply status filter
-    if (activeFilter !== "todos") {
-      const hoje = Date.now();
-      list = list.map(grupo => ({
+    // Apply status filter (desativados ficam isolados na aba Desativados)
+    const hoje = Date.now();
+    list = list
+      .map((grupo) => ({
         ...grupo,
-        clientes: grupo.clientes.filter(c => {
+        clientes: grupo.clientes.filter((c) => {
+          if (activeFilter === "desativados") return Boolean(c.desativado);
+          if (c.desativado) return false;
+          if (activeFilter === "todos") return true;
           const dias = Math.ceil((new Date(c.vencimento).getTime() - hoje) / (1000 * 60 * 60 * 24));
           if (activeFilter === "vencidos") return dias <= 0;
           if (activeFilter === "acordo") return Boolean(c.acordoAtivo && Number(c.acordoValor || 0) > 0);
@@ -1012,9 +1066,9 @@ export default function HomePage() {
           if (activeFilter === "vencendo") return dias > 0 && dias <= 3;
           if (activeFilter === "ativos") return dias > 3;
           return true;
-        })
-      })).filter(g => g.clientes.length > 0);
-    }
+        }),
+      }))
+      .filter((g) => g.clientes.length > 0);
 
     // Apply search filter
     if (busca.trim()) {
@@ -1241,6 +1295,7 @@ export default function HomePage() {
                         { id: "acordo", label: "Em Acordo" },
                         { id: "inativos15", label: "Inativos +15d" },
                         { id: "inativos30", label: "Inativos +30d" },
+                        { id: "desativados", label: desativadosCount > 0 ? `Desativados (${desativadosCount})` : "Desativados" },
                       ] as { id: Filter; label: string }[]
                     ).map((f) => (
                       <button
@@ -1253,7 +1308,9 @@ export default function HomePage() {
                               ? "bg-purple-600 text-white shadow-sm"
                               : f.id === "acordo"
                                 ? "bg-amber-500 text-slate-950 shadow-sm"
-                                : "bg-blue-600 text-white shadow-sm"
+                                : f.id === "desativados"
+                                  ? "bg-slate-700 text-white shadow-sm dark:bg-slate-600"
+                                  : "bg-blue-600 text-white shadow-sm"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                         }`}
                       >
@@ -1302,6 +1359,7 @@ export default function HomePage() {
                               onEditar={setEditando}
                               onAplicarUpgrade={setAplicandoUpgradePara}
                               onAcordo={setAcordoPara}
+                              onAlternarDesativado={handleAlternarDesativado}
                               onRemover={(id) => remover(id, "acessos")}
                               onRenovar={handleRenovar}
                               onRenovarRapido={async (id) => {
@@ -1322,6 +1380,8 @@ export default function HomePage() {
                                     acordoValor: 0,
                                     acordoData: "",
                                     acordoObs: "",
+                                    desativado: false,
+                                    desativadoEm: "",
                                   });
                                   await addDoc(collection(db, "pagamentos"), {
                                     acessoId: id,
@@ -1766,6 +1826,9 @@ export default function HomePage() {
         onAlterarAppEmLote={handleAlterarAppEmLote}
         onCobrarEmLote={handleCobrarEmLote}
         onEnviarVencimentoEmLote={handleEnviarVencimentoEmLote}
+        onDesativarEmLote={handleDesativarEmLote}
+        onReativarEmLote={handleReativarEmLote}
+        isDesativadosView={activeFilter === "desativados"}
         appOptions={appOptions}
       />
 

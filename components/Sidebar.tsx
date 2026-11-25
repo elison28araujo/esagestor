@@ -110,6 +110,7 @@ export function Sidebar({
     { id: "ativos", label: "Ativos", color: "bg-emerald-500" },
     { id: "vencendo", label: "Vencendo (3d)", color: "bg-amber-500" },
     { id: "vencidos", label: "Vencidos", color: "bg-rose-500" },
+    { id: "desativados", label: "Desativados", color: "bg-slate-500" },
   ];
 
   return (

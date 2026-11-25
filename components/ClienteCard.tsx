@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { WhatsappChoiceDialog, WhatsappEnvioPendente } from "@/components/WhatsappChoiceDialog";
 import { Acesso } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
-import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles, Handshake, AlertTriangle, Users } from "lucide-react";
+import { Calendar, MessageCircle, Pencil, Trash2, Smartphone, Cpu, Key, UserPlus, Sparkles, Handshake, AlertTriangle, Users, Archive, RotateCcw } from "lucide-react";
 
 interface ClienteCardProps {
   item: Acesso;
@@ -23,6 +23,7 @@ interface ClienteCardProps {
   qtdUsuariosCliente?: number;
   onAplicarUpgrade?: (item: Acesso) => void;
   onAcordo?: (item: Acesso) => void;
+  onAlternarDesativado?: (item: Acesso) => void;
   selecionado: boolean;
   onToggleSelecao: (id: string) => void;
 }
@@ -42,6 +43,7 @@ export function ClienteCard({
   qtdUsuariosCliente = 1,
   onAplicarUpgrade,
   onAcordo,
+  onAlternarDesativado,
   selecionado,
   onToggleSelecao,
 }: ClienteCardProps) {
@@ -50,9 +52,17 @@ export function ClienteCard({
   const [whatsappPendente, setWhatsappPendente] = useState<WhatsappEnvioPendente | null>(null);
 
   const dias = Math.ceil((new Date(item.vencimento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const isDesativado = Boolean(item.desativado);
   const isAcordo = Boolean(item.acordoAtivo && Number(item.acordoValor || 0) > 0);
 
-  const statusConfig = isAcordo
+  const statusConfig = isDesativado
+    ? {
+        texto: "Desativado",
+        badge: "bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-400/40",
+        dot: "bg-slate-400",
+        cardBorder: "border-slate-300/80 dark:border-slate-700/80 bg-slate-500/[0.03]",
+      }
+    : isAcordo
     ? {
         texto: `Acordo • R$ ${Number(item.acordoValor).toFixed(2)}`,
         badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40",
@@ -242,7 +252,7 @@ export function ClienteCard({
             onClick={cobrar}
           >
             <MessageCircle className="mr-1 h-3 w-3 text-emerald-500" />
-            Cobrar
+            {isDesativado ? "Promoção" : "Cobrar"}
           </Button>
 
           {onAdicionarUsuario && (
@@ -311,6 +321,23 @@ export function ClienteCard({
             >
               <Handshake className="mr-1 h-3 w-3" />
               Acordo
+            </Button>
+          )}
+
+          {onAlternarDesativado && (
+            <Button
+              size="sm"
+              variant="outline"
+              className={`h-7 px-2 text-[11px] font-semibold ${
+                isDesativado
+                  ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+              onClick={() => onAlternarDesativado(item)}
+              title={isDesativado ? "Reativar cliente para a lista normal" : "Desativar cliente (tira dos vencidos e mantém para promoções)"}
+            >
+              {isDesativado ? <RotateCcw className="mr-1 h-3 w-3" /> : <Archive className="mr-1 h-3 w-3" />}
+              {isDesativado ? "Reativar" : "Desativar"}
             </Button>
           )}
 
