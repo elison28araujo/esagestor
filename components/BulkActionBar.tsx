@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Archive,
   RotateCcw,
+  UserCog,
 } from "lucide-react";
 
 interface BulkActionBarProps {
@@ -25,6 +26,7 @@ interface BulkActionBarProps {
   onExcluirEmLote: () => Promise<void>;
   onAlterarValorEmLote: (valor: number) => Promise<void>;
   onAlterarAppEmLote: (app: string) => Promise<void>;
+  onAlterarUsuarioEmLote?: (novoUsuario: string) => Promise<void>;
   onCobrarEmLote?: () => void;
   onEnviarVencimentoEmLote?: () => void;
   onDesativarEmLote?: () => Promise<void>;
@@ -40,6 +42,7 @@ export function BulkActionBar({
   onExcluirEmLote,
   onAlterarValorEmLote,
   onAlterarAppEmLote,
+  onAlterarUsuarioEmLote,
   onCobrarEmLote,
   onEnviarVencimentoEmLote,
   onDesativarEmLote,
@@ -51,9 +54,11 @@ export function BulkActionBar({
   const [confirmRenewOpen, setConfirmRenewOpen] = useState(false);
   const [valorDialogOpen, setValorDialogOpen] = useState(false);
   const [appDialogOpen, setAppDialogOpen] = useState(false);
+  const [usuarioDialogOpen, setUsuarioDialogOpen] = useState(false);
 
   const [novoValor, setNovoValor] = useState("");
   const [novoApp, setNovoApp] = useState("");
+  const [novoUsuario, setNovoUsuario] = useState("");
   
   const [processando, setProcessando] = useState(false);
 
@@ -91,6 +96,17 @@ export function BulkActionBar({
     setProcessando(false);
     setAppDialogOpen(false);
     setNovoApp("");
+    onLimparSelecao();
+  }
+
+  async function handleAlterarUsuario() {
+    const trimmed = novoUsuario.trim();
+    if (!trimmed || !onAlterarUsuarioEmLote) return;
+    setProcessando(true);
+    await onAlterarUsuarioEmLote(trimmed);
+    setProcessando(false);
+    setUsuarioDialogOpen(false);
+    setNovoUsuario("");
     onLimparSelecao();
   }
 
@@ -149,6 +165,19 @@ export function BulkActionBar({
                 <Smartphone className="h-3.5 w-3.5 text-indigo-500" />
                 Alterar App
               </Button>
+
+              {onAlterarUsuarioEmLote && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1 text-xs hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800"
+                  onClick={() => setUsuarioDialogOpen(true)}
+                  disabled={processando}
+                >
+                  <UserCog className="h-3.5 w-3.5 text-amber-500" />
+                  Alterar Usuário
+                </Button>
+              )}
 
               {onCobrarEmLote && (
                 <Button
@@ -303,6 +332,34 @@ export function BulkActionBar({
         onCancel={() => {
           setAppDialogOpen(false);
           setNovoApp("");
+        }}
+        loading={processando}
+        confirmLabel="Salvar"
+        confirmVariant="default"
+      />
+
+      {/* Modal Alterar Usuário em Lote */}
+      <ConfirmDialog
+        open={usuarioDialogOpen}
+        title="Alterar Usuário em Lote"
+        message={
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-slate-500">
+              Informe o novo login/usuário para os {selecionadosCount} clientes selecionados:
+            </p>
+            <Input
+              type="text"
+              placeholder="Ex: novo_usuario"
+              value={novoUsuario}
+              onChange={(e) => setNovoUsuario(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+        }
+        onConfirm={handleAlterarUsuario}
+        onCancel={() => {
+          setUsuarioDialogOpen(false);
+          setNovoUsuario("");
         }}
         loading={processando}
         confirmLabel="Salvar"

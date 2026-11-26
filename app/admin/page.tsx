@@ -32,6 +32,7 @@ import {
   RotateCw,
   Copy,
   Check,
+  UserCog,
 } from "lucide-react";
 
 import { LoginForm } from "@/components/LoginForm";
@@ -50,6 +51,7 @@ import { Toast } from "@/components/Toast";
 import { Sidebar } from "@/components/Sidebar";
 import { PagamentosList } from "@/components/PagamentosList";
 import { BulkActionBar } from "@/components/BulkActionBar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { enviarResumoAlertasEmail } from "@/lib/email";
 import { TelaLicencaBloqueada } from "@/components/TelaLicencaBloqueada";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
@@ -111,6 +113,9 @@ export default function HomePage() {
   const [adicionandoUsuarioPara, setAdicionandoUsuarioPara] = useState<Acesso | null>(null);
   const [aplicandoUpgradePara, setAplicandoUpgradePara] = useState<Acesso | null>(null);
   const [acordoPara, setAcordoPara] = useState<Acesso | null>(null);
+  const [mudandoUsuarioGrupo, setMudandoUsuarioGrupo] = useState<UsuarioAgrupado | null>(null);
+  const [novoUsuarioGrupo, setNovoUsuarioGrupo] = useState("");
+  const [salvandoUsuarioGrupo, setSalvandoUsuarioGrupo] = useState(false);
   const [campanhaUpgradeAberta, setCampanhaUpgradeAberta] = useState(false);
   const [enviandoVencimentoItens, setEnviandoVencimentoItens] = useState<Acesso[]>([]);
   const [whatsappPendente, setWhatsappPendente] = useState<WhatsappEnvioPendente | null>(null);
@@ -992,6 +997,53 @@ export default function HomePage() {
     setToast({ type: "success", message: `${selecionados.length} clientes reativados.` });
   }
 
+  async function handleAlterarUsuarioEmLote(novoUsuario: string) {
+    if (!db || selecionados.length === 0) return;
+    const trimmed = novoUsuario.trim();
+    if (!trimmed) return;
+    const database = db;
+    const batch = writeBatch(database);
+    selecionados.forEach((id) => {
+      batch.update(doc(database, "acessos", id), { usuario: trimmed });
+    });
+    await batch.commit();
+    setToast({
+      type: "success",
+      message: `Usuário de ${selecionados.length} cliente(s) alterado para "${trimmed}".`,
+    });
+  }
+
+  async function handleConfirmarMudarUsuarioGrupo() {
+    if (!db || !mudandoUsuarioGrupo) return;
+    const novo = novoUsuarioGrupo.trim();
+    if (!novo) {
+      setToast({ type: "error", message: "Informe o novo usuário." });
+      return;
+    }
+    setSalvandoUsuarioGrupo(true);
+    try {
+      const database = db;
+      const batch = writeBatch(database);
+      mudandoUsuarioGrupo.clientes.forEach((c) => {
+        batch.update(doc(database, "acessos", c.id), { usuario: novo });
+      });
+      await batch.commit();
+      if (busca.trim().toLowerCase() === mudandoUsuarioGrupo.nome.toLowerCase()) {
+        setBusca(novo);
+      }
+      setToast({
+        type: "success",
+        message: `Usuário de ${mudandoUsuarioGrupo.clientes.length} cliente(s) alterado de "${mudandoUsuarioGrupo.nome}" para "${novo}".`,
+      });
+      setMudandoUsuarioGrupo(null);
+      setNovoUsuarioGrupo("");
+    } catch {
+      setToast({ type: "error", message: "Erro ao alterar usuário do grupo." });
+    } finally {
+      setSalvandoUsuarioGrupo(false);
+    }
+  }
+
   const acessosPorTelefone = useMemo(() => {
     const map = new Map<string, Acesso[]>();
     acessos.forEach((a) => {
@@ -1341,13 +1393,26 @@ export default function HomePage() {
                   ) : (
                     usuariosPaginados.map((grupo) => (
                       <div key={grupo.nome} className="space-y-3">
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-2">
                           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
                             {grupo.nome}
                             <span className="ml-2 text-sm font-normal text-slate-500">
                               ({grupo.clientes.length} cliente{grupo.clientes.length !== 1 ? "s" : ""})
                             </span>
                           </h3>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1.5 border-amber-500/30 text-xs font-semibold text-amber-700 hover:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
+                            onClick={() => {
+                              setMudandoUsuarioGrupo(grupo);
+                              setNovoUsuarioGrupo(grupo.nome);
+                            }}
+                            title={`Mudar usuário de todos os ${grupo.clientes.length} clientes de ${grupo.nome}`}
+                          >
+                            <UserCog className="h-3.5 w-3.5" />
+                            Mudar Usuário ({grupo.clientes.length})
+                          </Button>
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {grupo.clientes.map((item) => (
@@ -1828,8 +1893,48 @@ export default function HomePage() {
         onEnviarVencimentoEmLote={handleEnviarVencimentoEmLote}
         onDesativarEmLote={handleDesativarEmLote}
         onReativarEmLote={handleReativarEmLote}
+        onAlterarUsuarioEmLote={handleAlterarUsuarioEmLote}
         isDesativadosView={activeFilter === "desativados"}
         appOptions={appOptions}
+      />
+
+      <ConfirmDialog
+        open={Boolean(mudandoUsuarioGrupo)}
+        title="Mudar Usuário do Grupo"
+        message={
+          mudandoUsuarioGrupo ? (
+            <div className="space-y-3 pt-2">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Alterar o usuário de todos os{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {mudandoUsuarioGrupo.clientes.length} cliente
+                  {mudandoUsuarioGrupo.clientes.length !== 1 ? "s" : ""}
+                </strong>{" "}
+                de <strong className="text-slate-800 dark:text-slate-200">{mudandoUsuarioGrupo.nome}</strong>:
+              </p>
+              <Input
+                type="text"
+                placeholder="Digite o novo usuário"
+                value={novoUsuarioGrupo}
+                onChange={(e) => setNovoUsuarioGrupo(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleConfirmarMudarUsuarioGrupo();
+                  }
+                }}
+              />
+            </div>
+          ) : null
+        }
+        onConfirm={handleConfirmarMudarUsuarioGrupo}
+        onCancel={() => {
+          setMudandoUsuarioGrupo(null);
+          setNovoUsuarioGrupo("");
+        }}
+        loading={salvandoUsuarioGrupo}
+        confirmLabel="Alterar Todos"
+        confirmVariant="default"
       />
 
       {/* Toast */}
