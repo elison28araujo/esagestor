@@ -349,7 +349,7 @@ export function Dashboard({
     [despesasFiltradas]
   );
   const totalSaida = totalSaidaOperacao + totalRetiradas;
-  const lucro = totalEntrada - totalSaidaOperacao;
+  const lucro = totalEntrada;
   const saldoLivre = totalEntrada + totalEntradaExtra - totalSaida;
 
   const acessosAtivos = useMemo(() => acessos.filter((a) => !a.desativado), [acessos]);
@@ -653,7 +653,7 @@ export function Dashboard({
         )}>
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">Lucro Operacional</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">Retorno ESA PLAY</span>
               <div className={cn(
                 "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-md",
                 lucro >= 0 ? "bg-blue-600 shadow-blue-500/30" : "bg-red-600 shadow-red-500/30"
@@ -665,7 +665,7 @@ export function Dashboard({
               {fmtValor(lucro)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              Margem: {totalEntrada > 0 ? ((lucro / totalEntrada) * 100).toFixed(0) : 0}%
+              Saídas descontadas apenas do Caixa Geral
             </div>
           </CardContent>
         </Card>
