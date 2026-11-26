@@ -414,7 +414,7 @@ export default function HomePage() {
     if (!user || !db) return false;
     const loginNovo = extrairLoginUsuario(nomeUser).toLowerCase();
     const clientesMesmoUsuario = acessos.filter(
-      (item) => extrairLoginUsuario(item.usuario).toLowerCase() === loginNovo
+      (item) => !item.desativado && extrairLoginUsuario(item.usuario).toLowerCase() === loginNovo
     );
 
     // Servidor determinado (se não veio explicitamente, detecta ou assume do usuário)
@@ -962,11 +962,12 @@ export default function HomePage() {
       await updateDoc(doc(db, "acessos", item.id), {
         desativado: novoEstado,
         desativadoEm: novoEstado ? new Date().toISOString() : "",
+        ...(novoEstado ? { usuario: "Desativado" } : {}),
       });
       setToast({
         type: novoEstado ? "info" : "success",
         message: novoEstado
-          ? `"${item.cliente}" movido para Desativados (saiu dos vencidos e fica disponível para promoções).`
+          ? `"${item.cliente}" desativado e desvinculado do usuário (disponível para promoções).`
           : `"${item.cliente}" reativado para a lista normal.`,
       });
     } catch {
@@ -980,10 +981,14 @@ export default function HomePage() {
     const batch = writeBatch(database);
     const agora = new Date().toISOString();
     selecionados.forEach((id) => {
-      batch.update(doc(database, "acessos", id), { desativado: true, desativadoEm: agora });
+      batch.update(doc(database, "acessos", id), {
+        desativado: true,
+        desativadoEm: agora,
+        usuario: "Desativado",
+      });
     });
     await batch.commit();
-    setToast({ type: "info", message: `${selecionados.length} clientes movidos para Desativados.` });
+    setToast({ type: "info", message: `${selecionados.length} clientes desativados e desvinculados do usuário.` });
   }
 
   async function handleReativarEmLote() {
@@ -1056,9 +1061,9 @@ export default function HomePage() {
     return map;
   }, [acessos]);
 
-  const usuariosAgrupados: UsuarioAgrupado[] = useMemo(() => {
+  function agruparAcessosPorUsuario(lista: Acesso[]): UsuarioAgrupado[] {
     const groups: Record<string, { nomeExibicao: string; itens: Acesso[] }> = {};
-    acessos.forEach((item) => {
+    lista.forEach((item) => {
       const loginLimpo = extrairLoginUsuario(item.usuario);
       const chaveGrupo = loginLimpo.toLowerCase();
       if (!groups[chaveGrupo]) {
@@ -1091,7 +1096,17 @@ export default function HomePage() {
         if (a.vagas.total !== b.vagas.total) return a.vagas.total - b.vagas.total;
         return (b.ocupadosTotal ?? b.clientes.length) - (a.ocupadosTotal ?? a.clientes.length);
       });
-  }, [acessos]);
+  }
+
+  const usuariosAgrupados: UsuarioAgrupado[] = useMemo(
+    () => agruparAcessosPorUsuario(acessos),
+    [acessos]
+  );
+
+  const usuariosAgrupadosAtivos: UsuarioAgrupado[] = useMemo(
+    () => agruparAcessosPorUsuario(acessos.filter((a) => !a.desativado)),
+    [acessos]
+  );
 
   const desativadosCount = useMemo(
     () => acessos.filter((a) => Boolean(a.desativado)).length,
@@ -1258,7 +1273,7 @@ export default function HomePage() {
                 <Dashboard
                   acessos={acessos}
                   despesas={despesas}
-                  usuariosAgrupados={usuariosAgrupados}
+                  usuariosAgrupados={usuariosAgrupadosAtivos}
                   pagamentos={pagamentos}
                   onFiltrarStatus={(filtro) => {
                     setActiveFilter(filtro);
@@ -1787,7 +1802,7 @@ export default function HomePage() {
       <CampanhaUpgradeDialog
         open={campanhaUpgradeAberta}
         acessos={acessos}
-        usuariosAgrupados={usuariosAgrupados}
+        usuariosAgrupados={usuariosAgrupadosAtivos}
         zapiInstanceId={zapiInstanceId}
         zapiToken={zapiToken}
         onFechar={() => setCampanhaUpgradeAberta(false)}
