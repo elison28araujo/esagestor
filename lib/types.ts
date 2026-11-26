@@ -64,6 +64,10 @@ export interface Acesso {
   desativadoEm?: string;
 }
 
+export type MetodoPagamento = "pix" | "cartao" | "mercadopago" | "dinheiro";
+export type CategoriaDespesa = "creditos" | "infraestrutura" | "marketing" | "pessoal" | "outros";
+export type TipoDespesa = "operacao" | "retirada";
+
 export interface Pagamento {
   id: string;
   acessoId: string;
@@ -73,6 +77,7 @@ export interface Pagamento {
   valor: number;
   data: string;
   userId: string;
+  metodoPagamento?: MetodoPagamento | string;
 }
 
 export interface Despesa {
@@ -81,6 +86,17 @@ export interface Despesa {
   valor: number;
   data: string;
   userId: string;
+  categoria?: CategoriaDespesa | string;
+  tipo?: TipoDespesa;
+}
+
+export interface DespesaRecorrente {
+  id: string;
+  descricao: string;
+  valor: number;
+  categoria: CategoriaDespesa | string;
+  tipo: TipoDespesa;
+  diaVencimento?: number;
 }
 
 export interface UsuarioAgrupado {

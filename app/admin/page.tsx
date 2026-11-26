@@ -62,7 +62,7 @@ import { AplicarUpgradeDialog } from "@/components/AplicarUpgradeDialog";
 import { CampanhaUpgradeDialog } from "@/components/CampanhaUpgradeDialog";
 import { AcordoDialog } from "@/components/AcordoDialog";
 
-import { Acesso, Despesa, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo } from "@/lib/types";
+import { Acesso, Despesa, DespesaRecorrente, MetodoPagamento, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo, CategoriaDespesa, TipoDespesa } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos, getValorAcordoAcesso } from "@/lib/constants";
 import {
   escapeCsvValue,
@@ -105,6 +105,7 @@ export default function HomePage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [acessos, setAcessos] = useState<Acesso[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [despesasRecorrentes, setDespesasRecorrentes] = useState<DespesaRecorrente[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [dadosLoading, setDadosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -223,6 +224,16 @@ export default function HomePage() {
         setGeminiApiKey(data.geminiApiKey || "");
         setTmdbApiKey(data.tmdbApiKey || "");
         setBlackFridayPrecos(normalizarBlackFridayPrecos(data.blackFridayPrecos));
+        if (Array.isArray(data.despesasRecorrentes)) {
+          setDespesasRecorrentes(data.despesasRecorrentes as DespesaRecorrente[]);
+        }
+      } else {
+        try {
+          const savedRec = localStorage.getItem(`esa_recorrentes_${user.uid}`);
+          if (savedRec) setDespesasRecorrentes(JSON.parse(savedRec));
+        } catch {
+          // ignore
+        }
       }
     });
     return () => unsubConfig();
@@ -851,16 +862,59 @@ export default function HomePage() {
     }
   }
 
-  async function addDespesa(descricao: string, valor: string) {
+  async function addDespesa(dados: {
+    descricao: string;
+    valor: string;
+    categoria: CategoriaDespesa;
+    tipo: TipoDespesa;
+    data?: string;
+  }) {
     if (!user || !db) return;
     await addDoc(collection(db, "despesas"), {
-      descricao: descricao.trim(),
-      valor: Number(valor),
-      data: new Date().toISOString(),
+      descricao: dados.descricao.trim(),
+      valor: Number(dados.valor),
+      categoria: dados.categoria,
+      tipo: dados.tipo,
+      data: dados.data || new Date().toISOString(),
       createdAt: Timestamp.now(),
       userId: user.uid,
     });
     setToast({ type: "success", message: "Despesa adicionada!" });
+  }
+
+  async function editarDespesa(id: string, dados: Partial<Despesa>) {
+    if (!db) return;
+    await updateDoc(doc(db, "despesas", id), dados);
+    setToast({ type: "success", message: "Despesa atualizada!" });
+  }
+
+  async function addDespesaRecorrente(item: Omit<DespesaRecorrente, "id">) {
+    if (!user) return;
+    const nova: DespesaRecorrente = { ...item, id: `${Date.now()}` };
+    const atualizada = [...despesasRecorrentes, nova];
+    setDespesasRecorrentes(atualizada);
+    localStorage.setItem(`esa_recorrentes_${user.uid}`, JSON.stringify(atualizada));
+    if (db) {
+      await setDoc(doc(db, "configuracoes", user.uid), { despesasRecorrentes: atualizada }, { merge: true });
+    }
+    setToast({ type: "success", message: "Conta fixa salva!" });
+  }
+
+  async function removerDespesaRecorrente(id: string) {
+    if (!user) return;
+    const atualizada = despesasRecorrentes.filter((r) => r.id !== id);
+    setDespesasRecorrentes(atualizada);
+    localStorage.setItem(`esa_recorrentes_${user.uid}`, JSON.stringify(atualizada));
+    if (db) {
+      await setDoc(doc(db, "configuracoes", user.uid), { despesasRecorrentes: atualizada }, { merge: true });
+    }
+    setToast({ type: "info", message: "Conta fixa removida." });
+  }
+
+  async function atualizarMetodoPagamento(id: string, metodoPagamento: MetodoPagamento) {
+    if (!db) return;
+    await updateDoc(doc(db, "pagamentos", id), { metodoPagamento });
+    setToast({ type: "success", message: "Forma de pagamento atualizada!" });
   }
 
   async function remover(id: string, tipo: "acessos" | "despesas" | "pagamentos") {
@@ -1584,8 +1638,12 @@ export default function HomePage() {
             {activeTab === "despesas" && (
               <DespesaList
                 despesas={despesas}
+                recorrentes={despesasRecorrentes}
                 onAdd={addDespesa}
+                onEditar={editarDespesa}
                 onRemover={(id) => remover(id, "despesas")}
+                onAddRecorrente={addDespesaRecorrente}
+                onRemoverRecorrente={removerDespesaRecorrente}
               />
             )}
 
@@ -1593,6 +1651,7 @@ export default function HomePage() {
               <PagamentosList
                 pagamentos={pagamentos}
                 onRemover={(id) => remover(id, "pagamentos")}
+                onAtualizarMetodo={atualizarMetodoPagamento}
               />
             )}
 

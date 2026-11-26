@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Acesso, Despesa, Pagamento, UsuarioAgrupado, ServidorNome } from "@/lib/types";
+import { inferirTipoDespesa } from "@/components/DespesaList";
 import { SERVIDORES } from "@/lib/constants";
 import { auth } from "@/lib/firebase";
 import {
@@ -162,6 +163,13 @@ export function Dashboard({
     return localStorage.getItem("esa_hide_values") === "1";
   });
   const [pendentesPixCount, setPendentesPixCount] = useState<number>(0);
+  const [metaLucro, setMetaLucro] = useState<number>(() => {
+    if (typeof window === "undefined") return 2000;
+    const saved = Number(localStorage.getItem("esa_meta_lucro_mensal"));
+    return Number.isFinite(saved) && saved > 0 ? saved : 2000;
+  });
+  const [editandoMeta, setEditandoMeta] = useState(false);
+  const [metaInput, setMetaInput] = useState("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -316,13 +324,49 @@ export function Dashboard({
     () => pagamentosFiltrados.reduce((sum, item) => sum + Number(item.valor || 0), 0),
     [pagamentosFiltrados]
   );
-  const totalSaida = useMemo(
-    () => despesasFiltradas.reduce((sum, item) => sum + Number(item.valor || 0), 0),
+  const totalSaidaOperacao = useMemo(
+    () =>
+      despesasFiltradas
+        .filter((item) => inferirTipoDespesa(item) !== "retirada")
+        .reduce((sum, item) => sum + Number(item.valor || 0), 0),
     [despesasFiltradas]
   );
-  const lucro = totalEntrada - totalSaida;
+  const totalRetiradas = useMemo(
+    () =>
+      despesasFiltradas
+        .filter((item) => inferirTipoDespesa(item) === "retirada")
+        .reduce((sum, item) => sum + Number(item.valor || 0), 0),
+    [despesasFiltradas]
+  );
+  const totalSaida = totalSaidaOperacao + totalRetiradas;
+  const lucro = totalEntrada - totalSaidaOperacao;
+  const saldoLivre = lucro - totalRetiradas;
 
   const acessosAtivos = useMemo(() => acessos.filter((a) => !a.desativado), [acessos]);
+
+  const previsaoAReceberMes = useMemo(() => {
+    const [anoStr, mesStr] = selectedPeriod.split("-");
+    const ano = Number(anoStr);
+    const mes = Number(mesStr);
+    if (!ano || !mes) return { valor: 0, qtd: 0 };
+    const agora = Date.now();
+    const fimMes = new Date(ano, mes, 0, 23, 59, 59, 999).getTime();
+    let valor = 0;
+    let qtd = 0;
+    acessosAtivos.forEach((a) => {
+      if (a.acordoAtivo && Number(a.acordoValor || 0) > 0) {
+        valor += Number(a.acordoValor || 0);
+        qtd += 1;
+        return;
+      }
+      const vMs = new Date(a.vencimento).getTime();
+      if (vMs >= agora && vMs <= fimMes) {
+        valor += Number(a.valor || 0);
+        qtd += 1;
+      }
+    });
+    return { valor, qtd };
+  }, [acessosAtivos, selectedPeriod]);
 
   const vencendoHoje = useMemo(() => {
     const hoje = Date.now();
@@ -578,10 +622,12 @@ export function Dashboard({
               </div>
             </div>
             <div className="mt-2 text-xl font-heading font-bold text-rose-600 dark:text-rose-400">
-              {fmtValor(totalSaida)}
+              {fmtValor(totalSaidaOperacao)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              Custos operacionais
+              {totalRetiradas > 0
+                ? `Custos op. • Retiradas: ${fmtValor(totalRetiradas)}`
+                : "Custos operacionais"}
             </div>
           </CardContent>
         </Card>
@@ -595,7 +641,7 @@ export function Dashboard({
         )}>
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">Lucro no mês</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">Lucro Operacional</span>
               <div className={cn(
                 "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-md",
                 lucro >= 0 ? "bg-blue-600 shadow-blue-500/30" : "bg-red-600 shadow-red-500/30"
@@ -608,6 +654,7 @@ export function Dashboard({
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Margem: {totalEntrada > 0 ? ((lucro / totalEntrada) * 100).toFixed(0) : 0}%
+              {totalRetiradas > 0 && ` • Livre: ${fmtValor(saldoLivre)}`}
             </div>
           </CardContent>
         </Card>
@@ -627,6 +674,98 @@ export function Dashboard({
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Acessos monitorados
             </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Fluxo de Caixa & Meta Mensal */}
+      <section className="mb-6 grid gap-3 sm:grid-cols-2">
+        <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/60 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                A Receber até o Fim do Mês
+              </div>
+              <div className="mt-1 text-xl font-heading font-bold text-emerald-600 dark:text-emerald-400">
+                {fmtValor(previsaoAReceberMes.valor)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                {previsaoAReceberMes.qtd} vencimento(s) / acordo(s) previstos no período
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[11px] text-slate-400">Projeção Entrada</div>
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                {fmtValor(totalEntrada + previsaoAReceberMes.valor)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/60 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Meta Mensal de Lucro ({fmtValor(metaLucro)})
+              </div>
+              {editandoMeta ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={metaInput}
+                    onChange={(e) => setMetaInput(e.target.value)}
+                    className="h-6 w-20 rounded border border-slate-300 bg-white px-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    placeholder="2000"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const val = Number(metaInput);
+                      if (val > 0) {
+                        setMetaLucro(val);
+                        localStorage.setItem("esa_meta_lucro_mensal", String(val));
+                      }
+                      setEditandoMeta(false);
+                    }}
+                    className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white"
+                  >
+                    OK
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMetaInput(String(metaLucro));
+                    setEditandoMeta(true);
+                  }}
+                  className="text-[11px] font-semibold text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Editar meta
+                </button>
+              )}
+            </div>
+            {(() => {
+              const pct = metaLucro > 0 ? Math.max(0, Math.min(100, (lucro / metaLucro) * 100)) : 0;
+              return (
+                <>
+                  <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-600 to-emerald-500 transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>{pct.toFixed(0)}% atingido</span>
+                    <span>
+                      {lucro >= metaLucro
+                        ? "Meta batida!"
+                        : `Faltam ${fmtValor(Math.max(0, metaLucro - lucro))}`}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       </section>

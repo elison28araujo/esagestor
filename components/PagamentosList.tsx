@@ -5,12 +5,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Pagamento } from "@/lib/types";
-import { Loader2, Receipt, Trash2, Search, X } from "lucide-react";
+import { MetodoPagamento, Pagamento } from "@/lib/types";
+import { escapeCsvValue } from "@/lib/utils";
+import { Download, Loader2, Receipt, Trash2, Search, X } from "lucide-react";
 
 interface PagamentosListProps {
   pagamentos: Pagamento[];
   onRemover: (id: string) => Promise<void>;
+  onAtualizarMetodo?: (id: string, metodo: MetodoPagamento) => Promise<void>;
+}
+
+const METODOS: { id: MetodoPagamento; label: string; badge: string }[] = [
+  { id: "pix", label: "Pix", badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
+  { id: "mercadopago", label: "Mercado Pago", badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20" },
+  { id: "cartao", label: "Cartão", badge: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20" },
+  { id: "dinheiro", label: "Dinheiro", badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" },
+];
+
+function normalizarMetodo(m?: string): MetodoPagamento {
+  if (m === "cartao" || m === "mercadopago" || m === "dinheiro" || m === "pix") return m;
+  return "pix";
 }
 
 // Helpers para obter data/período no fuso horário de Brasília
@@ -45,10 +59,11 @@ function getDiaBrasilia(dateInput: string | number | Date) {
   }
 }
 
-export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
+export function PagamentosList({ pagamentos, onRemover, onAtualizarMetodo }: PagamentosListProps) {
   const [busca, setBusca] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("todos");
   const [selectedDay, setSelectedDay] = useState("todos");
+  const [selectedMetodo, setSelectedMetodo] = useState<"todos" | MetodoPagamento>("todos");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [removendo, setRemovendo] = useState(false);
 
@@ -104,13 +119,47 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
       list = list.filter((p) => getDiaBrasilia(p.data) === selectedDay);
     }
 
+    // 4. Filtrar por método de pagamento
+    if (selectedMetodo !== "todos") {
+      list = list.filter((p) => normalizarMetodo(p.metodoPagamento) === selectedMetodo);
+    }
+
     // Ordenar por data decrescente
     return list.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }, [pagamentos, busca, selectedPeriod, selectedDay]);
+  }, [pagamentos, busca, selectedPeriod, selectedDay, selectedMetodo]);
 
   const receitaTotal = useMemo(() => {
     return pagamentosFiltrados.reduce((sum, p) => sum + Number(p.valor || 0), 0);
   }, [pagamentosFiltrados]);
+
+  const totaisPorMetodo = useMemo(() => {
+    const map: Record<MetodoPagamento, number> = { pix: 0, mercadopago: 0, cartao: 0, dinheiro: 0 };
+    pagamentosFiltrados.forEach((p) => {
+      const m = normalizarMetodo(p.metodoPagamento);
+      map[m] += Number(p.valor || 0);
+    });
+    return map;
+  }, [pagamentosFiltrados]);
+
+  function exportarCsv() {
+    const headers = ["Cliente", "Usuario", "App", "Metodo", "Valor", "Data"];
+    const rows = pagamentosFiltrados.map((p) => [
+      escapeCsvValue(p.cliente),
+      escapeCsvValue(p.usuario),
+      escapeCsvValue(p.app),
+      escapeCsvValue(normalizarMetodo(p.metodoPagamento)),
+      escapeCsvValue(Number(p.valor || 0).toFixed(2)),
+      escapeCsvValue(new Date(p.data).toLocaleString("pt-BR")),
+    ]);
+    const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `historico-pagamentos-${selectedPeriod}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-4">
@@ -127,9 +176,51 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
               R$ {receitaTotal.toFixed(2)}
             </div>
           </div>
-          <Receipt className="h-10 w-10 text-blue-500 opacity-60" />
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportarCsv}
+              disabled={pagamentosFiltrados.length === 0}
+              className="gap-1.5 border-blue-500/30 text-blue-600 hover:bg-blue-500/10 dark:text-blue-400"
+            >
+              <Download className="h-4 w-4" />
+              Exportar CSV
+            </Button>
+            <Receipt className="h-10 w-10 text-blue-500 opacity-60 hidden sm:block" />
+          </div>
         </CardContent>
       </Card>
+
+      {/* Filtro rápido por método de pagamento */}
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => setSelectedMetodo("todos")}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            selectedMetodo === "todos"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+          }`}
+        >
+          Todos ({pagamentosFiltrados.length})
+        </button>
+        {METODOS.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setSelectedMetodo(m.id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              selectedMetodo === m.id
+                ? "bg-blue-600 text-white"
+                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            }`}
+          >
+            {m.label}
+            {totaisPorMetodo[m.id] > 0 && ` • R$ ${totaisPorMetodo[m.id].toFixed(0)}`}
+          </button>
+        ))}
+      </div>
 
       {/* Filtros de Data e Busca */}
       <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
@@ -199,10 +290,28 @@ export function PagamentosList({ pagamentos, onRemover }: PagamentosListProps) {
                   <div className="font-bold text-slate-800 dark:text-slate-200 text-lg">
                     {item.cliente}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-sm">
+                  <div className="flex flex-wrap items-center gap-2 mt-1 text-sm">
                     <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                       {item.app}
                     </span>
+                    {onAtualizarMetodo ? (
+                      <select
+                        value={normalizarMetodo(item.metodoPagamento)}
+                        onChange={(e) => onAtualizarMetodo(item.id, e.target.value as MetodoPagamento)}
+                        className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        title="Alterar forma de pagamento"
+                      >
+                        {METODOS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        {METODOS.find((m) => m.id === normalizarMetodo(item.metodoPagamento))?.label || "Pix"}
+                      </span>
+                    )}
                     <span className="text-slate-500 dark:text-slate-400">
                       Usuário: <strong className="text-slate-700 dark:text-slate-300">{item.usuario}</strong>
                     </span>
