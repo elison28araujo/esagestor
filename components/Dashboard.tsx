@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Acesso, Despesa, Pagamento, UsuarioAgrupado, ServidorNome } from "@/lib/types";
+import { Acesso, ConsumoCredito, Despesa, Pagamento, UsuarioAgrupado, ServidorConfig, ServidorNome } from "@/lib/types";
 import { inferirTipoDespesa } from "@/components/DespesaList";
 import { SERVIDORES } from "@/lib/constants";
 import { auth } from "@/lib/firebase";
@@ -129,6 +129,8 @@ interface DashboardProps {
   despesas: Despesa[];
   usuariosAgrupados: UsuarioAgrupado[];
   pagamentos: Pagamento[];
+  consumos?: ConsumoCredito[];
+  servidores?: ServidorConfig[];
   onCadastrarComUsuario?: (usuario: string, servidor: string) => void;
   onFiltrarStatus?: (filtro: "vencidos" | "vencendo") => void;
   onAbrirCampanhaUpgrade?: () => void;
@@ -140,6 +142,8 @@ export function Dashboard({
   despesas,
   usuariosAgrupados,
   pagamentos,
+  consumos = [],
+  servidores = [],
   onCadastrarComUsuario,
   onFiltrarStatus,
   onAbrirCampanhaUpgrade,
@@ -348,8 +352,15 @@ export function Dashboard({
         .reduce((sum, item) => sum + Number(item.valor || 0), 0),
     [despesasFiltradas]
   );
+  const totalConsumoMes = useMemo(
+    () =>
+      consumos
+        .filter((c) => getPeriodoBrasilia(c.data) === selectedPeriod)
+        .reduce((sum, c) => sum + Number(c.valor || 0), 0),
+    [consumos, selectedPeriod]
+  );
   const totalSaida = totalSaidaOperacao + totalRetiradas;
-  const lucro = totalEntrada;
+  const lucro = totalEntrada - totalConsumoMes;
   const saldoLivre = totalEntrada + totalEntradaExtra - totalSaida;
 
   const acessosAtivos = useMemo(() => acessos.filter((a) => !a.desativado), [acessos]);
@@ -665,7 +676,9 @@ export function Dashboard({
               {fmtValor(lucro)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              Saídas descontadas apenas do Caixa Geral
+              {totalConsumoMes > 0
+                ? `Créditos consumidos: ${fmtValor(totalConsumoMes)}`
+                : "Créditos consumidos descontam aqui"}
             </div>
           </CardContent>
         </Card>

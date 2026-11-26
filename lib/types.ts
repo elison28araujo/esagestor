@@ -1,4 +1,4 @@
-export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "caixa" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
+export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "caixa" | "servidores" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
 export type Filter = "todos" | "ativos" | "vencendo" | "vencidos" | "acordo" | "inativos15" | "inativos30" | "desativados";
 
 export interface MensagemSuporte {
@@ -91,6 +91,35 @@ export interface EntradaRecorrente {
   categoria: CategoriaEntradaExtra | string;
   metodoPagamento: MetodoPagamento;
   diaRecebimento?: number;
+}
+
+export interface ServidorConfig {
+  id: string;
+  nome: string;
+  valorCredito: number;
+  estoqueCreditos: number;
+  maxClientes: number;
+  maxP2P?: number;
+  maxIPTV?: number;
+}
+
+export interface UsuarioLinha {
+  id: string;
+  login: string;
+  servidor: string;
+  vencimento: string;
+  creditoDescontadoNoCiclo: boolean;
+  ultimoConsumoEm?: string;
+  observacao?: string;
+}
+
+export interface ConsumoCredito {
+  id: string;
+  servidor: string;
+  usuarioLogin: string;
+  valor: number;
+  quantidade: number;
+  data: string;
 }
 
 export interface Despesa {

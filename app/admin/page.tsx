@@ -51,6 +51,7 @@ import { Toast } from "@/components/Toast";
 import { Sidebar } from "@/components/Sidebar";
 import { PagamentosList } from "@/components/PagamentosList";
 import { CaixaLancamentoView } from "@/components/CaixaLancamentoView";
+import { ServidoresView } from "@/components/ServidoresView";
 import { BulkActionBar } from "@/components/BulkActionBar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { enviarResumoAlertasEmail } from "@/lib/email";
@@ -63,7 +64,7 @@ import { AplicarUpgradeDialog } from "@/components/AplicarUpgradeDialog";
 import { CampanhaUpgradeDialog } from "@/components/CampanhaUpgradeDialog";
 import { AcordoDialog } from "@/components/AcordoDialog";
 
-import { Acesso, Despesa, DespesaRecorrente, EntradaRecorrente, MetodoPagamento, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo, CategoriaDespesa, CategoriaEntradaExtra, TipoDespesa } from "@/lib/types";
+import { Acesso, ConsumoCredito, Despesa, DespesaRecorrente, EntradaRecorrente, MetodoPagamento, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, UsuarioLinha, ServidorConfig, ServidorNome, TelaDispositivo, CategoriaDespesa, CategoriaEntradaExtra, TipoDespesa } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos, getValorAcordoAcesso } from "@/lib/constants";
 import {
   escapeCsvValue,
@@ -80,6 +81,12 @@ import {
   montarUpgradeTela,
   detectarServidor,
 } from "@/lib/utils";
+
+const SERVIDORES_PADRAO: ServidorConfig[] = [
+  { id: "warez", nome: "Warez", valorCredito: 9, estoqueCreditos: 0, maxClientes: 3, maxP2P: 1, maxIPTV: 2 },
+  { id: "five", nome: "Five", valorCredito: 8, estoqueCreditos: 0, maxClientes: 2, maxP2P: 2, maxIPTV: 2 },
+  { id: "genial", nome: "Genial", valorCredito: 7, estoqueCreditos: 0, maxClientes: 2, maxP2P: 2, maxIPTV: 2 },
+];
 
 function parseCurrency(value: string) {
   const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
@@ -108,6 +115,9 @@ export default function HomePage() {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [despesasRecorrentes, setDespesasRecorrentes] = useState<DespesaRecorrente[]>([]);
   const [entradasRecorrentes, setEntradasRecorrentes] = useState<EntradaRecorrente[]>([]);
+  const [servidores, setServidores] = useState<ServidorConfig[]>(SERVIDORES_PADRAO);
+  const [usuariosLinhas, setUsuariosLinhas] = useState<UsuarioLinha[]>([]);
+  const [consumosCreditos, setConsumosCreditos] = useState<ConsumoCredito[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [dadosLoading, setDadosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -232,12 +242,27 @@ export default function HomePage() {
         if (Array.isArray(data.entradasRecorrentes)) {
           setEntradasRecorrentes(data.entradasRecorrentes as EntradaRecorrente[]);
         }
+        if (Array.isArray(data.servidores) && data.servidores.length > 0) {
+          setServidores(data.servidores as ServidorConfig[]);
+        }
+        if (Array.isArray(data.usuariosLinhas)) {
+          setUsuariosLinhas(data.usuariosLinhas as UsuarioLinha[]);
+        }
+        if (Array.isArray(data.consumosCreditos)) {
+          setConsumosCreditos(data.consumosCreditos as ConsumoCredito[]);
+        }
       } else {
         try {
           const savedRec = localStorage.getItem(`esa_recorrentes_${user.uid}`);
           if (savedRec) setDespesasRecorrentes(JSON.parse(savedRec));
           const savedEnt = localStorage.getItem(`esa_entradas_recorrentes_${user.uid}`);
           if (savedEnt) setEntradasRecorrentes(JSON.parse(savedEnt));
+          const savedSrv = localStorage.getItem(`esa_servidores_${user.uid}`);
+          if (savedSrv) setServidores(JSON.parse(savedSrv));
+          const savedUsr = localStorage.getItem(`esa_usuarios_linhas_${user.uid}`);
+          if (savedUsr) setUsuariosLinhas(JSON.parse(savedUsr));
+          const savedCons = localStorage.getItem(`esa_consumos_${user.uid}`);
+          if (savedCons) setConsumosCreditos(JSON.parse(savedCons));
         } catch {
           // ignore
         }
@@ -473,11 +498,15 @@ export default function HomePage() {
       }
     } else if (servidorEscolhido === "Five") {
       if (ocupacaoAtual.total + novoUso.total > 2) {
-        setToast({ type: "error", message: "O servidor Five suporta no máximo 2 dispositivos por usuário (apenas IPTV)." });
+        setToast({ type: "error", message: "O servidor Five suporta no máximo 2 dispositivos por usuário (2 IPTV ou 2 P2P)." });
         return false;
       }
-      if (novoUso.p2p > 0) {
-        setToast({ type: "error", message: "O servidor Five aceita somente clientes IPTV (não aceita P2P)." });
+      if (novoUso.p2p > 0 && ocupacaoAtual.iptv > 0) {
+        setToast({ type: "error", message: "O servidor Five aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui IPTV)." });
+        return false;
+      }
+      if (novoUso.iptv > 0 && ocupacaoAtual.p2p > 0) {
+        setToast({ type: "error", message: "O servidor Five aceita apenas 2 IPTV OU 2 P2P no mesmo usuário (já possui P2P)." });
         return false;
       }
     } else {
@@ -541,6 +570,7 @@ export default function HomePage() {
         });
       }
     }
+    await registrarConsumoUsuarioAoVincularCliente(loginNovo, servidorEscolhido);
     setToast({ type: "success", message: `Cliente "${cliente}" adicionado no servidor ${servidorEscolhido}!` });
     return true;
   }
@@ -748,10 +778,6 @@ export default function HomePage() {
       if (servidorFinal === "Five") {
         if (totalAtual >= 2) {
           erros.push(`Linha ${index + 2}: ${usuario} já atingiu o limite de 2 clientes do servidor Five.`);
-          continue;
-        }
-        if (isNovoP2P) {
-          erros.push(`Linha ${index + 2}: servidor Five aceita apenas IPTV (não aceita P2P).`);
           continue;
         }
       }
@@ -968,6 +994,244 @@ export default function HomePage() {
       await setDoc(doc(db, "configuracoes", user.uid), { entradasRecorrentes: atualizada }, { merge: true });
     }
     setToast({ type: "info", message: "Entrada fixa removida." });
+  }
+
+  async function persistirServidoresDados(
+    nextServidores: ServidorConfig[],
+    nextUsuarios: UsuarioLinha[],
+    nextConsumos: ConsumoCredito[]
+  ) {
+    if (!user) return;
+    setServidores(nextServidores);
+    setUsuariosLinhas(nextUsuarios);
+    setConsumosCreditos(nextConsumos);
+    localStorage.setItem(`esa_servidores_${user.uid}`, JSON.stringify(nextServidores));
+    localStorage.setItem(`esa_usuarios_linhas_${user.uid}`, JSON.stringify(nextUsuarios));
+    localStorage.setItem(`esa_consumos_${user.uid}`, JSON.stringify(nextConsumos));
+    if (db) {
+      await setDoc(
+        doc(db, "configuracoes", user.uid),
+        {
+          servidores: nextServidores,
+          usuariosLinhas: nextUsuarios,
+          consumosCreditos: nextConsumos,
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  async function registrarConsumoUsuarioAoVincularCliente(loginLimpo: string, servidorNome: string) {
+    const srv = servidores.find((s) => s.nome.toLowerCase() === servidorNome.toLowerCase()) || servidores[0];
+    if (!srv) return;
+    const agoraIso = new Date().toISOString();
+    const existente = usuariosLinhas.find((u) => u.login.toLowerCase() === loginLimpo.toLowerCase());
+
+    // Regra: se o usuário já teve 1 crédito descontado neste ciclo, NÃO desconta novamente
+    if (existente && existente.creditoDescontadoNoCiclo) {
+      return;
+    }
+
+    const nextServidores = servidores.map((s) =>
+      s.id === srv.id ? { ...s, estoqueCreditos: Math.max(0, s.estoqueCreditos - 1) } : s
+    );
+    const novoConsumo: ConsumoCredito = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      servidor: srv.nome,
+      usuarioLogin: loginLimpo,
+      valor: Number(srv.valorCredito || 0),
+      quantidade: 1,
+      data: agoraIso,
+    };
+    const nextConsumos = [...consumosCreditos, novoConsumo];
+
+    let nextUsuarios: UsuarioLinha[];
+    if (existente) {
+      nextUsuarios = usuariosLinhas.map((u) =>
+        u.id === existente.id ? { ...u, creditoDescontadoNoCiclo: true, ultimoConsumoEm: agoraIso } : u
+      );
+    } else {
+      const venc = new Date();
+      venc.setDate(venc.getDate() + 30);
+      nextUsuarios = [
+        ...usuariosLinhas,
+        {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          login: loginLimpo,
+          servidor: srv.nome,
+          vencimento: venc.toISOString(),
+          creditoDescontadoNoCiclo: true,
+          ultimoConsumoEm: agoraIso,
+        },
+      ];
+    }
+
+    await persistirServidoresDados(nextServidores, nextUsuarios, nextConsumos);
+  }
+
+  async function handleAdicionarCredito(servidorNome: string, quantidade: number) {
+    if (!user || !db) return;
+    const srv = servidores.find((s) => s.nome === servidorNome);
+    if (!srv || quantidade <= 0) return;
+    const total = Number((quantidade * srv.valorCredito).toFixed(2));
+    const nextServidores = servidores.map((s) =>
+      s.id === srv.id ? { ...s, estoqueCreditos: s.estoqueCreditos + quantidade } : s
+    );
+    await persistirServidoresDados(nextServidores, usuariosLinhas, consumosCreditos);
+    await addDoc(collection(db, "despesas"), {
+      descricao: `Compra ${quantidade} créditos ${srv.nome}`,
+      valor: total,
+      categoria: "creditos",
+      tipo: "operacao",
+      data: new Date().toISOString(),
+      createdAt: Timestamp.now(),
+      userId: user.uid,
+    });
+    setToast({
+      type: "success",
+      message: `+${quantidade} créditos adicionados ao ${srv.nome} e R$ ${total.toFixed(2)} lançado em Contas a Pagar!`,
+    });
+  }
+
+  async function handleSalvarServidor(srv: ServidorConfig) {
+    const existe = servidores.some((s) => s.id === srv.id);
+    const nextServidores = existe
+      ? servidores.map((s) => (s.id === srv.id ? srv : s))
+      : [...servidores, srv];
+    await persistirServidoresDados(nextServidores, usuariosLinhas, consumosCreditos);
+    setToast({ type: "success", message: `Servidor ${srv.nome} salvo!` });
+  }
+
+  async function handleCriarUsuario(dados: {
+    login: string;
+    servidor: string;
+    vencimento: string;
+    descontarCredito: boolean;
+    observacao?: string;
+  }) {
+    const jaExiste = usuariosLinhas.some((u) => u.login.toLowerCase() === dados.login.toLowerCase());
+    if (jaExiste) {
+      setToast({ type: "error", message: `Usuário "${dados.login}" já está cadastrado.` });
+      return;
+    }
+    const srv = servidores.find((s) => s.nome === dados.servidor) || servidores[0];
+    const agoraIso = new Date().toISOString();
+    const novoUsuario: UsuarioLinha = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      login: dados.login,
+      servidor: srv?.nome || dados.servidor,
+      vencimento: dados.vencimento,
+      creditoDescontadoNoCiclo: dados.descontarCredito,
+      ultimoConsumoEm: dados.descontarCredito ? agoraIso : undefined,
+      observacao: dados.observacao || "",
+    };
+
+    let nextServidores = servidores;
+    let nextConsumos = consumosCreditos;
+    if (dados.descontarCredito && srv) {
+      nextServidores = servidores.map((s) =>
+        s.id === srv.id ? { ...s, estoqueCreditos: Math.max(0, s.estoqueCreditos - 1) } : s
+      );
+      nextConsumos = [
+        ...consumosCreditos,
+        {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          servidor: srv.nome,
+          usuarioLogin: dados.login,
+          valor: Number(srv.valorCredito || 0),
+          quantidade: 1,
+          data: agoraIso,
+        },
+      ];
+    }
+
+    await persistirServidoresDados(nextServidores, [...usuariosLinhas, novoUsuario], nextConsumos);
+    setToast({ type: "success", message: `Usuário "${dados.login}" cadastrado!` });
+  }
+
+  async function handleEditarUsuario(id: string, dados: Partial<UsuarioLinha>) {
+    // Altera exclusivamente o registro do usuário, sem tocar na data de vencimento dos clientes
+    const nextUsuarios = usuariosLinhas.map((u) => (u.id === id ? { ...u, ...dados } : u));
+    await persistirServidoresDados(servidores, nextUsuarios, consumosCreditos);
+    setToast({ type: "success", message: "Usuário atualizado (vencimento dos clientes mantido intacto)!" });
+  }
+
+  async function handleRenovarUsuario(usuario: UsuarioLinha) {
+    const srv = servidores.find((s) => s.nome === usuario.servidor) || servidores[0];
+    const agora = new Date();
+    const atual = new Date(usuario.vencimento);
+    const base = atual > agora ? atual : agora;
+    base.setDate(base.getDate() + 30);
+    const agoraIso = agora.toISOString();
+
+    const nextUsuarios = usuariosLinhas.map((u) =>
+      u.id === usuario.id
+        ? { ...u, vencimento: base.toISOString(), creditoDescontadoNoCiclo: true, ultimoConsumoEm: agoraIso }
+        : u
+    );
+    const nextServidores = srv
+      ? servidores.map((s) =>
+          s.id === srv.id ? { ...s, estoqueCreditos: Math.max(0, s.estoqueCreditos - 1) } : s
+        )
+      : servidores;
+    const nextConsumos = srv
+      ? [
+          ...consumosCreditos,
+          {
+            id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            servidor: srv.nome,
+            usuarioLogin: usuario.login,
+            valor: Number(srv.valorCredito || 0),
+            quantidade: 1,
+            data: agoraIso,
+          },
+        ]
+      : consumosCreditos;
+
+    await persistirServidoresDados(nextServidores, nextUsuarios, nextConsumos);
+    setToast({ type: "success", message: `Usuário "${usuario.login}" renovado +30d (-1 crédito ${srv?.nome || ""})!` });
+  }
+
+  async function handleRemoverUsuario(id: string) {
+    const nextUsuarios = usuariosLinhas.filter((u) => u.id !== id);
+    await persistirServidoresDados(servidores, nextUsuarios, consumosCreditos);
+    setToast({ type: "info", message: "Usuário removido da lista." });
+  }
+
+  async function handleImportarUsuariosDosClientes() {
+    const existentes = new Set(usuariosLinhas.map((u) => u.login.toLowerCase()));
+    const novos: UsuarioLinha[] = [];
+    const padraoVenc = new Date();
+    padraoVenc.setDate(padraoVenc.getDate() + 30);
+
+    acessos
+      .filter((a) => !a.desativado)
+      .forEach((a) => {
+        const login = extrairLoginUsuario(a.usuario);
+        if (!login) return;
+        const key = login.toLowerCase();
+        if (existentes.has(key)) return;
+        existentes.add(key);
+        const srv = detectarServidor({ usuario: a.usuario, servidor: a.servidor });
+        novos.push({
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${key}`,
+          login,
+          servidor: srv,
+          vencimento: padraoVenc.toISOString(),
+          creditoDescontadoNoCiclo: true,
+        });
+      });
+
+    if (novos.length === 0) {
+      setToast({ type: "info", message: "Todos os usuários ativos já estão importados." });
+      return;
+    }
+
+    await persistirServidoresDados(servidores, [...usuariosLinhas, ...novos], consumosCreditos);
+    setToast({
+      type: "success",
+      message: `${novos.length} usuário(s) importado(s)! Agora você pode editar o vencimento de cada um sem alterar os clientes.`,
+    });
   }
 
   async function remover(id: string, tipo: "acessos" | "despesas" | "pagamentos") {
@@ -1382,6 +1646,8 @@ export default function HomePage() {
                   despesas={despesas}
                   usuariosAgrupados={usuariosAgrupadosAtivos}
                   pagamentos={pagamentos}
+                  consumos={consumosCreditos}
+                  servidores={servidores}
                   onFiltrarStatus={(filtro) => {
                     setActiveFilter(filtro);
                     setActiveTab("clientes");
@@ -1686,6 +1952,22 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
+            )}
+
+            {activeTab === "servidores" && (
+              <ServidoresView
+                servidores={servidores}
+                usuariosLinhas={usuariosLinhas}
+                consumos={consumosCreditos}
+                acessos={acessos}
+                onAdicionarCredito={handleAdicionarCredito}
+                onSalvarServidor={handleSalvarServidor}
+                onCriarUsuario={handleCriarUsuario}
+                onEditarUsuario={handleEditarUsuario}
+                onRenovarUsuario={handleRenovarUsuario}
+                onRemoverUsuario={handleRemoverUsuario}
+                onImportarUsuariosDosClientes={handleImportarUsuariosDosClientes}
+              />
             )}
 
             {activeTab === "despesas" && (

@@ -205,11 +205,11 @@ describe("Regras de Servidores e Cálculo de Vagas", () => {
     expect(com1IPTV.vagas.iptv).toBe(1);
   });
 
-  it("calcula vagas para Five (Max 2: apenas IPTV, 0 P2P)", () => {
+  it("calcula vagas para Five (Max 2: 2 IPTV ou 2 P2P)", () => {
     const vazio = calcularVagasUsuario("userFive", [], "Five");
     expect(vazio.capacidadeTotal).toBe(2);
     expect(vazio.vagas.iptv).toBe(2);
-    expect(vazio.vagas.p2p).toBe(0);
+    expect(vazio.vagas.p2p).toBe(2);
   });
 });
 

@@ -21,6 +21,7 @@ import {
   Tv,
   MessageSquare,
   PlusCircle,
+  Server,
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -83,6 +84,7 @@ export function Sidebar({
         { id: "dashboard", label: "Painel Geral", icon: LayoutDashboard },
         { id: "clientes", label: "Clientes", icon: Users },
         { id: "cadastro", label: "Cadastrar", icon: UserPlus },
+        { id: "servidores", label: "Servidores & Créditos", icon: Server },
       ],
     },
     {

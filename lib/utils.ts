@@ -382,9 +382,19 @@ export function calcularVagasUsuario(
   } else if (servidor === "Five") {
     capacidadeTotal = 2;
     custoCredito = 8.0;
-    vagasP2P = 0;
-    vagasIPTV = Math.max(0, 2 - qtdIPTV);
-    detalhes = vagasIPTV > 0 ? `${vagasIPTV} vaga${vagasIPTV > 1 ? "s" : ""} IPTV livre` : "Lotado";
+    if (qtdP2P > 0) {
+      vagasP2P = Math.max(0, 2 - qtdP2P);
+      vagasIPTV = 0;
+      detalhes = vagasP2P > 0 ? `${vagasP2P} vaga P2P livre` : "Lotado (2 P2P)";
+    } else if (qtdIPTV > 0) {
+      vagasIPTV = Math.max(0, 2 - qtdIPTV);
+      vagasP2P = 0;
+      detalhes = vagasIPTV > 0 ? `${vagasIPTV} vaga IPTV livre` : "Lotado (2 IPTV)";
+    } else {
+      vagasP2P = 2;
+      vagasIPTV = 2;
+      detalhes = "2 vagas livres (2 IPTV ou 2 P2P)";
+    }
   } else {
     // Warez (padrão)
     capacidadeTotal = 3;

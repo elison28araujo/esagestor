@@ -32,9 +32,9 @@ export const SERVIDORES: Record<ServidorNome, RegraServidor> = {
     nome: "Five",
     custoCredito: 8.0,
     capacidadeTotal: 2,
-    maxP2P: 0,
+    maxP2P: 2,
     maxIPTV: 2,
-    descricao: "2 IPTV (Até 2 clientes - R$ 8,00/crédito)",
+    descricao: "2 IPTV ou 2 P2P (Até 2 clientes - R$ 8,00/crédito)",
   },
 };
 
