@@ -321,7 +321,17 @@ export function Dashboard({
 
   // Totais do período selecionado
   const totalEntrada = useMemo(
-    () => pagamentosFiltrados.reduce((sum, item) => sum + Number(item.valor || 0), 0),
+    () =>
+      pagamentosFiltrados
+        .filter((item) => item.tipoEntrada !== "extra")
+        .reduce((sum, item) => sum + Number(item.valor || 0), 0),
+    [pagamentosFiltrados]
+  );
+  const totalEntradaExtra = useMemo(
+    () =>
+      pagamentosFiltrados
+        .filter((item) => item.tipoEntrada === "extra")
+        .reduce((sum, item) => sum + Number(item.valor || 0), 0),
     [pagamentosFiltrados]
   );
   const totalSaidaOperacao = useMemo(
@@ -340,7 +350,7 @@ export function Dashboard({
   );
   const totalSaida = totalSaidaOperacao + totalRetiradas;
   const lucro = totalEntrada - totalSaidaOperacao;
-  const saldoLivre = lucro - totalRetiradas;
+  const saldoLivre = totalEntrada + totalEntradaExtra - totalSaida;
 
   const acessosAtivos = useMemo(() => acessos.filter((a) => !a.desativado), [acessos]);
 
@@ -607,7 +617,9 @@ export function Dashboard({
               {fmtValor(totalEntrada)}
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              Recebimentos do período
+              {totalEntradaExtra > 0
+                ? `ESA PLAY • Extras/Salário: ${fmtValor(totalEntradaExtra)}`
+                : "Recebimentos ESA PLAY"}
             </div>
           </CardContent>
         </Card>
@@ -654,7 +666,7 @@ export function Dashboard({
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Margem: {totalEntrada > 0 ? ((lucro / totalEntrada) * 100).toFixed(0) : 0}%
-              {totalRetiradas > 0 && ` • Livre: ${fmtValor(saldoLivre)}`}
+              {(totalRetiradas > 0 || totalEntradaExtra > 0) && ` • Caixa Geral: ${fmtValor(saldoLivre)}`}
             </div>
           </CardContent>
         </Card>

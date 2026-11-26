@@ -62,7 +62,7 @@ import { AplicarUpgradeDialog } from "@/components/AplicarUpgradeDialog";
 import { CampanhaUpgradeDialog } from "@/components/CampanhaUpgradeDialog";
 import { AcordoDialog } from "@/components/AcordoDialog";
 
-import { Acesso, Despesa, DespesaRecorrente, MetodoPagamento, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo, CategoriaDespesa, TipoDespesa } from "@/lib/types";
+import { Acesso, Despesa, DespesaRecorrente, EntradaRecorrente, MetodoPagamento, Pagamento, Filter, ImportFeedback, Tab, UsuarioAgrupado, ServidorNome, TelaDispositivo, CategoriaDespesa, CategoriaEntradaExtra, TipoDespesa } from "@/lib/types";
 import { APP_OPTIONS, DEFAULT_COBRANCA_MSG, DEFAULT_RENOVACAO_MSG, DEFAULT_REATIVACAO_MSG, FALLBACK_COLUMNS, FIELD_ALIASES, SERVIDORES, DEFAULT_BLACK_FRIDAY_PRECOS, BlackFridayPrecosPorDispositivos, normalizarBlackFridayPrecos, getValorAcordoAcesso } from "@/lib/constants";
 import {
   escapeCsvValue,
@@ -106,6 +106,7 @@ export default function HomePage() {
   const [acessos, setAcessos] = useState<Acesso[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [despesasRecorrentes, setDespesasRecorrentes] = useState<DespesaRecorrente[]>([]);
+  const [entradasRecorrentes, setEntradasRecorrentes] = useState<EntradaRecorrente[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [dadosLoading, setDadosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -227,10 +228,15 @@ export default function HomePage() {
         if (Array.isArray(data.despesasRecorrentes)) {
           setDespesasRecorrentes(data.despesasRecorrentes as DespesaRecorrente[]);
         }
+        if (Array.isArray(data.entradasRecorrentes)) {
+          setEntradasRecorrentes(data.entradasRecorrentes as EntradaRecorrente[]);
+        }
       } else {
         try {
           const savedRec = localStorage.getItem(`esa_recorrentes_${user.uid}`);
           if (savedRec) setDespesasRecorrentes(JSON.parse(savedRec));
+          const savedEnt = localStorage.getItem(`esa_entradas_recorrentes_${user.uid}`);
+          if (savedEnt) setEntradasRecorrentes(JSON.parse(savedEnt));
         } catch {
           // ignore
         }
@@ -915,6 +921,52 @@ export default function HomePage() {
     if (!db) return;
     await updateDoc(doc(db, "pagamentos", id), { metodoPagamento });
     setToast({ type: "success", message: "Forma de pagamento atualizada!" });
+  }
+
+  async function addEntradaExtra(dados: {
+    descricao: string;
+    valor: string;
+    categoria: CategoriaEntradaExtra;
+    metodoPagamento: MetodoPagamento;
+    data?: string;
+  }) {
+    if (!user || !db) return;
+    await addDoc(collection(db, "pagamentos"), {
+      acessoId: "extra",
+      usuario: dados.categoria === "salario" ? "Empresa / Salário" : dados.categoria === "caixa_inicial" ? "Caixa Inicial" : "Renda Extra",
+      cliente: dados.descricao.trim(),
+      app: "EXTRA",
+      valor: Number(dados.valor),
+      metodoPagamento: dados.metodoPagamento,
+      tipoEntrada: "extra",
+      categoriaEntrada: dados.categoria,
+      data: dados.data || new Date().toISOString(),
+      userId: user.uid,
+    });
+    setToast({ type: "success", message: "Entrada extra lançada!" });
+  }
+
+  async function addEntradaRecorrente(item: Omit<EntradaRecorrente, "id">) {
+    if (!user) return;
+    const nova: EntradaRecorrente = { ...item, id: `${Date.now()}` };
+    const atualizada = [...entradasRecorrentes, nova];
+    setEntradasRecorrentes(atualizada);
+    localStorage.setItem(`esa_entradas_recorrentes_${user.uid}`, JSON.stringify(atualizada));
+    if (db) {
+      await setDoc(doc(db, "configuracoes", user.uid), { entradasRecorrentes: atualizada }, { merge: true });
+    }
+    setToast({ type: "success", message: "Entrada fixa salva!" });
+  }
+
+  async function removerEntradaRecorrente(id: string) {
+    if (!user) return;
+    const atualizada = entradasRecorrentes.filter((r) => r.id !== id);
+    setEntradasRecorrentes(atualizada);
+    localStorage.setItem(`esa_entradas_recorrentes_${user.uid}`, JSON.stringify(atualizada));
+    if (db) {
+      await setDoc(doc(db, "configuracoes", user.uid), { entradasRecorrentes: atualizada }, { merge: true });
+    }
+    setToast({ type: "info", message: "Entrada fixa removida." });
   }
 
   async function remover(id: string, tipo: "acessos" | "despesas" | "pagamentos") {
@@ -1650,8 +1702,12 @@ export default function HomePage() {
             {activeTab === "pagamentos" && (
               <PagamentosList
                 pagamentos={pagamentos}
+                entradasRecorrentes={entradasRecorrentes}
                 onRemover={(id) => remover(id, "pagamentos")}
                 onAtualizarMetodo={atualizarMetodoPagamento}
+                onAddEntradaExtra={addEntradaExtra}
+                onAddEntradaRecorrente={addEntradaRecorrente}
+                onRemoverEntradaRecorrente={removerEntradaRecorrente}
               />
             )}
 

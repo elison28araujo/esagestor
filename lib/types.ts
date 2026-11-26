@@ -65,6 +65,8 @@ export interface Acesso {
 }
 
 export type MetodoPagamento = "pix" | "cartao" | "mercadopago" | "dinheiro";
+export type TipoEntrada = "iptv" | "extra";
+export type CategoriaEntradaExtra = "salario" | "caixa_inicial" | "extra";
 export type CategoriaDespesa = "creditos" | "infraestrutura" | "marketing" | "pessoal" | "outros";
 export type TipoDespesa = "operacao" | "retirada";
 
@@ -78,6 +80,17 @@ export interface Pagamento {
   data: string;
   userId: string;
   metodoPagamento?: MetodoPagamento | string;
+  tipoEntrada?: TipoEntrada;
+  categoriaEntrada?: CategoriaEntradaExtra | string;
+}
+
+export interface EntradaRecorrente {
+  id: string;
+  descricao: string;
+  valor: number;
+  categoria: CategoriaEntradaExtra | string;
+  metodoPagamento: MetodoPagamento;
+  diaRecebimento?: number;
 }
 
 export interface Despesa {

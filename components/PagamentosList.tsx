@@ -5,14 +5,37 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { MetodoPagamento, Pagamento } from "@/lib/types";
+import { CategoriaEntradaExtra, EntradaRecorrente, MetodoPagamento, Pagamento, TipoEntrada } from "@/lib/types";
 import { escapeCsvValue } from "@/lib/utils";
-import { Download, Loader2, Receipt, Trash2, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Loader2, Plus, Receipt, Repeat, Trash2, Search, X } from "lucide-react";
+
+interface NovaEntradaExtraInput {
+  descricao: string;
+  valor: string;
+  categoria: CategoriaEntradaExtra;
+  metodoPagamento: MetodoPagamento;
+  data?: string;
+}
 
 interface PagamentosListProps {
   pagamentos: Pagamento[];
+  entradasRecorrentes?: EntradaRecorrente[];
   onRemover: (id: string) => Promise<void>;
   onAtualizarMetodo?: (id: string, metodo: MetodoPagamento) => Promise<void>;
+  onAddEntradaExtra?: (dados: NovaEntradaExtraInput) => Promise<void>;
+  onAddEntradaRecorrente?: (item: Omit<EntradaRecorrente, "id">) => Promise<void>;
+  onRemoverEntradaRecorrente?: (id: string) => Promise<void>;
+}
+
+const CATEGORIAS_EXTRA: { id: CategoriaEntradaExtra; label: string }[] = [
+  { id: "salario", label: "Salário / Empresa" },
+  { id: "caixa_inicial", label: "Caixa Inicial" },
+  { id: "extra", label: "Renda Extra" },
+];
+
+function getTodayDateInput() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 const METODOS: { id: MetodoPagamento; label: string; badge: string }[] = [
@@ -59,13 +82,95 @@ function getDiaBrasilia(dateInput: string | number | Date) {
   }
 }
 
-export function PagamentosList({ pagamentos, onRemover, onAtualizarMetodo }: PagamentosListProps) {
+export function PagamentosList({
+  pagamentos,
+  entradasRecorrentes = [],
+  onRemover,
+  onAtualizarMetodo,
+  onAddEntradaExtra,
+  onAddEntradaRecorrente,
+  onRemoverEntradaRecorrente,
+}: PagamentosListProps) {
   const [busca, setBusca] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("todos");
   const [selectedDay, setSelectedDay] = useState("todos");
   const [selectedMetodo, setSelectedMetodo] = useState<"todos" | MetodoPagamento>("todos");
+  const [selectedTipoEntrada, setSelectedTipoEntrada] = useState<"todos" | TipoEntrada>("todos");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [removendo, setRemovendo] = useState(false);
+
+  // Nova Entrada Extra
+  const [extraDesc, setExtraDesc] = useState("");
+  const [extraValor, setExtraValor] = useState("");
+  const [extraCat, setExtraCat] = useState<CategoriaEntradaExtra>("salario");
+  const [extraMetodo, setExtraMetodo] = useState<MetodoPagamento>("pix");
+  const [extraData, setExtraData] = useState(getTodayDateInput);
+  const [salvandoExtra, setSalvandoExtra] = useState(false);
+  const [erroExtra, setErroExtra] = useState("");
+
+  // Entradas Recorrentes
+  const [recAberto, setRecAberto] = useState(false);
+  const [recDesc, setRecDesc] = useState("");
+  const [recValor, setRecValor] = useState("");
+  const [recCat, setRecCat] = useState<CategoriaEntradaExtra>("salario");
+  const [recDia, setRecDia] = useState("1");
+  const [salvandoRec, setSalvandoRec] = useState(false);
+  const [lancandoRecId, setLancandoRecId] = useState<string | null>(null);
+
+  async function handleAddExtra() {
+    if (!onAddEntradaExtra) return;
+    if (!extraDesc.trim() || !extraValor || Number(extraValor) <= 0) {
+      setErroExtra("Preencha descrição e um valor válido.");
+      return;
+    }
+    setErroExtra("");
+    setSalvandoExtra(true);
+    const iso = extraData ? new Date(`${extraData}T12:00:00`).toISOString() : new Date().toISOString();
+    await onAddEntradaExtra({
+      descricao: extraDesc.trim(),
+      valor: extraValor,
+      categoria: extraCat,
+      metodoPagamento: extraMetodo,
+      data: iso,
+    });
+    setExtraDesc("");
+    setExtraValor("");
+    setExtraData(getTodayDateInput());
+    setSalvandoExtra(false);
+  }
+
+  async function handleAddRecorrente() {
+    if (!onAddEntradaRecorrente) return;
+    if (!recDesc.trim() || !recValor || Number(recValor) <= 0) return;
+    setSalvandoRec(true);
+    await onAddEntradaRecorrente({
+      descricao: recDesc.trim(),
+      valor: Number(recValor),
+      categoria: recCat,
+      metodoPagamento: "pix",
+      diaRecebimento: Math.min(31, Math.max(1, Number(recDia) || 1)),
+    });
+    setRecDesc("");
+    setRecValor("");
+    setSalvandoRec(false);
+  }
+
+  async function handleLancarRecorrente(rec: EntradaRecorrente) {
+    if (!onAddEntradaExtra) return;
+    setLancandoRecId(rec.id);
+    const now = new Date();
+    const dia = String(Math.min(28, rec.diaRecebimento || now.getDate())).padStart(2, "0");
+    const mes = String(now.getMonth() + 1).padStart(2, "0");
+    const iso = new Date(`${now.getFullYear()}-${mes}-${dia}T12:00:00`).toISOString();
+    await onAddEntradaExtra({
+      descricao: rec.descricao,
+      valor: String(rec.valor),
+      categoria: (rec.categoria as CategoriaEntradaExtra) || "salario",
+      metodoPagamento: rec.metodoPagamento || "pix",
+      data: iso,
+    });
+    setLancandoRecId(null);
+  }
 
   async function handleRemover() {
     if (!confirmId) return;
@@ -124,12 +229,28 @@ export function PagamentosList({ pagamentos, onRemover, onAtualizarMetodo }: Pag
       list = list.filter((p) => normalizarMetodo(p.metodoPagamento) === selectedMetodo);
     }
 
+    // 5. Filtrar por origem (IPTV vs Extra/Salário)
+    if (selectedTipoEntrada !== "todos") {
+      list = list.filter((p) => (p.tipoEntrada === "extra" ? "extra" : "iptv") === selectedTipoEntrada);
+    }
+
     // Ordenar por data decrescente
     return list.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }, [pagamentos, busca, selectedPeriod, selectedDay, selectedMetodo]);
+  }, [pagamentos, busca, selectedPeriod, selectedDay, selectedMetodo, selectedTipoEntrada]);
 
   const receitaTotal = useMemo(() => {
     return pagamentosFiltrados.reduce((sum, p) => sum + Number(p.valor || 0), 0);
+  }, [pagamentosFiltrados]);
+
+  const { receitaIptv, receitaExtra } = useMemo(() => {
+    let iptv = 0;
+    let extra = 0;
+    pagamentosFiltrados.forEach((p) => {
+      const v = Number(p.valor || 0);
+      if (p.tipoEntrada === "extra") extra += v;
+      else iptv += v;
+    });
+    return { receitaIptv: iptv, receitaExtra: extra };
   }, [pagamentosFiltrados]);
 
   const totaisPorMetodo = useMemo(() => {
@@ -175,6 +296,12 @@ export function PagamentosList({ pagamentos, onRemover, onAtualizarMetodo }: Pag
             <div className="mt-2 text-3xl font-heading font-bold text-blue-600 dark:text-blue-400">
               R$ {receitaTotal.toFixed(2)}
             </div>
+            {receitaExtra > 0 && (
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                ESA PLAY (IPTV): <strong>R$ {receitaIptv.toFixed(2)}</strong> • Salário / Extras:{" "}
+                <strong className="text-emerald-600 dark:text-emerald-400">R$ {receitaExtra.toFixed(2)}</strong>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -192,8 +319,223 @@ export function PagamentosList({ pagamentos, onRemover, onAtualizarMetodo }: Pag
         </CardContent>
       </Card>
 
-      {/* Filtro rápido por método de pagamento */}
-      <div className="flex flex-wrap gap-1.5">
+      {/* Nova Entrada Extra / Salário */}
+      {onAddEntradaExtra && (
+        <Card>
+          <CardContent className="grid gap-3 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+                <Plus className="h-4 w-4 text-emerald-500" /> Nova Entrada Extra / Salário
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExtraDesc("Salário UEM");
+                    setExtraCat("salario");
+                  }}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  + Salário UEM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExtraDesc("Caixa Inicial do Mês");
+                    setExtraCat("caixa_inicial");
+                  }}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  + Caixa Inicial
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+              <Input
+                placeholder="Descrição (ex: Salário UEM)"
+                value={extraDesc}
+                onChange={(e) => setExtraDesc(e.target.value)}
+              />
+              <Input
+                placeholder="Valor (R$)"
+                type="number"
+                step="0.01"
+                value={extraValor}
+                onChange={(e) => setExtraValor(e.target.value)}
+              />
+              <select
+                value={extraCat}
+                onChange={(e) => setExtraCat(e.target.value as CategoriaEntradaExtra)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+              >
+                {CATEGORIAS_EXTRA.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={extraMetodo}
+                onChange={(e) => setExtraMetodo(e.target.value as MetodoPagamento)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+              >
+                {METODOS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <Input type="date" value={extraData} onChange={(e) => setExtraData(e.target.value)} />
+            </div>
+
+            {erroExtra && (
+              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 dark:bg-red-950 dark:text-red-300">
+                {erroExtra}
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={handleAddExtra} disabled={salvandoExtra} className="h-10 px-5">
+                {salvandoExtra ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
+                Lançar Entrada Extra
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Entradas Recorrentes / Salário Fixo */}
+      {onAddEntradaRecorrente && onRemoverEntradaRecorrente && (
+        <Card>
+          <CardContent className="p-4">
+            <button
+              type="button"
+              onClick={() => setRecAberto((v) => !v)}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                <Repeat className="h-4 w-4 text-emerald-500" />
+                Entradas Fixas / Salário Recorrente
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  {entradasRecorrentes.length}
+                </span>
+              </div>
+              {recAberto ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+            </button>
+
+            {recAberto && (
+              <div className="mt-4 space-y-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+                <div className="grid gap-2 sm:grid-cols-5">
+                  <Input
+                    placeholder="Ex: Salário UEM"
+                    value={recDesc}
+                    onChange={(e) => setRecDesc(e.target.value)}
+                    className="sm:col-span-2"
+                  />
+                  <Input
+                    placeholder="Valor (R$)"
+                    type="number"
+                    step="0.01"
+                    value={recValor}
+                    onChange={(e) => setRecValor(e.target.value)}
+                  />
+                  <select
+                    value={recCat}
+                    onChange={(e) => setRecCat(e.target.value as CategoriaEntradaExtra)}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-2.5 text-sm dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    {CATEGORIAS_EXTRA.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      placeholder="Dia"
+                      value={recDia}
+                      onChange={(e) => setRecDia(e.target.value)}
+                      className="w-16"
+                    />
+                    <Button onClick={handleAddRecorrente} disabled={salvandoRec} className="flex-1">
+                      {salvandoRec ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+                    </Button>
+                  </div>
+                </div>
+
+                {entradasRecorrentes.length === 0 ? (
+                  <p className="text-xs text-slate-500">Nenhuma entrada fixa cadastrada ainda.</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {entradasRecorrentes.map((rec) => (
+                      <div
+                        key={rec.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 p-3 dark:border-slate-800"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
+                            {rec.descricao}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            R$ {Number(rec.valor).toFixed(2)} • Dia {rec.diaRecebimento || 1}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                            onClick={() => handleLancarRecorrente(rec)}
+                            disabled={lancandoRecId === rec.id}
+                          >
+                            {lancandoRecId === rec.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Lançar no mês"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-slate-400 hover:text-rose-600"
+                            onClick={() => onRemoverEntradaRecorrente(rec.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filtro por origem e método de pagamento */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(
+          [
+            { id: "todos", label: "Origem: Todas" },
+            { id: "iptv", label: "ESA PLAY (IPTV)" },
+            { id: "extra", label: "Salário / Extras" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setSelectedTipoEntrada(t.id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              selectedTipoEntrada === t.id
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <span className="mx-1 text-slate-300 dark:text-slate-700">|</span>
         <button
           type="button"
           onClick={() => setSelectedMetodo("todos")}
@@ -291,8 +633,14 @@ export function PagamentosList({ pagamentos, onRemover, onAtualizarMetodo }: Pag
                     {item.cliente}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-sm">
-                    <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                      {item.app}
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        item.tipoEntrada === "extra"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      }`}
+                    >
+                      {item.tipoEntrada === "extra" ? "Salário / Extra" : item.app}
                     </span>
                     {onAtualizarMetodo ? (
                       <select
