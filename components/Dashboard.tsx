@@ -603,7 +603,7 @@ export function Dashboard({
         </div>
       </div>
 
-      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {/* Entrada */}
         <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/60 shadow-sm">
           <CardContent className="p-4 sm:p-5">
@@ -666,7 +666,34 @@ export function Dashboard({
             </div>
             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Margem: {totalEntrada > 0 ? ((lucro / totalEntrada) * 100).toFixed(0) : 0}%
-              {(totalRetiradas > 0 || totalEntradaExtra > 0) && ` • Caixa Geral: ${fmtValor(saldoLivre)}`}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Caixa Geral (Destaque) */}
+        <Card className={cn(
+          "overflow-hidden shadow-sm",
+          saldoLivre >= 0
+            ? "border-emerald-500/30 bg-gradient-to-br from-emerald-500/15 via-teal-500/5 to-transparent dark:from-emerald-500/20 dark:to-transparent"
+            : "border-red-500/30 bg-gradient-to-br from-red-500/15 to-transparent dark:from-red-500/20"
+        )}>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 truncate">
+                Caixa Geral
+              </span>
+              <div className={cn(
+                "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-md",
+                saldoLivre >= 0 ? "bg-emerald-600 shadow-emerald-500/30" : "bg-red-600 shadow-red-500/30"
+              )}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+              </div>
+            </div>
+            <div className={cn("mt-2 text-xl font-heading font-bold", saldoLivre >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
+              {fmtValor(saldoLivre)}
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              {totalEntradaExtra > 0 ? "IPTV + Salário/Extras − Saídas" : "Saldo líquido total"}
             </div>
           </CardContent>
         </Card>

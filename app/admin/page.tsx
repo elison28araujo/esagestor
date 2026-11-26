@@ -50,6 +50,7 @@ import { ConfigView } from "@/components/ConfigView";
 import { Toast } from "@/components/Toast";
 import { Sidebar } from "@/components/Sidebar";
 import { PagamentosList } from "@/components/PagamentosList";
+import { CaixaLancamentoView } from "@/components/CaixaLancamentoView";
 import { BulkActionBar } from "@/components/BulkActionBar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { enviarResumoAlertasEmail } from "@/lib/email";
@@ -1699,15 +1700,24 @@ export default function HomePage() {
               />
             )}
 
-            {activeTab === "pagamentos" && (
-              <PagamentosList
+            {activeTab === "caixa" && (
+              <CaixaLancamentoView
                 pagamentos={pagamentos}
                 entradasRecorrentes={entradasRecorrentes}
-                onRemover={(id) => remover(id, "pagamentos")}
-                onAtualizarMetodo={atualizarMetodoPagamento}
                 onAddEntradaExtra={addEntradaExtra}
                 onAddEntradaRecorrente={addEntradaRecorrente}
                 onRemoverEntradaRecorrente={removerEntradaRecorrente}
+                onRemoverPagamento={(id) => remover(id, "pagamentos")}
+              />
+            )}
+
+            {activeTab === "pagamentos" && (
+              <PagamentosList
+                pagamentos={pagamentos}
+                despesas={despesas}
+                onRemover={(id) => remover(id, "pagamentos")}
+                onRemoverDespesa={(id) => remover(id, "despesas")}
+                onAtualizarMetodo={atualizarMetodoPagamento}
               />
             )}
 

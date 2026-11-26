@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Tv,
   MessageSquare,
+  PlusCircle,
 } from "lucide-react";
 import { Filter, Tab } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -87,7 +88,8 @@ export function Sidebar({
     {
       title: "FINANCEIRO",
       items: [
-        { id: "despesas", label: "Despesas", icon: TrendingDown },
+        { id: "despesas", label: "Contas a Pagar", icon: TrendingDown },
+        { id: "caixa", label: "Lançamento no Caixa", icon: PlusCircle },
         { id: "pagamentos", label: "Histórico", icon: History },
       ],
     },

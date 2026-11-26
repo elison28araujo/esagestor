@@ -1,4 +1,4 @@
-export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
+export type Tab = "dashboard" | "clientes" | "cadastro" | "despesas" | "caixa" | "configuracoes" | "pagamentos" | "licencas" | "suporte";
 export type Filter = "todos" | "ativos" | "vencendo" | "vencidos" | "acordo" | "inativos15" | "inativos30" | "desativados";
 
 export interface MensagemSuporte {
