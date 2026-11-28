@@ -87,7 +87,7 @@ export function MockupTV3D() {
             {mounted ? (
               <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
                 <iframe
-                  src="https://www.youtube-nocookie.com/embed/ljcTMyK2pzE?autoplay=1&mute=1&loop=1&playlist=ljcTMyK2pzE&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0"
+                  src="https://www.youtube-nocookie.com/embed/ttEop4vs128?autoplay=1&mute=1&loop=1&playlist=ttEop4vs128&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0"
                   title="Transmissão ESA Play TV"
                   className="w-[136%] h-[136%] -ml-[18%] -mt-[18%] object-cover pointer-events-none border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
