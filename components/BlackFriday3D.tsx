@@ -62,10 +62,31 @@ export function Card3DTilt({
  */
 export function MockupTV3D() {
   const [mounted, setMounted] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const qualityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    return () => {
+      if (qualityTimerRef.current) clearTimeout(qualityTimerRef.current);
+    };
   }, []);
+
+  function enforceHd720() {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    const send = (func: string, args: unknown[] = []) => {
+      win.postMessage(JSON.stringify({ event: "command", func, args }), "*");
+    };
+    send("setPlaybackQuality", ["hd720"]);
+    send("playVideo");
+  }
+
+  function handleIframeLoad() {
+    enforceHd720();
+    if (qualityTimerRef.current) clearTimeout(qualityTimerRef.current);
+    qualityTimerRef.current = setTimeout(enforceHd720, 1000);
+  }
 
   return (
     <div className="relative w-full max-w-lg mx-auto perspective-2000 py-6 select-none">
@@ -87,9 +108,12 @@ export function MockupTV3D() {
             {mounted ? (
               <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
                 <iframe
-                  src="https://www.youtube-nocookie.com/embed/ttEop4vs128?autoplay=1&mute=1&loop=1&playlist=ttEop4vs128&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0"
+                  ref={iframeRef}
+                  onLoad={handleIframeLoad}
+                  loading="eager"
+                  src="https://www.youtube-nocookie.com/embed/ttEop4vs128?autoplay=1&mute=1&loop=1&playlist=ttEop4vs128&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&vq=hd720&hd=1&enablejsapi=1"
                   title="Transmissão ESA Play TV"
-                  className="w-[136%] h-[136%] -ml-[18%] -mt-[18%] object-cover pointer-events-none border-0"
+                  className="w-[118%] h-[118%] -ml-[9%] -mt-[9%] pointer-events-none border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 />
               </div>
